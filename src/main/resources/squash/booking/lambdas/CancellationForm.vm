@@ -1,0 +1,44 @@
+## Copyright 2015-2016 Robin Steel
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##    http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+
+<!DOCTYPE html> 
+<html>
+<head>
+<title>Court Cancellation Form</title>
+</head>
+<body>
+<form action=https://${context.apiId}.execute-api.${region}.amazonaws.com/Squash/bookings method="POST" style="display: inline;">
+<div class="cancellationForm">
+<p>You are cancelling the <b>$util.urlDecode($input.params('players'))</b> reservation for <b>$util.urlDecode($input.params('slotLong'))</b> for <i>court $input.params('court')</i> on $util.urlDecode($input.params('dateLong'))
+<br><br>Password:<br>
+<input type="password" name="password">
+## Include parameters here so we can make the cancellation correctly
+<input type=hidden name=redirectUrl value="http://${squashWebsiteBucket}.s3-website-${region}.amazonaws.com?selectedDate=${util.urlDecode($input.params('date'))}.html">
+<input type=hidden name=apiGatewayBaseUrl value="https://${context.apiId}.execute-api.${region}.amazonaws.com/${context.stage}">
+<input type=hidden name=putOrDelete value="DELETE">
+<input type=hidden name=players value="$util.urlDecode($input.params('players'))">
+<input type=hidden name=court value="$util.urlDecode($input.params('court'))">
+<input type=hidden name=slot value="$util.urlDecode($input.params('slot'))">
+<input type=hidden name=date value="$util.urlDecode($input.params('date'))">
+<p>
+<button type="submit" id="cancelreservation">Cancel squash court reservation</button>
+</p>
+</div>
+</form>
+<form class="returnToBookingsForm" action="http://${squashWebsiteBucket}.s3-website-${region}.amazonaws.com" method="GET" style="display: inline;">
+<input type=hidden name="selectedDate" value="${input.params('date')}.html">
+<button type="submit" id="returnToBookings2">Return to bookings table without cancelling  the reservation</button>
+</form>
+</body>
+</html>

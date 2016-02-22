@@ -1,0 +1,160 @@
+## Copyright 2015-2016 Robin Steel
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##    http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+<html>
+<head>
+<title>Court Bookings</title>
+## Meta headers to force date dropdown to always return to the server when Go-button clicked or new date selected
+<meta http-equiv="cache-control" content="max-age=0" />
+<meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="expires" content="0" />
+<meta http-equiv="expires" content="Tue, 01 Jan 1980 1:00:00 GMT" />
+<meta http-equiv="pragma" content="no-cache" />
+## This guid is used by the AATs to handle S3 eventual-consistency
+<div id="pageGuid" style="display: none;">$pageGuid</div>
+<style>
+.dateSelectorDiv{
+    background-color: rgb(0, 0, 0);
+}
+.bookingTable {
+    width: 100%;
+    height: 100%;
+    table-layout: fixed;
+}
+.timeHeader {
+    background-color: rgba(0, 255, 0, 0.0980392);
+}
+.courtHeader {
+    background-color: rgba(0, 0, 255, 0.0980392);
+}
+.timeLabel {
+    text-align: center;
+}
+.tableCell {
+    text-align: center;
+}
+.cancellationButtonForm {
+    display: inline;
+}
+.cancellationButton {
+    width: 100%;
+    border: 2px solid;
+    border-radius: 20px;
+    margin: auto;
+    display: inline-block;
+    font-family: 'Comic Sans MS', cursive, sans-serif;
+    font-size: large;
+    background-color: tomato;
+}
+.reservationButtonForm {
+    display: inline;
+}
+.reservationButton {
+    width: 100%;
+    border: 2px solid;
+    border-radius: 20px;
+    margin: auto;
+    display: inline-block;
+    font-family: 'Comic Sans MS', cursive, sans-serif;
+    font-size: large;
+    background-color: chartreuse;
+}
+.oddRow {
+    background-color: rgba(0, 255, 0, 0.1);
+}
+.evenRow {
+    background-color: rgba(255, 200, 0, 0.5);
+}
+</style>
+</head>
+<body>
+<div align="center" class="dateSelectorDiv">
+  <form class="dateSelectorForm" autocomplete="off" action="$s3WebsiteUrl" method="GET">
+    <select name="selectedDate" class="dateDropdown" onchange='this.form.submit()'>
+    #foreach($date in $validDates)
+      ## N.B. We add .html suffix here so S3 bucket routing rules can transform the query string
+      #if($date == $pagesDate)
+      #set($pagesDateLong = $validDatesLong.get($foreach.index))
+      <option class="dateOption" value="${date}.html" selected="selected">$pagesDateLong</option>
+      #else
+      <option class="dateOption" value="${date}.html">$validDatesLong.get($foreach.index)</option>
+      #end
+    #end
+    <input type="submit" id="goButton" value="Go">
+  </form>
+</div>
+
+#macro(tablerow $timeSlotIndex $slotBookedStates $playersNames)
+#foreach( $slotBookedState in $slotBookedStates )
+  #set($court = $foreach.index + 1)
+  <td class="tableCell">
+  #if($slotBookedState)
+    <form action=$cancellationFormGetUrl method="GET" class="cancellationButtonForm">
+  #else
+    <form action=$reservationFormGetUrl method="GET" class="reservationButtonForm">
+  #end
+      ## Include parameters here so we can set up the form correctly
+      <input type=hidden name=court value="$court">
+      <input type=hidden name=slot value="$timeSlotIndex">
+      #set($ind = $timeSlotIndex - 1)
+      <input type=hidden name=slotLong value="$timeSlots.get($ind)">
+  #if($slotBookedState)
+      <input type=hidden name=players value="$playersNames.get($foreach.index)">
+  #end
+      <input type=hidden name=date value="$pagesDate">
+      <input type=hidden name=dateLong value="$pagesDateLong">
+  #if($slotBookedState)
+      <input type="submit" value="$playersNames.get($foreach.index)" class="cancellationButton" data-court="$court" data-time_slot="$timeSlotIndex" type="cancellation">
+  #else
+      <input type="submit" value="Reserve" class="reservationButton" data-court="$court" data-time_slot="$timeSlotIndex" type="reservation">
+  #end
+    </form>
+  </td>
+#end
+#end
+
+<table id="bookingtable" class="bookingTable">
+  <thead>
+    <tr>
+      <th class="timeHeader">Time</th>
+      #foreach ($court in [1..$numCourts])
+      <th class="courtHeader">Court $court</th>
+      #end
+      <th class="timeHeader">Time</th>
+    </tr>
+  </thead>
+  <tbody>
+    #foreach ($slot in $timeSlots)
+
+    ## Style alternate rows differently
+    #if($foreach.index%2 == 1)
+    #set($rowClass="oddRow")
+    #else
+    #set($rowClass="evenRow")
+    #end
+
+    <tr class="$rowClass">
+      <td class="timeLabel">$slot</td>
+        ## Add buttons for all courts for this time slot
+        #set($slotBookedStates = $bookedState.get($foreach.index))
+        #set($playersNames = $players.get($foreach.index))
+        #set($slotIndex = $foreach.index + 1)
+        #tablerow($slotIndex $slotBookedStates $playersNames)
+     <td class="timeLabel">$slot</td>
+    </tr>
+    #end
+  </tbody>
+</table>
+
+</body>
+</html>

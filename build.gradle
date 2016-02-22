@@ -1,0 +1,131 @@
+// See: https://java.awsblog.com/post/TxQ4JROAWSCDWU/Managing-Dependencies-in-Gradle-with-AWS-SDK-for-Java-Bill-of-Materials-module-B
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath "io.spring.gradle:dependency-management-plugin:0.5.4.RELEASE"
+    }
+}
+apply plugin: "io.spring.dependency-management"
+
+apply plugin: 'java'
+apply plugin: 'eclipse' // Generates Eclipse IDE project files
+apply plugin: 'idea' // Generates IntelliJ Idea Community Edition IDE project files
+apply plugin: 'project-report'
+
+repositories {
+    mavenCentral()
+}
+
+dependencyManagement {
+    imports {
+        // Specify AWS SDK version here.
+        mavenBom 'com.amazonaws:aws-java-sdk-bom:1.10.54'
+    }
+}
+
+sourceSets {
+    acceptancetest
+}
+
+configurations {
+    acceptancetestCompile.extendsFrom testCompile
+    acceptancetestRuntime.extendsFrom testRuntime
+}
+
+ext.cucumberVersion = '1.2.4'
+ext.seleniumVersion = '2.48.2'
+ext.hamcrestVersion = '1.3'
+ext.junitVersion = '4.12'
+ext.jmockVersion = '2.8.0'
+
+// Prevent httpclient dependency version conflict - as it breaks htmlunitdriver.
+configurations.all {
+    resolutionStrategy {
+        force 'org.apache.httpcomponents:httpclient:4.5.1'
+    }
+}
+
+dependencies {
+    compile               'com.amazonaws:aws-java-sdk-api-gateway',
+                          'com.amazonaws:aws-lambda-java-core:1.1.0',
+                          'com.amazonaws:aws-lambda-java-events:1.1.0',
+                          'com.amazonaws:aws-java-sdk-cloudformation',
+                          'com.amazonaws:aws-java-sdk-events',
+                          'com.amazonaws:aws-java-sdk-iam',
+                          'com.amazonaws:aws-java-sdk-lambda',
+                          'com.amazonaws:aws-java-sdk-simpledb',
+                          'com.amazonaws:aws-java-sdk-s3',
+                          'com.amazonaws:aws-java-sdk-logs',
+                          'commons-io:commons-io:2.4',
+                          'com.google.guava:guava:19.0',
+                          'org.apache.velocity:velocity:1.7'
+
+    testCompile           "junit:junit:$junitVersion",
+                          "org.hamcrest:hamcrest-core:${hamcrestVersion}",
+                          "org.hamcrest:hamcrest-library:${hamcrestVersion}",
+                          "org.jmock:jmock:${jmockVersion}",
+                          "org.jmock:jmock-junit4:${jmockVersion}"
+
+    acceptancetestCompile "info.cukes:cucumber-java:$cucumberVersion",
+                          "info.cukes:cucumber-junit:$cucumberVersion",
+                          "info.cukes:cucumber-java8:$cucumberVersion",
+                          "info.cukes:cucumber-picocontainer:$cucumberVersion",
+                          "io.appium:java-client:3.3.0",
+                          'org.picocontainer:picocontainer:2.15',
+                          "org.seleniumhq.selenium:selenium-java:$seleniumVersion",
+                          "org.seleniumhq.selenium:selenium-firefox-driver:$seleniumVersion",
+                          "org.seleniumhq.selenium:selenium-chrome-driver:$seleniumVersion",
+                          "org.seleniumhq.selenium:selenium-safari-driver:$seleniumVersion",
+                          "org.seleniumhq.selenium:selenium-htmlunit-driver:$seleniumVersion",
+                          "org.seleniumhq.selenium:selenium-api:$seleniumVersion"
+}
+
+task gw(type: Wrapper) {
+    gradleVersion = '2.8'
+    scriptFile = 'gw'
+}
+
+task acceptanceTest(type: Test) {
+    description = 'Runs the acceptance tests'
+    testClassesDir = sourceSets.acceptancetest.output.classesDir
+    classpath = sourceSets.acceptancetest.runtimeClasspath
+    outputs.upToDateWhen { false }
+    dependsOn(test)
+}
+
+// Zips of lambda functions to upload to AWS lambda. We have flexibility
+// to package all lambdas beneath particular paths into separate zips. The
+// layout of each zip is as specified by Amazon. These tasks dump the zips
+// in the build/distributions folder, ready for upload to AWS Lambda.
+['Squash'].each { targetName -> 
+    task "zipLambda${targetName}"(type: Zip) {
+        baseName "${targetName}"
+        def folderName = "${targetName}".toLowerCase()
+        from("${sourceSets.main.output.classesDir}") {
+            include "**/${folderName}/**"
+            includeEmptyDirs = false
+        }
+        from processResources
+        into('lib') {
+           from configurations.runtime // Zip our compile and runtime dependencies
+        }
+    }
+}
+task zipAllLambdas(dependsOn: tasks.matching { Task task -> task.name.startsWith("zipLambda")})
+zipAllLambdas.dependsOn(classes)
+build.dependsOn(zipAllLambdas)
+
+build.dependsOn(javadoc)
+
+tasks.withType(Test) {
+    reports.html.destination = file("${reporting.baseDir}/${name}")
+}
+
+eclipse {
+  classpath {
+    //you can tweak the classpath of the Eclipse project by adding extra configurations:
+    plusConfigurations += [ configurations.acceptancetestCompile ]
+  }
+}

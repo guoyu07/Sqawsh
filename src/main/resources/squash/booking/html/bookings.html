@@ -1,0 +1,611 @@
+<!--
+Copyright 2015-2016 Robin Steel
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.-->
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>Court Bookings</title>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+<link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css">
+<script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
+<script src="https://sdk.amazonaws.com/js/aws-sdk-2.1.12.min.js"></script>
+<script type="text/javascript" src="lib/axios/dist/axios.standalone.js"></script>
+<script type="text/javascript" src="lib/CryptoJS/rollups/hmac-sha256.js"></script>
+<script type="text/javascript" src="lib/CryptoJS/rollups/sha256.js"></script>
+<script type="text/javascript" src="lib/CryptoJS/components/hmac.js"></script>
+<script type="text/javascript" src="lib/CryptoJS/components/enc-base64.js"></script>
+<script type="text/javascript" src="lib/url-template/url-template.js"></script>
+<script type="text/javascript" src="lib/apiGatewayCore/sigV4Client.js"></script>
+<script type="text/javascript" src="lib/apiGatewayCore/apiGatewayClient.js"></script>
+<script type="text/javascript" src="lib/apiGatewayCore/simpleHttpClient.js"></script>
+<script type="text/javascript" src="lib/apiGatewayCore/utils.js"></script>
+<script type="text/javascript" src="lib/moment/moment.js"></script>
+<script type="text/javascript" src="apigClient.js"></script>
+
+<script>
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// Global variables
+//////////////////////////////////////////////////////////////////////////////////////////
+
+var com_squash_numcourts = 5;
+var com_squash_identityPoolId = 'stringtobereplaced';
+var com_squash_apiGatewayBaseUrl = 'stringtobereplaced';
+var com_squash_region = 'stringtobereplaced';
+
+// Client for calling AWS ApiGateway
+var apigClient;
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// Functions
+//////////////////////////////////////////////////////////////////////////////////////////
+
+$(document).ready(function(){
+
+    // Sequence everything nicely using a promise chain
+    Promise.resolve()
+
+    // Ensure page stays blank till we've got what we need to draw it
+    .then(function(result) {
+        hideEverything();
+
+        // Initialize the Amazon Cognito credentials provider for calling AWS
+        AWS.config.region = com_squash_region; // Region
+        AWS.config.credentials = new AWS.CognitoIdentityCredentials({
+            IdentityPoolId: com_squash_identityPoolId,
+        });
+        // Workaround for occasional 504 timeouts from API Gateway bc 10-second timeout.
+        // N.B. Lambda can be sluggish on cold-starts. May need tweaking.
+        AWS.config.maxRetries = 4;
+    })
+   .then(function(result) {
+       return setUpApigClient();
+    })
+   .then(function(result) {
+       return configureCalendar();
+   })
+   .then(function(result) {
+       return redrawBookings();
+   })
+   .then(function(result) {
+       return showBookings();
+   })
+   .catch(function(error) {
+       console.log("Failed to set up squash bookings page: ", error);
+       showErrorPage();
+   });
+});
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+function setUpApigClient() {
+
+    return new Promise(function(resolve, reject) {
+        AWS.config.credentials.get(function(error) {
+            if (error) {
+                reject(error);
+            }
+            apigClient = apigClientFactory.newClient({
+                accessKey: AWS.config.credentials.accessKeyId,
+                secretKey: AWS.config.credentials.secretAccessKey,
+                sessionToken: AWS.config.credentials.sessionToken,
+                region: com_squash_region
+            });
+            resolve();
+        });
+    });
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+function configureCalendar() {
+
+   return new Promise(function(resolve, reject) {
+       // Callback to set up the date picker based on the valid dates from AWS
+       var setUpDatePicker = function(validDates) {
+           // Calendar to allow choosing from only a limited number of days, starting from today
+           $("#datepicker").datepicker({
+               dateFormat: 'DD, d MM, yy',
+               inline: true,
+               minDate: new Date(validDates.dates[0]),
+               maxDate: new Date(validDates.dates[validDates.dates.length - 1]),
+               showOn:'both',
+               onClose: function(selectedDate) {
+                   // Need to validate date here in case e.g. we've left page open
+                   // overnight and selected date is now no longer in valid range
+                   Promise.resolve()
+                   .then(function(result) {
+                       return hideEverything();
+                   })
+                   .then(function(result) {
+                       return redrawBookings();
+                   })
+                   .then(function(result) {
+                       return showBookings();
+                   })
+                   .catch(function(error) {
+                       console.log("Failed to change date: ", error);
+                       showErrorPage();
+                   });
+               }
+           });
+
+           $("#datepicker").datepicker('setDate', new Date(validDates.dates[0]));
+
+           resolve();
+       };
+
+       // Query AWS for the currently valid dates for viewing/mutating bookings
+       var params = {};
+       var body = {};
+       var additionalParams = {};
+       apigClient.validdatesGet(params, body, additionalParams)
+       .then(function(result) {
+           return setUpDatePicker(result.data);
+       });
+   });
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+function redrawBookings() {
+
+    return Promise.resolve()
+    .then(function(result) {
+        return clearBookings();
+    })
+    .then(function(result) {
+        return populateBookings();
+    })
+    .then(function(result) {
+        return configureStyles();
+    });
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+function clearBookings() {
+
+    // Clear out content of existing bookings table ready for redrawing
+    $("#bookingtable").find("thead, tbody").empty();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+function populateBookings() {
+
+    return Promise.resolve()
+    .then(function(result) {
+        return addTimeSlotAndCourtNumberColumnHeaders();
+    })
+    .then(function(result) {
+        return addTimeSlotLabelsToRows();
+    })
+    .then(function(result) {
+        return addReservationButtonsToAllTimeSlots();
+    })
+    .then(function(result) {
+        return replaceReservationButtonsWithPlayersButtonsForBookedTimeSlots();
+    });
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+function configureStyles() {
+
+   $("table").css({"width":"100%", "height":"100%", "table-layout":"fixed"});
+   $("tr:odd").css({"background-color":"rgba(255,200,0,0.5)"});
+   $(".courtHeader").css({"background-color":"rgba(0,0,255,0.1)"});
+   $(".timeHeader").css({"background-color":"rgba(0,255,0,0.1)"});
+   $(".timeLabel").css({"background-color":"rgba(0,255,0,0.1)", "text-align":"center"});
+   $("#date").css({"background-color":"rgba(0,0,0,1)", "text-align":"center"});
+   $(".tableCell").css({"text-align":"center"});
+   $(".reservationButton").css({"width": "100%", "background-color":"chartreuse", "border":"2px solid", "border-radius":"20px", "margin":"auto", "display":"inline-block", "font-family": "'Comic Sans MS', cursive, sans-serif", "font-size":"large"});
+   $(".cancellationButton").css({"width": "100%", "background-color":"tomato", "border":"2px solid", "border-radius":"20px", "margin":"auto", "display":"inline-block", "font-family": "'Comic Sans MS', cursive, sans-serif", "font-size":"large"});
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+function showBookings() {
+
+    $("#PageLoadErrorMessage").hide();
+    $("#datepicker").datepicker('enable');
+    $("#date").show();
+    $(".reservationForm").hide();
+    $(".cancellationForm").hide();
+    $(".bookingTable").show();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+function showCancellationForm() {
+
+    $("#PageLoadErrorMessage").hide();
+    $("#datepicker").datepicker('disable');
+    $("#date").show();
+    $(".reservationForm").hide();
+    $(".cancellationForm").show();
+    $(".bookingTable").hide();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+function showReservationForm() {
+
+    $("#PageLoadErrorMessage").hide();
+    $("#datepicker").datepicker('disable');
+    $("#date").show();
+    $(".reservationForm").show();
+    $(".cancellationForm").hide();
+    $(".bookingTable").hide();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+function hideEverything() {
+
+    $("#PageLoadErrorMessage").hide();
+    $("#date").hide();
+    $(".reservationForm").hide();
+    $(".cancellationForm").hide();
+    $(".bookingTable").hide();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+function addTimeSlotAndCourtNumberColumnHeaders() {
+
+    var tableHeader = $("#bookingtable").find("thead"); 
+    var newRow = $("<tr></tr>");
+    newRow.appendTo($(tableHeader));
+  
+    // Put a column with the court times at both left and right margins of table
+    var timeHeader = "<th class='timeHeader'>Time</th>";
+    $(newRow).append(timeHeader);
+
+    for(var court = 1; court <= com_squash_numcourts; court++) {
+        $(newRow).append("<th class='courtHeader'>Court " + court.toString() + "</th>");
+    }
+
+    $(newRow).append(timeHeader);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+function addTimeSlotLabelsToRows() {
+
+    var tableBody = $("#bookingtable").find("tbody");
+    for(var timeSlot = 1; timeSlot <= 16; timeSlot++) { 
+
+        var newRow = $("<tr></tr>");
+        newRow.appendTo($(tableBody));
+  
+        var timeString = getTimeStringFromTimeSlot(timeSlot);
+
+        // Add both left- and right-hand time-slot labels
+        $(newRow).append("<td class='timeLabel'>" + timeString + "</td><td class='timeLabel'>" + timeString + "</td>");
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+function getTimeStringFromTimeSlot(timeSlot) {
+
+    // First time slot of the day is 10am...
+    // ...so initialise to one time slot (i.e. 45 minutes) earlier
+    var time = new Date();
+    time.setHours(9);
+    time.setMinutes(15);
+
+    var time = new Date(time.getTime() + timeSlot * 45 * 60000);
+    var amOrPm = " AM";
+    var hours = time.getHours();
+    var timeString = hours.toString();
+    if(hours > 12) {
+        timeString = (hours - 12).toString();
+        amOrPm = " PM";
+    }
+    var minutes = time.getMinutes();
+    timeString += ":" + minutes.toString();
+    if(minutes == 0) {
+        timeString += "0";
+    }
+    timeString += amOrPm;
+
+    return timeString;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+function addReservationButtonsToAllTimeSlots() {
+
+    // N.B. These links will later be replaced for already-booked time slots
+    var tableRows = $("#bookingtable").find("tbody tr");
+
+    for(var timeSlot = 1; timeSlot <= 16; timeSlot++) { 
+
+        var rightHandTimeSlotLabel = $(tableRows).eq(timeSlot - 1).find("td").last();
+
+        for(var court = 1; court <= com_squash_numcourts; court++) {
+
+            // Insert the link to initiate court reservation
+            var newCellContent = $("<td class='tableCell'><button class='reservationButton' data-court=" + court.toString() + " data-time_slot=" + timeSlot.toString() + " type='reservation'" + ">Reserve</button></td>");
+            newCellContent.insertBefore(rightHandTimeSlotLabel);
+        }
+    }
+
+    // Set up court reservation click handlers
+    $("button[type=reservation]").click(function(){
+        handleCourtReservation($(this).data("court"), $(this).data("time_slot"));
+    });
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+function handleCourtReservation(court, timeSlot) {
+ 
+    $("#returnToBookings").unbind().click(function(){
+        // Remove players names etc from input form
+        $("#player1name").val("");
+        $("#player2name").val("");
+        $("#reservationPassword").val("");
+        showBookings();
+    });
+
+    $("#submitreservation").unbind().click(function(){
+        Promise.resolve()
+        .then(function(result) {
+            return saveCourtReservation(court, timeSlot);
+        })
+        .then(function(result) {
+            return hideEverything();
+        })
+        .then(function(result) {
+            return redrawBookings();
+        })
+        .then(function(result) {
+            return showBookings();
+        })
+        .catch(function(error) {
+            console.log("Error while creating booking: ", error);
+            showErrorPage();
+        });
+    });
+
+    // Update the text on the reservation form saying what is being reserved
+    var timeString = getTimeStringFromTimeSlot(timeSlot) + " ";
+    $("#courttime").text(timeString);
+    $("#courtnumber").text("Court " + court);
+    $("#courtdate").text($("#datepicker").val());
+
+    showReservationForm();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+function saveCourtReservation(court, timeSlot) {
+
+    // Retrieve players names and password from the input form
+    player1 = $("#player1name").val();
+    player2 = $("#player2name").val();
+    password = $("#reservationPassword").val();
+
+    // On AWS, should check password and provide some user feedback if wrong.
+    var booking = {
+        "putOrDelete": "PUT",
+        "court": court.toString(),
+        "slot": timeSlot.toString(),
+        "player1name": player1,
+        "player2name": player2,
+        "date": getSelectedDate(),
+        "password": password,
+        "apiGatewayBaseUrl": com_squash_apiGatewayBaseUrl,
+        "redirectUrl": "dummy"
+    };
+    var params = {};
+    body = booking;
+    additionalParams = {};
+    return apigClient.bookingsPut(params, body, additionalParams)
+    .then(function(result) {
+        $("#player1name").val("");
+        $("#player2name").val("");
+        $("#reservationPassword").val("");
+        if((result.data != null) && (result.data.hasOwnProperty("errorMessage"))) {
+            // The booking failed - perhaps check for password wrong in error message
+            throw result.data.errorMessage;
+        }
+    });
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+function replaceReservationButtonsWithPlayersButtonsForBookedTimeSlots() {
+
+    // Change content of already-booked time slots
+
+    // Get details of bookings for the currently-displayed day
+    return getBookings()
+    .then(function(bookings) {
+
+        // Replace content with a Cancel link containing the players' names
+        var tableBodyRows = $("#bookingtable").find("tbody tr");
+
+        for(var i = 0;i < bookings.length;i++){
+            var court = bookings[i].court;
+            var slot = bookings[i].slot;
+            var players = bookings[i].players;
+
+            $(tableBodyRows).eq(parseInt(slot, 10) - 1).find('td').eq(parseInt(court, 10)).replaceWith($("<td class='tableCell'><button class='cancellationButton' data-court=" + court.toString() + " data-time_slot=" + slot.toString() + " type='cancellation'>" + players + "</button></td>"));
+        }
+
+        // Set up court cancellation click handlers
+        $("button[type=cancellation]").click(function() {
+            handleCourtCancellation($(this).data("court"), $(this).data("time_slot"), $(this).text());
+        });
+    });
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+function handleCourtCancellation(court, timeSlot, players) {
+ 
+    $("#returnToBookings2").unbind().click(function(){
+        $("#cancellationPassword").val("");
+        $(".bookingTable").show();
+        $(".cancellationForm").hide();
+    });
+
+    $("#cancelreservation").unbind().click(function() {
+        Promise.resolve()
+        .then(function(result) {
+            // Should really disable cancel button here and reenable below
+            return cancelCourtReservation(court, timeSlot, players);
+        })
+        .catch(function(error) {
+            console.log("Failed to cancel court reservation at AWS: ", error);
+            // Should tell user cancel failed and they can recancel if desired
+            // If failed bc password wrong, then should say so and highlight it.
+            throw error;
+        })
+        .then(function(result) {
+            return hideEverything();
+        })
+        .then(function(result) {
+            return redrawBookings();
+        })
+        .then(function(result) {
+            return showBookings();
+        })
+        .catch(function(error) {
+            console.log("Error while cancelling booking: ", error);
+            showErrorPage();
+        });
+    });
+
+    // Update the text on the cancellation form saying what is being cancelled
+    var timeString = getTimeStringFromTimeSlot(timeSlot) + " ";
+    $("#cancelledPlayers").text(players);
+    $("#courttime2").text(timeString);
+    $("#courtnumber2").text("Court " + court);
+    $("#courtdate2").text($("#datepicker").val());
+
+    $("#cancellationPassword").val("");
+    showCancellationForm();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+function cancelCourtReservation(courtToCancel, timeSlotToCancel, players) {
+
+    password = $("#cancellationPassword").val();
+
+    var booking = {
+        "putOrDelete": "DELETE",
+        "court": courtToCancel,
+        "slot": timeSlotToCancel,
+        "players": players,
+        "date": getSelectedDate(),
+        "password": password,
+        "apiGatewayBaseUrl" : com_squash_apiGatewayBaseUrl,
+        "redirectUrl": "dummy"
+    };
+    var params = {};
+    body = booking;
+    additionalParams = {};
+    return apigClient.bookingsDelete(params, body, additionalParams)
+    .then(function(result) {
+        if((result.data != null) && (result.data.hasOwnProperty("errorMessage"))) {
+            // The delete failed - perhaps check for password wrong in error message
+            throw result.data.errorMessage;
+        }
+    });
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+function getBookings() {
+
+    // Return the bookings array for the selected date
+    var params = {"date": getSelectedDate()};
+    body = {};
+    additionalParams = {};
+    return apigClient.bookingsGet(params, body, additionalParams)
+    .then(function(result) {
+         return result.data.bookings;
+    });
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+function getSelectedDate() {
+
+    return $.datepicker.formatDate("yy-mm-dd", new Date($("#datepicker").val()));
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+function showErrorPage() {
+    hideEverything();
+    $("#PageLoadErrorMessage").show();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+</script>
+</head>
+
+<body>
+<div id="PageLoadErrorMessage">Oops - something's gone wrong - please refresh the page</div>
+<p id="date"><input type="text" id="datepicker" size="30"></p>
+<div class="bookingTable">
+<table id="bookingtable">
+  <thead>
+  </thead>
+  <tbody>
+  </tbody>
+</table>
+</div>
+
+<div class="reservationForm">
+<p>You are making a reservation for <b> <span id="courttime"></span></b>for <i> <span id="courtnumber"></span></i> on <span id="courtdate"></span><p> Enter Initial.yourname/Initial.theirname
+<br><br>Initial.yourname:<br>
+<input type="text" id="player1name">
+<br>
+Initial.theirname:<br>
+<input type="text" id="player2name">
+<br><br>
+Password:<br>
+<input type="password" id="reservationPassword">
+<p>
+<button id="submitreservation">Submit squash court reservation</button>
+or
+<button id="returnToBookings">Return to bookings table without reserving  a court</button>
+</p>
+</p>
+</div>
+
+<div class="cancellationForm">
+<p>You are cancelling the <b><span id="cancelledPlayers"></span></b> reservation for <b> <span id="courttime2"></span></b>for <i> <span id="courtnumber2"></span></i> on <span id="courtdate2"></span>
+<br><br>Password:<br>
+<input type="password" id="cancellationPassword">
+<p>
+<button id="cancelreservation">Cancel squash court reservation</button>
+or
+<button id="returnToBookings2">Return to bookings table without cancelling  the reservation</button>
+</p>
+</p>
+</div>
+</body>
+</html>

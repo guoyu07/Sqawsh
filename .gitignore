@@ -1,0 +1,32 @@
+# Packages #
+############
+*.jar
+
+# OS generated files #
+######################
+.DS_Store
+.DS_Store?
+._*
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+.gradle/*
+build/*
+/bin/
+out/*
+.project
+.classpath
+axios.*
+embedded*.png
+jquery-*
+.settings/*
+report.js
+package-*
+index*.html
+formatter.js
+apig*.js
+hmac*
+src/main/resources/squash/booking/html/lib/*
+cucumber*
+doc/*
