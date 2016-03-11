@@ -1,6 +1,7 @@
 # Packages #
 ############
 *.jar
+!gradle/wrapper/gradle-wrapper.jar
 
 # OS generated files #
 ######################

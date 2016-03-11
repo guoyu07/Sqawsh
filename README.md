@@ -3,7 +3,7 @@ Sqawsh
 
 **License:** [Apache 2.0](http://www.apache.org/licenses/LICENSE-2.0)
 
-Sqawsh is a toy project to test drive [AWS microservices](https://aws.amazon.com/blogs/compute/microservices-without-the-servers/) - implementing a basic squash court booking service as an example.
+Sqawsh is a toy project to test drive [AWS microservices](https://aws.amazon.com/blogs/compute/microservices-without-the-servers/) - implementing a basic squash court booking service.
 
 Building
 --------
@@ -14,7 +14,7 @@ Building
  * build the project
  * run the unit tests
  * create the JavaDocs in the `build/docs/javadoc` folder
-* You should now have `Squash.zip` in your `build/distributions` folder
+ * create `Squash.zip` in the `build/distributions` folder
 * Building has been tested only on Mac OSX - windows not yet supported
 
 Launching the booking service on AWS
