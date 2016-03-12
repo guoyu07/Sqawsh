@@ -76,8 +76,6 @@ public class CognitoCustomResourceLambda implements RequestHandler<Map<String, O
    * 
    * <p>This lambda has the following keys in its request map (in addition
    *    to the standard ones) provided via the Cloudformation stack template:
-   * 
-   * <p>Keys suppling arn of other AWS lambda functions that the Api invokes:
    * <ul>
    *    <li>StackName - name of Cloudformation stack - used as the name of the identity pool.</li>
    *    <li>AuthenticatedRole - arn of role specifying permissions for authenticated users.</li>

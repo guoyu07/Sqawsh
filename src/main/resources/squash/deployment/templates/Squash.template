@@ -738,6 +738,7 @@
         "LifecycleConfiguration" : {
           "Rules" : [{
             "ExpirationInDays" : 30,
+            "NoncurrentVersionExpirationInDays" : 30,
             "Status" : "Enabled"
           }]
         }
