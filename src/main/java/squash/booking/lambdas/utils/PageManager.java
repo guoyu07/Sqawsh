@@ -65,8 +65,7 @@ public class PageManager implements IPageManager {
   private String websiteBucketName;
   private Region region;
   private IBookingManager bookingManager;
-  // Following path will fail on windows - but not important for now.
-  private File temporaryFolder = new File("/tmp");
+  protected File temporaryFolder;
   private LambdaLogger logger;
 
   @Override
@@ -75,6 +74,12 @@ public class PageManager implements IPageManager {
     websiteBucketName = getStringProperty("s3websitebucketname");
     region = Region.getRegion(Regions.fromName(getStringProperty("region")));
     this.bookingManager = bookingManager;
+    
+    // Compare to null so we don't override any value set by unit tests 
+    if (temporaryFolder == null) {
+        // Use AWS Lambda's temporary filesystem
+        temporaryFolder = new File("/tmp");
+    }
   }
 
   @Override

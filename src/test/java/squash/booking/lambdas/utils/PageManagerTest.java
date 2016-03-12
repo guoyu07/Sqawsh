@@ -152,7 +152,6 @@ public class PageManagerTest {
     private LocalDate currentLocalDate;
     private String websiteBucket;
     private IS3TransferManager transferManager;
-    private File temporaryFolder;
 
     public void setS3TransferManager(IS3TransferManager transferManager) {
       this.transferManager = transferManager;
