@@ -3,9 +3,9 @@ Sqawsh
 
 **License:** [Apache 2.0](http://www.apache.org/licenses/LICENSE-2.0)
 
-Sqawsh is a toy project to test drive [AWS microservices](https://aws.amazon.com/blogs/compute/microservices-without-the-servers/) - implementing a basic squash court booking service.
+Sqawsh is a toy project to test drive [AWS microservices](https://aws.amazon.com/blogs/compute/microservices-without-the-servers/) - implementing a basic serverless squash court booking service.
 
-Building (tested on Mac OSX and Windows)
+Building (tested on Mac, Amazon Linux, and Windows)
 ----------------------------------------
 * Ensure Java 8 JDK is installed
 * Clone the repo
