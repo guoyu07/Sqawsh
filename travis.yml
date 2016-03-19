@@ -1,0 +1,7 @@
+language: java
+script: ./gw build
+jdk:
+  - oraclejdk8
+notifications:
+  email:
+  - robinsteel19@outlook.com
