@@ -41,9 +41,12 @@ import com.amazonaws.services.apigateway.model.CreateResourceRequest;
 import com.amazonaws.services.apigateway.model.CreateResourceResult;
 import com.amazonaws.services.apigateway.model.CreateRestApiRequest;
 import com.amazonaws.services.apigateway.model.CreateRestApiResult;
+import com.amazonaws.services.apigateway.model.DeleteResourceRequest;
 import com.amazonaws.services.apigateway.model.DeleteRestApiRequest;
 import com.amazonaws.services.apigateway.model.GetResourcesRequest;
 import com.amazonaws.services.apigateway.model.GetResourcesResult;
+import com.amazonaws.services.apigateway.model.GetRestApiRequest;
+import com.amazonaws.services.apigateway.model.GetRestApiResult;
 import com.amazonaws.services.apigateway.model.GetRestApisRequest;
 import com.amazonaws.services.apigateway.model.GetRestApisResult;
 import com.amazonaws.services.apigateway.model.GetSdkRequest;
@@ -85,7 +88,6 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Properties;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -93,14 +95,18 @@ import java.util.zip.ZipFile;
 /**
  * Manages the AWS Cloudformation ApiGateway custom resource.
  * 
- * <p>The ApiGateway Api is created and deleted by Cloudformation
+ * <p>The ApiGateway Api is created, updated, and deleted by Cloudformation
  *    using a custom resource backed by this lambda function.
  *    
- * <p>After it creates the Api, it generates a corresponding Javascript SDK
- *    for it and uploads this SDK to the website bucket.
+ * <p>After it creates/updates the Api, it generates a corresponding Javascript
+ *    SDK for it and uploads this SDK to the website bucket.
  *    
  * <p>N.B. It would be cleaner to create this Api from an AWS-extended Swagger spec, but
  *    the java sdk does not yet support this.
+ * 
+ * <p>Stack updates will deploy the new api to the same stage as the old api.
+ * 
+ * <p>N.B. You should create at most one ApiGateway custom resource per stack.
  * 
  * @author robinsteel19@outlook.com (Robin Steel)
  */
@@ -136,6 +142,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
    *    <li>WebsiteBucket - name of S3 bucket serving the booking website.</li>
    *    <li>Stage Name - the name to give to the Api's stage.</li>
    *    <li>Region - the AWS region in which the Cloudformation stack is created.</li>
+   *    <li>Revision - integer incremented to force stack updates to update this resource.</li>
    * </ul>
    * 
    * <p>On success, it returns the following output to Cloudformation:
@@ -162,6 +169,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     @SuppressWarnings("unchecked")
     Map<String, Object> resourceProps = (Map<String, Object>) request.get("ResourceProperties");
     String region = (String) resourceProps.get("Region");
+    String revision = (String) resourceProps.get("Revision");
     String validDatesGETLambdaURI = wrapURI(((String) resourceProps.get("ValidDatesGETLambdaURI")),
         region);
     String bookingsGETLambdaURI = wrapURI(((String) resourceProps.get("BookingsGETLambdaURI")),
@@ -182,6 +190,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     logger.log("Squash website bucket: " + squashWebsiteBucket);
     logger.log("Stage Name: " + stageName);
     logger.log("Region: " + region);
+    logger.log("Revision: " + revision);
 
     // Prepare our response to be sent in the finally block
     CloudFormationResponder cloudFormationResponder = new CloudFormationResponder(
@@ -199,216 +208,110 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       logger.log("Setting api name to: " + apiName);
       if (requestType.equals("Create")) {
 
-        // Create the API
+        // Ensure an API of the same name does not already exist - can happen
+        // e.g. if wrongly put two of these custom resources in the stack
+        // template.
+        logger.log("Verifying an api with name: " + apiName + " does not already exist.");
+        GetRestApisRequest getRestApisRequest = new GetRestApisRequest();
+        GetRestApisResult apis = apiGatewayClient.getRestApis(getRestApisRequest);
+        List<RestApi> apiList = apis.getItems();
+        Boolean apiExists = apiList.stream().filter(api -> api.getName().equals(apiName))
+            .findFirst().isPresent();
+        if (apiExists) {
+          logger.log(apiName
+              + " exists already - creating another api with this name is not allowed");
+          // Change physical id in responder - this is bc CloudFormation will
+          // follow up this failed creation with a Delete request to clean up
+          // - and we want to ignore that delete call - but not delete calls
+          // for our original resource - and we use the PhysicalId to tell these
+          // two cases apart.
+          cloudFormationResponder.setPhysicalResourceId("DuplicatePhysicalResourceId");
+
+          return null;
+        }
+
+        // Api does not already exist - so create it
         logger.log("Creating API");
         CreateRestApiRequest createRestApiRequest = new CreateRestApiRequest();
         createRestApiRequest.setName(apiName);
-        createRestApiRequest.setDescription("See if can create api from cloudformation");
+        createRestApiRequest.setDescription("Api for managing squash court bookings");
         CreateRestApiResult createRestApiResult = apiGatewayClient
             .createRestApi(createRestApiRequest);
         String restApiId = createRestApiResult.getId();
-        apiGatewayBaseUrl = "https://" + restApiId + ".execute-api." + region + ".amazonaws.com/"
-            + stageName;
+        cloudFormationResponder.setPhysicalResourceId(restApiId);
+
+        // Add all resources and methods to the Api, then upload its SDK to S3.
+        constructApiAndUploadSdk(restApiId, apiGatewayClient, region, validDatesGETLambdaURI,
+            bookingsGETLambdaURI, bookingsPUTDELETELambdaURI, bookingsApiGatewayInvocationRole,
+            stageName, logger);
+
+        apiGatewayBaseUrl = getApiGatewayBaseUrl(restApiId, region, stageName);
         logger.log("Created API with base url: " + apiGatewayBaseUrl);
 
-        // Create the API's resources
-        logger.log("Creating API resources");
-        String validDates = createTopLevelResourceOnApi("validdates", restApiId, apiGatewayClient,
-            logger).getId();
-        String bookings = createTopLevelResourceOnApi("bookings", restApiId, apiGatewayClient,
-            logger).getId();
-        String reservationForm = createTopLevelResourceOnApi("reservationform", restApiId,
-            apiGatewayClient, logger).getId();
-        String cancellationForm = createTopLevelResourceOnApi("cancellationform", restApiId,
-            apiGatewayClient, logger).getId();
+      } else if (requestType.equals("Update")) {
+        // We update an Api by removing all existing resources from it and then
+        // adding them back, whilst retaining the original ApiId. This ensures
+        // that its deployment creates a new entry in the deployment history of
+        // the Api - i.e. it mimics editing and re-deploying the api in the
+        // console.
 
-        // Create the API's methods
-        logger.log("Creating API methods");
-        Map<String, String> extraParameters = new HashMap<>();
+        String restApiId = standardRequestParameters.get("PhysicalResourceId");
+        // Keep same physical id - otherwise CloudFormation thinks it needs to
+        // follow up with a Delete request on the 'previous' physical resource.
+        cloudFormationResponder.setPhysicalResourceId(restApiId);
+        logger.log("Updating Api for apiId: " + restApiId);
 
-        // Methods on the validdates resource
-        logger.log("Creating methods on validdates resource");
-        extraParameters.put("ValidDatesGETLambdaURI", validDatesGETLambdaURI);
-        extraParameters.put("BookingsGETLambdaURI", bookingsGETLambdaURI);
-        extraParameters.put("BookingsPUTDELETELambdaURI", bookingsPUTDELETELambdaURI);
-        extraParameters.put("BookingsApiGatewayInvocationRole", bookingsApiGatewayInvocationRole);
-        createMethodOnResource("ValidDatesGET", validDates, restApiId, extraParameters,
-            apiGatewayClient, region, logger);
-        createMethodOnResource("ValidDatesOPTIONS", validDates, restApiId, extraParameters,
-            apiGatewayClient, region, logger);
+        // Remove all existing resources (except the root) from this Api
+        logger.log("Removing existing resources from Api with apiId: " + restApiId);
+        GetResourcesRequest getResourcesRequest = new GetResourcesRequest();
+        getResourcesRequest.setRestApiId(restApiId);
+        GetResourcesResult getResourcesResult = apiGatewayClient.getResources(getResourcesRequest);
+        getResourcesResult.getItems().stream().filter(r -> !r.getPath().equals("/"))
+            .forEach(resource -> {
+              logger.log("About to delete resource: " + resource.getPath());
+              DeleteResourceRequest deleteResourceRequest = new DeleteResourceRequest();
+              deleteResourceRequest.setRestApiId(restApiId);
+              deleteResourceRequest.setResourceId(resource.getId());
+              apiGatewayClient.deleteResource(deleteResourceRequest);
+              logger.log("Successfully deleted resource: " + resource.getPath());
+            });
 
-        // Methods on the bookings resource
-        logger.log("Creating methods on bookings resource");
-        createMethodOnResource("BookingsGET", bookings, restApiId, extraParameters,
-            apiGatewayClient, region, logger);
-        createMethodOnResource("BookingsDELETE", bookings, restApiId, extraParameters,
-            apiGatewayClient, region, logger);
-        createMethodOnResource("BookingsPUT", bookings, restApiId, extraParameters,
-            apiGatewayClient, region, logger);
-        createMethodOnResource("BookingsPOST", bookings, restApiId, extraParameters,
-            apiGatewayClient, region, logger);
-        createMethodOnResource("BookingsOPTIONS", bookings, restApiId, extraParameters,
-            apiGatewayClient, region, logger);
+        // Remove the existing SDK from the S3 website bucket
+        removeSdkFromS3(squashWebsiteBucket, logger);
 
-        // Methods on the reservationform resource
-        logger.log("Creating methods on reservationform resource");
-        createMethodOnResource("ReservationformGET", reservationForm, restApiId, extraParameters,
-            apiGatewayClient, region, logger);
-        createMethodOnResource("ReservationformOPTIONS", reservationForm, restApiId,
-            extraParameters, apiGatewayClient, region, logger);
+        // And add back the updated set of resources and SDK
+        logger.log("Adding back updated resources to Api with apiId: " + restApiId);
+        constructApiAndUploadSdk(restApiId, apiGatewayClient, region, validDatesGETLambdaURI,
+            bookingsGETLambdaURI, bookingsPUTDELETELambdaURI, bookingsApiGatewayInvocationRole,
+            stageName, logger);
 
-        // Methods on the cancellationform resource
-        logger.log("Creating methods on cancellationform resource");
-        createMethodOnResource("CancellationformGET", cancellationForm, restApiId, extraParameters,
-            apiGatewayClient, region, logger);
-        createMethodOnResource("CancellationformOPTIONS", cancellationForm, restApiId,
-            extraParameters, apiGatewayClient, region, logger);
+        apiGatewayBaseUrl = getApiGatewayBaseUrl(restApiId, region, stageName);
+        logger.log("Updated API with base url: " + apiGatewayBaseUrl);
 
-        // Deploy the api to a stage (with default throttling settings)
-        logger.log("Deploying API to stage: " + stageName);
-        CreateDeploymentRequest createDeploymentRequest = new CreateDeploymentRequest();
-        createDeploymentRequest.setCacheClusterEnabled(false);
-        createDeploymentRequest.setDescription("A deployment of the Squash api");
-        createDeploymentRequest.setStageDescription("A stage for testing the Squash api");
-        createDeploymentRequest.setStageName(stageName);
-        createDeploymentRequest.setRestApiId(restApiId);
-        CreateDeploymentResult createDeploymentResult = apiGatewayClient
-            .createDeployment(createDeploymentRequest);
-        logger.log("Deployed to stage with ID: " + createDeploymentResult.getId());
-
-        // FIXME
-        // Throttle all methods on this stage - does not seem to work yet?
-        // logger.log("Throttling all of stage's methods");
-        // GetStagesRequest getStagesRequest = new GetStagesRequest();
-        // getStagesRequest.setRestApiId(restApiId);
-        // GetStagesResult getStagesResult =
-        // apiGatewayClient.getStages(getStagesRequest);
-        // List<Stage> stages = getStagesResult.getItem();
-        // Stage stage = stages.stream().filter(s ->
-        // s.getStageName().equals(stageName)).findFirst().get();
-        // MethodSetting methodSetting = new MethodSetting();
-        // methodSetting.setThrottlingBurstLimit(10);
-        // methodSetting.setThrottlingRateLimit(1.0);
-        // stage.addMethodSettingsEntry("*/*", methodSetting); // Adds to all
-        // methods
-        // logger.log("Throttling completed");
-
-        // Download javascript sdk and upload it to the S3 bucket serving the
-        // squash site
-        logger.log("Downloading Javascript SDK");
-        GetSdkRequest getSdkRequest = new GetSdkRequest();
-        getSdkRequest.setRestApiId(restApiId);
-        getSdkRequest.setStageName(stageName);
-        getSdkRequest.setSdkType("JavaScript");
-        // This is for Android sdks but it crashes if the map is empty - so set
-        // to something
-        Map<String, String> paramsMap = new HashMap<String, String>();
-        paramsMap.put("GroupID", "Dummy");
-        getSdkRequest.setParameters(paramsMap);
-        GetSdkResult getSdkResult = apiGatewayClient.getSdk(getSdkRequest);
-
-        // Copy the sdk to S3 via AWS lambda's temporary file system
-        logger.log("Copying Javascript SDK to S3");
-        try {
-          logger.log("Saving SDK to lambda's temporary file system");
-          ByteBuffer sdkBuffer = getSdkResult.getBody().asReadOnlyBuffer();
-          OutputStream os = new FileOutputStream("/tmp/sdk.zip");
-          WritableByteChannel channel = Channels.newChannel(os);
-          channel.write(sdkBuffer);
-
-          // Unzip the sdk
-          logger.log("SDK saved. Now unzipping");
-          String outputFolder = "/tmp/extractedSdk";
-          ZipFile zipFile = new ZipFile("/tmp/sdk.zip");
-          try {
-            Enumeration<? extends ZipEntry> entries = zipFile.entries();
-            while (entries.hasMoreElements()) {
-              ZipEntry entry = entries.nextElement();
-              logger.log("Unzipping next entry: " + entry.getName());
-              File entryDestination = new File(outputFolder, entry.getName());
-              if (entry.isDirectory()) {
-                entryDestination.mkdirs();
-              } else {
-                entryDestination.getParentFile().mkdirs();
-                InputStream in = zipFile.getInputStream(entry);
-                OutputStream out = new FileOutputStream(entryDestination);
-                IOUtils.copy(in, out);
-                IOUtils.closeQuietly(in);
-                out.close();
-              }
-            }
-          } finally {
-            zipFile.close();
-          }
-
-          // Upload the sdk from the temporary filesystem to S3. We put it in
-          // the root of the bucket which is ok when bookings.html is also in
-          // the root of the bucket.
-          logger.log("Uploading unzipped Javascript SDK to S3 bucket: " + squashWebsiteBucket);
-          TransferUtils.waitForS3Transfer(new TransferManager().uploadDirectory(
-              squashWebsiteBucket, "", new File("/tmp/extractedSdk/apiGateway-js-sdk"), true),
-              logger);
-          logger.log("Uploaded sdk successfully to S3");
-
-          logger.log("Setting public read permission on uploaded sdk");
-          TransferUtils.setPublicReadPermissionsOnBucket(squashWebsiteBucket, logger);
-          logger.log("Finished setting public read permissions on uploaded sdk");
-        } catch (Exception e) {
-          logger.log("Exception caught whilst copying Javascript SDK to S3: " + e.getMessage());
-          throw e;
-        }
       } else if (requestType.equals("Delete")) {
-        // Delete the API
-        GetRestApisRequest getRestApisRequest = new GetRestApisRequest();
-        getRestApisRequest.setLimit(10);
-        GetRestApisResult apis = apiGatewayClient.getRestApis(getRestApisRequest);
-        List<RestApi> apiList = apis.getItems();
-        Optional<RestApi> apiToDelete = apiList.stream()
-            .filter(api -> api.getName().equals(apiName)).findFirst();
-        if (apiToDelete.isPresent()) {
-          logger.log(apiName + " is present - so deleting from ApiGateway");
-          DeleteRestApiRequest deleteRestApiRequest = new DeleteRestApiRequest();
-          deleteRestApiRequest.setRestApiId(apiToDelete.get().getId());
-          apiGatewayClient.deleteRestApi(deleteRestApiRequest);
+
+        String restApiId = standardRequestParameters.get("PhysicalResourceId");
+        logger.log("Deleting Api for apiId: " + restApiId);
+
+        // Early-out if this is a Delete corresponding to a failed attempt to
+        // create a duplicate API, otherwise we will end up wrongly deleting
+        // our (valid) original API instead.
+        if (restApiId.equals("DuplicatePhysicalResourceId")) {
+          logger.log("Ignoring delete request as it's for a non-existent duplicate API");
         } else {
-          logger.log(apiName + " is not present - so not deleting from ApiGateway");
+          // Delete the API
+          GetRestApiRequest getRestApiRequest = new GetRestApiRequest();
+          getRestApiRequest.setRestApiId(restApiId);
+          // This will throw if the api does not exist
+          GetRestApiResult api = apiGatewayClient.getRestApi(getRestApiRequest);
+          DeleteRestApiRequest deleteRestApiRequest = new DeleteRestApiRequest();
+          deleteRestApiRequest.setRestApiId(api.getId());
+          apiGatewayClient.deleteRestApi(deleteRestApiRequest);
+
+          // Remove the sdk from the website bucket
+          removeSdkFromS3(squashWebsiteBucket, logger);
         }
-
-        // Remove the sdk from the website bucket
-        logger.log("About to remove apigateway sdk from website versioned S3 bucket");
-        // We need to delete every version of every key before the bucket itself
-        // can be deleted
-        ListVersionsRequest listVersionsRequest = new ListVersionsRequest()
-            .withBucketName(squashWebsiteBucket);
-        VersionListing versionListing;
-        IS3TransferManager transferManager = getS3TransferManager();
-        AmazonS3 client = transferManager.getAmazonS3Client();
-        do {
-          versionListing = client.listVersions(listVersionsRequest);
-          versionListing
-              .getVersionSummaries()
-              .stream()
-              .filter(
-                  k -> !(k.getKey().startsWith("20") || k.getKey().equals("today.html") || k
-                      .getKey().equals("bookings.html")))
-              .forEach(
-                  k -> {
-                    logger.log("About to delete version: " + k.getVersionId() + " of API SDK: "
-                        + k.getKey());
-                    DeleteVersionRequest deleteVersionRequest = new DeleteVersionRequest(
-                        squashWebsiteBucket, k.getKey(), k.getVersionId());
-                    client.deleteVersion(deleteVersionRequest);
-                    logger.log("Successfully deleted version: " + k.getVersionId()
-                        + " of API SDK key: " + k.getKey());
-                  });
-
-          listVersionsRequest.setKeyMarker(versionListing.getNextKeyMarker());
-        } while (versionListing.isTruncated());
-
-        logger.log("Finished remove apigateway sdk from website S3 bucket");
       }
-      ;
-      // Do not handle Updates for now
 
       responseStatus = "SUCCESS";
       return null;
@@ -441,9 +344,210 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     }
   }
 
+  String getApiGatewayBaseUrl(String restApiId, String region, String stageName) {
+    return "https://" + restApiId + ".execute-api." + region + ".amazonaws.com/" + stageName;
+  }
+
+  // This method is factored out so it can be called both when first creating
+  // the api, and when recreating it during stack updates.
+  void constructApiAndUploadSdk(String restApiId, AmazonApiGateway apiGatewayClient, String region,
+      String validDatesGETLambdaURI, String bookingsGETLambdaURI,
+      String bookingsPUTDELETELambdaURI, String bookingsApiGatewayInvocationRole, String stageName,
+      LambdaLogger logger) throws Exception {
+    // Create the API's resources
+    logger.log("Creating API resources");
+    String validDates = createTopLevelResourceOnApi("validdates", restApiId, apiGatewayClient,
+        logger).getId();
+    String bookings = createTopLevelResourceOnApi("bookings", restApiId, apiGatewayClient, logger)
+        .getId();
+    String reservationForm = createTopLevelResourceOnApi("reservationform", restApiId,
+        apiGatewayClient, logger).getId();
+    String cancellationForm = createTopLevelResourceOnApi("cancellationform", restApiId,
+        apiGatewayClient, logger).getId();
+
+    // Create the API's methods
+    logger.log("Creating API methods");
+    Map<String, String> extraParameters = new HashMap<>();
+
+    // Methods on the validdates resource
+    logger.log("Creating methods on validdates resource");
+    extraParameters.put("ValidDatesGETLambdaURI", validDatesGETLambdaURI);
+    extraParameters.put("BookingsGETLambdaURI", bookingsGETLambdaURI);
+    extraParameters.put("BookingsPUTDELETELambdaURI", bookingsPUTDELETELambdaURI);
+    extraParameters.put("BookingsApiGatewayInvocationRole", bookingsApiGatewayInvocationRole);
+    createMethodOnResource("ValidDatesGET", validDates, restApiId, extraParameters,
+        apiGatewayClient, region, logger);
+    createMethodOnResource("ValidDatesOPTIONS", validDates, restApiId, extraParameters,
+        apiGatewayClient, region, logger);
+
+    // Methods on the bookings resource
+    logger.log("Creating methods on bookings resource");
+    createMethodOnResource("BookingsGET", bookings, restApiId, extraParameters, apiGatewayClient,
+        region, logger);
+    createMethodOnResource("BookingsDELETE", bookings, restApiId, extraParameters,
+        apiGatewayClient, region, logger);
+    createMethodOnResource("BookingsPUT", bookings, restApiId, extraParameters, apiGatewayClient,
+        region, logger);
+    createMethodOnResource("BookingsPOST", bookings, restApiId, extraParameters, apiGatewayClient,
+        region, logger);
+    createMethodOnResource("BookingsOPTIONS", bookings, restApiId, extraParameters,
+        apiGatewayClient, region, logger);
+
+    // Methods on the reservationform resource
+    logger.log("Creating methods on reservationform resource");
+    createMethodOnResource("ReservationformGET", reservationForm, restApiId, extraParameters,
+        apiGatewayClient, region, logger);
+    createMethodOnResource("ReservationformOPTIONS", reservationForm, restApiId, extraParameters,
+        apiGatewayClient, region, logger);
+
+    // Methods on the cancellationform resource
+    logger.log("Creating methods on cancellationform resource");
+    createMethodOnResource("CancellationformGET", cancellationForm, restApiId, extraParameters,
+        apiGatewayClient, region, logger);
+    createMethodOnResource("CancellationformOPTIONS", cancellationForm, restApiId, extraParameters,
+        apiGatewayClient, region, logger);
+
+    // Deploy the api to a stage (with default throttling settings)
+    logger.log("Deploying API to stage: " + stageName);
+    CreateDeploymentRequest createDeploymentRequest = new CreateDeploymentRequest();
+    createDeploymentRequest.setCacheClusterEnabled(false);
+    createDeploymentRequest.setDescription("A deployment of the Squash api");
+    createDeploymentRequest.setStageDescription("A stage for the Squash api");
+    createDeploymentRequest.setStageName(stageName);
+    createDeploymentRequest.setRestApiId(restApiId);
+    CreateDeploymentResult createDeploymentResult = apiGatewayClient
+        .createDeployment(createDeploymentRequest);
+    logger.log("Deployed to stage with ID: " + createDeploymentResult.getId());
+
+    // FIXME
+    // Throttle all methods on this stage - does not seem to work yet?
+    // logger.log("Throttling all of stage's methods");
+    // GetStagesRequest getStagesRequest = new GetStagesRequest();
+    // getStagesRequest.setRestApiId(restApiId);
+    // GetStagesResult getStagesResult =
+    // apiGatewayClient.getStages(getStagesRequest);
+    // List<Stage> stages = getStagesResult.getItem();
+    // Stage stage = stages.stream().filter(s ->
+    // s.getStageName().equals(stageName)).findFirst().get();
+    // MethodSetting methodSetting = new MethodSetting();
+    // methodSetting.setThrottlingBurstLimit(10);
+    // methodSetting.setThrottlingRateLimit(1.0);
+    // stage.addMethodSettingsEntry("*/*", methodSetting); // Adds to all
+    // methods
+    // logger.log("Throttling completed");
+
+    // Download javascript sdk and upload it to the S3 bucket serving the
+    // squash site
+    logger.log("Downloading Javascript SDK");
+    GetSdkRequest getSdkRequest = new GetSdkRequest();
+    getSdkRequest.setRestApiId(restApiId);
+    getSdkRequest.setStageName(stageName);
+    getSdkRequest.setSdkType("JavaScript");
+    // This is for Android sdks but it crashes if the map is empty - so set
+    // to something
+    Map<String, String> paramsMap = new HashMap<String, String>();
+    paramsMap.put("GroupID", "Dummy");
+    getSdkRequest.setParameters(paramsMap);
+    GetSdkResult getSdkResult = apiGatewayClient.getSdk(getSdkRequest);
+
+    // Copy the sdk to S3 via AWS lambda's temporary file system
+    logger.log("Copying Javascript SDK to S3");
+    try {
+      logger.log("Saving SDK to lambda's temporary file system");
+      ByteBuffer sdkBuffer = getSdkResult.getBody().asReadOnlyBuffer();
+      OutputStream os = new FileOutputStream("/tmp/sdk.zip");
+      WritableByteChannel channel = Channels.newChannel(os);
+      channel.write(sdkBuffer);
+
+      // Unzip the sdk
+      logger.log("SDK saved. Now unzipping");
+      String outputFolder = "/tmp/extractedSdk";
+      ZipFile zipFile = new ZipFile("/tmp/sdk.zip");
+      try {
+        Enumeration<? extends ZipEntry> entries = zipFile.entries();
+        while (entries.hasMoreElements()) {
+          ZipEntry entry = entries.nextElement();
+          logger.log("Unzipping next entry: " + entry.getName());
+          File entryDestination = new File(outputFolder, entry.getName());
+          if (entry.isDirectory()) {
+            entryDestination.mkdirs();
+          } else {
+            entryDestination.getParentFile().mkdirs();
+            InputStream in = zipFile.getInputStream(entry);
+            OutputStream out = new FileOutputStream(entryDestination);
+            IOUtils.copy(in, out);
+            IOUtils.closeQuietly(in);
+            out.close();
+          }
+        }
+      } finally {
+        zipFile.close();
+      }
+
+      // Upload the sdk from the temporary filesystem to S3.
+      logger.log("Uploading unzipped Javascript SDK to S3 bucket: " + squashWebsiteBucket);
+      TransferUtils.waitForS3Transfer(new TransferManager().uploadDirectory(squashWebsiteBucket,
+          "", new File("/tmp/extractedSdk/apiGateway-js-sdk"), true), logger);
+      logger.log("Uploaded sdk successfully to S3");
+
+      logger.log("Setting public read permission on uploaded sdk");
+      TransferUtils.setPublicReadPermissionsOnBucket(squashWebsiteBucket, logger);
+      logger.log("Finished setting public read permissions on uploaded sdk");
+    } catch (Exception e) {
+      logger.log("Exception caught whilst copying Javascript SDK to S3: " + e.getMessage());
+      throw e;
+    }
+  }
+
+  void removeSdkFromS3(String squashWebsiteBucket, LambdaLogger logger) {
+    logger.log("About to remove apigateway sdk from website versioned S3 bucket");
+    // We need to delete every version of every key
+    ListVersionsRequest listVersionsRequest = new ListVersionsRequest()
+        .withBucketName(squashWebsiteBucket);
+    VersionListing versionListing;
+    IS3TransferManager transferManager = getS3TransferManager();
+    AmazonS3 client = transferManager.getAmazonS3Client();
+    do {
+      versionListing = client.listVersions(listVersionsRequest);
+      versionListing
+          .getVersionSummaries()
+          .stream()
+          .filter(
+              k -> !(k.getKey().startsWith("20") || k.getKey().equals("today.html") || k.getKey()
+                  .equals("bookings.html")))
+          .forEach(
+              k -> {
+                logger.log("About to delete version: " + k.getVersionId() + " of API SDK: "
+                    + k.getKey());
+                DeleteVersionRequest deleteVersionRequest = new DeleteVersionRequest(
+                    squashWebsiteBucket, k.getKey(), k.getVersionId());
+                client.deleteVersion(deleteVersionRequest);
+                logger.log("Successfully deleted version: " + k.getVersionId()
+                    + " of API SDK key: " + k.getKey());
+              });
+
+      listVersionsRequest.setKeyMarker(versionListing.getNextKeyMarker());
+    } while (versionListing.isTruncated());
+
+    logger.log("Finished remove apigateway sdk from website S3 bucket");
+  }
+
+  void pause(LambdaLogger logger) {
+    // Short sleep - this avoids the Too Many Requests error in this
+    // custom resource when creating the cloudformation stack.
+    try {
+      Thread.sleep(1000); // ms
+    } catch (InterruptedException e) {
+      logger.log("Sleep interrupted in createMethodOnResource");
+    }
+  }
+
   CreateResourceResult createTopLevelResourceOnApi(String resourceName, String restApiId,
       AmazonApiGateway client, LambdaLogger logger) {
     logger.log("Creating top-level resource: " + resourceName);
+    // Short sleep - this avoids the Too Many Requests error in this
+    // custom resource when creating the cloudformation stack.
+    pause(logger);
     CreateResourceRequest createResourceRequest = new CreateResourceRequest();
     createResourceRequest.setRestApiId(restApiId);
     if (resourceName.equals("bookings")) {
@@ -477,11 +581,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     logger.log("Creating method: " + methodName + " on resource with id: " + resourceId);
     // Short sleep - this avoids the Too Many Requests error in this
     // custom resource when creating the cloudformation stack.
-    try {
-      Thread.sleep(1000); // ms
-    } catch (InterruptedException e) {
-      logger.log("Sleep interrupted in createMethodOnResource");
-    }
+    pause(logger);
     // Variables for method request
     PutMethodRequest putMethodRequest = new PutMethodRequest();
     putMethodRequest.setAuthorizationType("None");

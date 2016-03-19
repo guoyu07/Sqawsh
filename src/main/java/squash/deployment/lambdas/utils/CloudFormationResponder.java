@@ -56,6 +56,10 @@ public class CloudFormationResponder {
     this.physicalResourceId = physicalResourceId;
   }
 
+  public void setPhysicalResourceId(String physicalResourceId) {
+    this.physicalResourceId = physicalResourceId;
+  }
+
   /**
    *  Sends the custom resource response to the Cloudformation service.
    *  

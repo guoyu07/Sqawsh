@@ -87,6 +87,7 @@ public class BookingsHtmlCustomResourceLambda implements
    *    <li>ApiGatewayBaseUrl - base Url of the ApiGateway Api.</li>
    *    <li>CognitoIdentityPoolId - the id of the Cognito identity pool.</li>
    *    <li>Region - the AWS region in which the Cloudformation stack is created.</li>
+   *    <li>Revision - integer incremented to force stack updates to update this resource.</li>
    * </ul>
    * 
    * <p>On success, it returns the following output to Cloudformation:
@@ -116,12 +117,14 @@ public class BookingsHtmlCustomResourceLambda implements
     String apiGatewayBaseUrl = (String) resourceProps.get("ApiGatewayBaseUrl");
     String cognitoIdentityPoolId = (String) resourceProps.get("CognitoIdentityPoolId");
     String region = (String) resourceProps.get("Region");
+    String revision = (String) resourceProps.get("Revision");
 
     // Log out our custom request parameters
     logger.log("WebsiteBucket: " + websiteBucket);
     logger.log("ApiGatewayBaseUrl: " + apiGatewayBaseUrl);
     logger.log("CognitoIdentityPoolId: " + cognitoIdentityPoolId);
     logger.log("Region: " + region);
+    logger.log("Revision: " + revision);
 
     // Prepare our response to be sent in the finally block
     CloudFormationResponder cloudFormationResponder = new CloudFormationResponder(
@@ -131,7 +134,7 @@ public class BookingsHtmlCustomResourceLambda implements
 
     String websiteURL = null;
     try {
-      if (requestType.equals("Create")) {
+      if (requestType.equals("Create") || requestType.equals("Update")) {
 
         // Temporary location for the modified HTML
         String htmlOutputPath = "/tmp/bookings.html";
@@ -217,7 +220,6 @@ public class BookingsHtmlCustomResourceLambda implements
         } while (versionListing.isTruncated());
         logger.log("Finished removing bookings pages from website S3 bucket");
       }
-      // Do not handle Updates for now
 
       responseStatus = "SUCCESS";
       return null;

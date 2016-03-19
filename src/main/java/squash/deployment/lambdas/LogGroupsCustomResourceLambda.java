@@ -89,6 +89,7 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
    * <p>Other keys:
    * <ul>
    *    <li>Region - the AWS region in which the Cloudformation stack is created.</li>
+   *    <li>Revision - integer incremented to force stack updates to update this resource.</li>
    * </ul>
    *
    * @param request request parameters as provided by the CloudFormation service
@@ -124,6 +125,7 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
         .get("SquashScheduledCloudwatchEventCustomResourceLambdaName");
     String updateBookingsLambdaName = (String) resourceProps.get("UpdateBookingsLambdaName");
     String region = (String) resourceProps.get("Region");
+    String revision = (String) resourceProps.get("Revision");
 
     // Log out our custom request parameters
     logger.log("ValidDatesLambdaName: " + validDatesLambdaName);
@@ -139,6 +141,7 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
         + squashScheduledCloudwatchEventCustomResourceLambdaName);
     logger.log("UpdateBookingsLambdaName: " + updateBookingsLambdaName);
     logger.log("Region: " + region);
+    logger.log("Revision: " + revision);
 
     // Prepare our response to be sent in the finally block
     CloudFormationResponder cloudFormationResponder = new CloudFormationResponder(

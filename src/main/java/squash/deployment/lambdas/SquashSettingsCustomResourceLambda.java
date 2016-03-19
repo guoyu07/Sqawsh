@@ -77,6 +77,7 @@ public class SquashSettingsCustomResourceLambda implements
    *    <li>S3InputKey - key for the java source code zip in the LambdaZipsBucket.</li>
    *    <li>S3OutputKey - key to save the modified java source code zip to in the LambdaZipsBucket.</li>
    *    <li>Region - the AWS region in which the Cloudformation stack is created.</li>
+   *    <li>Revision - integer incremented to force stack updates to update this resource.</li>
    * </ul>
    *
    * @param request request parameters as provided by the CloudFormation service
@@ -103,6 +104,7 @@ public class SquashSettingsCustomResourceLambda implements
     String s3InputKey = (String) resourceProps.get("S3InputKey");
     String s3OutputKey = (String) resourceProps.get("S3OutputKey");
     String region = (String) resourceProps.get("Region");
+    String revision = (String) resourceProps.get("Revision");
 
     // Log out our custom request parameters
     logger.log("SimpleDBDomainName: " + simpleDBDomainName);
@@ -111,6 +113,7 @@ public class SquashSettingsCustomResourceLambda implements
     logger.log("S3InputKey: " + s3InputKey);
     logger.log("S3OutputKey: " + s3OutputKey);
     logger.log("Region: " + region);
+    logger.log("Revision: " + revision);
 
     // Prepare our response to be sent in the finally block
     CloudFormationResponder cloudFormationResponder = new CloudFormationResponder(
@@ -119,7 +122,7 @@ public class SquashSettingsCustomResourceLambda implements
     String responseStatus = "FAILED";
 
     try {
-      if (requestType.equals("Create")) {
+      if (requestType.equals("Create") || requestType.equals("Update")) {
 
         // Get the zip file that will be used to create the Bookings lambda
         try {
@@ -196,7 +199,6 @@ public class SquashSettingsCustomResourceLambda implements
       } else if (requestType.equals("Delete")) {
         logger.log("Delete request - so doing nothing");
       }
-      // Do not handle Updates for now
 
       responseStatus = "SUCCESS";
       return null;

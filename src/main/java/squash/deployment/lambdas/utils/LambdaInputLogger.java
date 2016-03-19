@@ -58,6 +58,11 @@ public class LambdaInputLogger {
     standardRequestParameters.put("StackId", stackId);
     String logicalResourceId = (String) request.get("LogicalResourceId");
     standardRequestParameters.put("LogicalResourceId", logicalResourceId);
+    String physicalResourceId = (String) request.get("PhysicalResourceId");
+    if(physicalResourceId != null) {
+    	// Create RequestTypes do not have the physical id
+        standardRequestParameters.put("PhysicalResourceId", physicalResourceId);
+    }
     String responseURL = (String) request.get("ResponseURL");
     standardRequestParameters.put("ResponseURL", responseURL);
 
@@ -66,6 +71,9 @@ public class LambdaInputLogger {
     logger.log("RequestId: " + requestId);
     logger.log("StackId: " + stackId);
     logger.log("LogicalResourceId: " + logicalResourceId);
+    if(physicalResourceId != null) {
+    	logger.log("PhysicalResourceId: " + physicalResourceId);
+    }
     logger.log("ResponseURL: " + responseURL);
 
     return standardRequestParameters;

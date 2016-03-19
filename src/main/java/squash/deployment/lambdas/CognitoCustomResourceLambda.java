@@ -55,6 +55,10 @@ import java.util.Optional;
  * <p>The identity pool is created and provided with both unauthenticated and
  *    authenticated roles. This allows provision of temporary fine-grained AWS
  *    credentials to both guest users and authenticated users.
+ *    
+ * <p>Stack updates will just replace these roles.
+ * 
+ * <p>N.B. You should create at most one Cognito custom resource per stack.
  * 
  * @author robinsteel19@outlook.com (Robin Steel)
  */
@@ -83,6 +87,7 @@ public class CognitoCustomResourceLambda implements RequestHandler<Map<String, O
    *    <li>UnauthenticatedRole - arn of role specifying permissions for guest users.</li>
    *    <li>UnauthenticatedRoleName - name of the unauthenticated role.</li>
    *    <li>Region - the AWS region in which the Cloudformation stack is created.</li>
+   *    <li>Revision - integer incremented to force stack updates to update this resource.</li>
    * </ul>
    *
    * <p>On success, it returns the following output to Cloudformation:
@@ -90,6 +95,8 @@ public class CognitoCustomResourceLambda implements RequestHandler<Map<String, O
    *    <li>CognitoIdentityPoolId - id of the created Cognito Identity Pool.</li>
    * </ul>
    *
+   * <p>Updates will re-set the pool unauthenticated and authenticated roles
+   * 
    * @param request request parameters as provided by the CloudFormation service
    * @param context context as provided by the CloudFormation service
    */
@@ -114,6 +121,7 @@ public class CognitoCustomResourceLambda implements RequestHandler<Map<String, O
     String unauthenticatedRole = (String) resourceProps.get("UnauthenticatedRole");
     String unauthenticatedRoleName = (String) resourceProps.get("UnauthenticatedRoleName");
     String region = (String) resourceProps.get("Region");
+    String revision = (String) resourceProps.get("Revision");
 
     // Log out our custom request parameters
     logger.log("StackName: " + stackName);
@@ -122,6 +130,7 @@ public class CognitoCustomResourceLambda implements RequestHandler<Map<String, O
     logger.log("Unauthenticated role: " + unauthenticatedRole);
     logger.log("Unauthenticated role name: " + unauthenticatedRoleName);
     logger.log("Region: " + region);
+    logger.log("Revision: " + revision);
 
     // Prepare our response to be sent in the finally block
     CloudFormationResponder cloudFormationResponder = new CloudFormationResponder(
@@ -152,6 +161,13 @@ public class CognitoCustomResourceLambda implements RequestHandler<Map<String, O
               + identityPool.get().getIdentityPoolName());
           logger.log("Error: Cognito identity pool with name: " + identityPoolName
               + " already exists");
+          // Change physical id in responder - this is bc CloudFormation will
+          // follow up this failed creation with a Delete request to clean up
+          // - and we want to ignore that delete call - but not delete calls
+          // for our original resource - and we use the PhysicalId to tell these
+          // two cases apart.
+          cloudFormationResponder.setPhysicalResourceId("DuplicatePhysicalResourceId");
+
           return null;
         }
         // Create the Cognito identity pool with the specified name
@@ -162,45 +178,42 @@ public class CognitoCustomResourceLambda implements RequestHandler<Map<String, O
         createIdentityPoolRequest.setAllowUnauthenticatedIdentities(true);
         CreateIdentityPoolResult pool = client.createIdentityPool(createIdentityPoolRequest);
         identityPoolId = pool.getIdentityPoolId();
+        cloudFormationResponder.setPhysicalResourceId(identityPoolId);
 
         // Add roles to the pool
-        // First update the roles to use the actual pool id in their conditions
-        logger
-            .log("Updating authenticated and unauthenticated roles to use the actual identity pool id");
-        AmazonIdentityManagement iamClient = new AmazonIdentityManagementClient();
-        UpdateAssumeRolePolicyRequest updateAssumeRolePolicyRequest = new UpdateAssumeRolePolicyRequest();
-        updateAssumeRolePolicyRequest.setRoleName(unauthenticatedRoleName);
-        updateAssumeRolePolicyRequest.setPolicyDocument(getAssumeRolePolicyDocument(false,
-            identityPoolId, logger));
-        iamClient.updateAssumeRolePolicy(updateAssumeRolePolicyRequest);
-        updateAssumeRolePolicyRequest.setRoleName(authenticatedRoleName);
-        updateAssumeRolePolicyRequest.setPolicyDocument(getAssumeRolePolicyDocument(true,
-            identityPoolId, logger));
-        iamClient.updateAssumeRolePolicy(updateAssumeRolePolicyRequest);
+        addRolesToIdentityPool(unauthenticatedRoleName, unauthenticatedRole, authenticatedRoleName,
+            authenticatedRole, identityPoolId, client, logger);
 
-        // And add the updated roles to the pool
-        logger.log("Adding updated authenticated and unauthenticated roles to the identity pool");
-        SetIdentityPoolRolesRequest setIdentityPoolRolesRequest = new SetIdentityPoolRolesRequest();
-        setIdentityPoolRolesRequest.addRolesEntry("authenticated", authenticatedRole);
-        setIdentityPoolRolesRequest.addRolesEntry("unauthenticated", unauthenticatedRole);
-        setIdentityPoolRolesRequest.setIdentityPoolId(identityPoolId);
-        client.setIdentityPoolRoles(setIdentityPoolRolesRequest);
+      } else if (requestType.equals("Update")) {
+        // Updates will only ever be to the 2 pool roles - so just replace them
+        logger.log("Updating the Cognito identity pool roles");
+        identityPoolId = standardRequestParameters.get("PhysicalResourceId");
+        cloudFormationResponder.setPhysicalResourceId(identityPoolId);
+        addRolesToIdentityPool(unauthenticatedRoleName, unauthenticatedRole, authenticatedRoleName,
+            authenticatedRole, identityPoolId, client, logger);
 
       } else if (requestType.equals("Delete")) {
 
-        // Check the Cognito Identity Pool does exist
-        if (!identityPool.isPresent()) {
-          logger.log("Error: Cognito identity pool with name: " + identityPoolName
-              + " does not exist");
-          return null;
+        // Early-out if this is a Delete corresponding to a failed attempt to
+        // create a duplicate pool, otherwise we will end up wrongly deleting
+        // our (valid) original pool instead.
+        identityPoolId = standardRequestParameters.get("PhysicalResourceId");
+        if (identityPoolId.equals("DuplicatePhysicalResourceId")) {
+          logger.log("Ignoring delete request as it's for a non-existent duplicate pool");
+        } else {
+          // Check the Cognito Identity Pool does exist
+          if (!identityPool.isPresent()) {
+            logger.log("Error: Cognito identity pool with name: " + identityPoolName
+                + " does not exist");
+            return null;
+          }
+          // Delete the Cognito identity pool with the specified name
+          logger.log("Deleting Cognito identity pool with name: " + identityPoolName);
+          DeleteIdentityPoolRequest deleteIdentityPoolRequest = new DeleteIdentityPoolRequest();
+          deleteIdentityPoolRequest.setIdentityPoolId(identityPool.get().getIdentityPoolId());
+          client.deleteIdentityPool(deleteIdentityPoolRequest);
         }
-        // Delete the Cognito identity pool with the specified name
-        logger.log("Deleting Cognito identity pool with name: " + identityPoolName);
-        DeleteIdentityPoolRequest deleteIdentityPoolRequest = new DeleteIdentityPoolRequest();
-        deleteIdentityPoolRequest.setIdentityPoolId(identityPool.get().getIdentityPoolId());
-        client.deleteIdentityPool(deleteIdentityPoolRequest);
       }
-      // Do not handle Updates for now
 
       responseStatus = "SUCCESS";
       return null;
@@ -231,6 +244,32 @@ public class CognitoCustomResourceLambda implements RequestHandler<Map<String, O
       }
       cloudFormationResponder.sendResponse(responseStatus, outputs, logger);
     }
+  }
+
+  void addRolesToIdentityPool(String unauthenticatedRoleName, String unauthenticatedRole,
+      String authenticatedRoleName, String authenticatedRole, String identityPoolId,
+      AmazonCognitoIdentity client, LambdaLogger logger) {
+    // First update the roles to use the actual pool id in their conditions
+    logger
+        .log("Updating authenticated and unauthenticated roles to use the actual identity pool id");
+    AmazonIdentityManagement iamClient = new AmazonIdentityManagementClient();
+    UpdateAssumeRolePolicyRequest updateAssumeRolePolicyRequest = new UpdateAssumeRolePolicyRequest();
+    updateAssumeRolePolicyRequest.setRoleName(unauthenticatedRoleName);
+    updateAssumeRolePolicyRequest.setPolicyDocument(getAssumeRolePolicyDocument(false,
+        identityPoolId, logger));
+    iamClient.updateAssumeRolePolicy(updateAssumeRolePolicyRequest);
+    updateAssumeRolePolicyRequest.setRoleName(authenticatedRoleName);
+    updateAssumeRolePolicyRequest.setPolicyDocument(getAssumeRolePolicyDocument(true,
+        identityPoolId, logger));
+    iamClient.updateAssumeRolePolicy(updateAssumeRolePolicyRequest);
+
+    // And add the updated roles to the pool
+    logger.log("Adding updated authenticated and unauthenticated roles to the identity pool");
+    SetIdentityPoolRolesRequest setIdentityPoolRolesRequest = new SetIdentityPoolRolesRequest();
+    setIdentityPoolRolesRequest.addRolesEntry("authenticated", authenticatedRole);
+    setIdentityPoolRolesRequest.addRolesEntry("unauthenticated", unauthenticatedRole);
+    setIdentityPoolRolesRequest.setIdentityPoolId(identityPoolId);
+    client.setIdentityPoolRoles(setIdentityPoolRolesRequest);
   }
 
   String getAssumeRolePolicyDocument(Boolean isAuthenticatedRole, String identityPoolId,
