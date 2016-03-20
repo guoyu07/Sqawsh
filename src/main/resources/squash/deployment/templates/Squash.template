@@ -36,6 +36,15 @@
       "AllowedValues" : ["true", "false"],
       "ConstraintDescription" : "Can be true or false."
     },
+    "WebsiteAccessLogsBucketName": {
+      "Description" : "Name of the S3 bucket in which to store access logs for WebsiteBucketName.",
+      "Type": "String",
+      "MinLength": "1",
+      "MaxLength": "255",
+      "Default" : "squashwebsitelogs",
+      "AllowedPattern" : "[\\x20-\\x7E]*",
+      "ConstraintDescription" : "Can contain only ASCII characters."
+    },
     "LambdaZipsBucketName": {
       "Description" : "Name of the (pre-existing) S3 bucket with zips for all lambdas, and with this template.",
       "Type": "String",
@@ -757,6 +766,10 @@
       "Properties": {
         "BucketName": { "Ref" : "WebsiteBucketName" },
         "AccessControl": "PublicRead",
+        "LoggingConfiguration" : {
+          "DestinationBucketName" : {"Ref" : "WebsiteLogsBucket"},
+          "LogFilePrefix" : "Logs"
+        },
         "WebsiteConfiguration" : {
           "IndexDocument" : "today.html",
           "ErrorDocument" : "today.html",
@@ -776,6 +789,21 @@
           "Rules" : [{
             "ExpirationInDays" : 30,
             "NoncurrentVersionExpirationInDays" : 30,
+            "Status" : "Enabled"
+          }]
+        }
+      }
+    },
+
+    "WebsiteLogsBucket" : {
+      "Metadata" : {"Comment" : "Access logs for the squash website will be written to this bucket"},
+      "Type" : "AWS::S3::Bucket",
+      "Properties": {
+        "BucketName": { "Ref" : "WebsiteAccessLogsBucketName" },
+        "AccessControl": "LogDeliveryWrite",
+        "LifecycleConfiguration" : {
+          "Rules" : [{
+            "ExpirationInDays" : 7,
             "Status" : "Enabled"
           }]
         }
