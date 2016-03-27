@@ -25,8 +25,11 @@ import com.amazonaws.services.simpledb.model.Attribute;
 import com.amazonaws.services.simpledb.model.DeleteAttributesRequest;
 import com.amazonaws.services.simpledb.model.GetAttributesRequest;
 import com.amazonaws.services.simpledb.model.GetAttributesResult;
+import com.amazonaws.services.simpledb.model.Item;
 import com.amazonaws.services.simpledb.model.PutAttributesRequest;
 import com.amazonaws.services.simpledb.model.ReplaceableAttribute;
+import com.amazonaws.services.simpledb.model.SelectRequest;
+import com.amazonaws.services.simpledb.model.SelectResult;
 import com.amazonaws.services.simpledb.model.UpdateCondition;
 
 import java.io.IOException;
@@ -146,6 +149,49 @@ public class BookingManager implements IBookingManager {
       bookings.add(booking);
     }
     logger.log("Got all bookings from simpledb for date: " + date);
+
+    return bookings;
+  }
+
+  @Override
+  public List<Booking> getBookings() {
+    logger.log("About to get all bookings from simpledb for all dates");
+
+    // Query SimpleDB to get bookings
+    AmazonSimpleDB client = getSimpleDBClient();
+
+    SelectRequest selectRequest = new SelectRequest();
+    // N.B. Think if results are paged, second and subsequent pages will always
+    // be eventually-consistent only.
+    selectRequest.setConsistentRead(true);
+    // Query all items in the domain
+    selectRequest.setSelectExpression("select * from `" + simpleDbDomainName + "`");
+    String nextToken = null;
+    List<Booking> bookings = new ArrayList<>();
+    do {
+
+      // Convert items to Booking objects
+      // N.B. Attributes have names like <court>-<slot>
+      // e.g. 4-7 is a booking for court 4 at time slot 7
+      SelectResult selectResult = client.select(selectRequest);
+      for (Item item : selectResult.getItems()) {
+        for (Attribute attribute : item.getAttributes()) {
+          String[] parts = attribute.getName().split("-");
+          Integer court = Integer.parseInt(parts[0]);
+          Integer slot = Integer.parseInt(parts[1]);
+          String players = attribute.getValue();
+          Booking booking = new Booking(court, slot, players);
+          booking.setDate(item.getName());
+
+          logger.log("Adding booking to returned list: Date: " + item.getName() + ", Details: "
+              + booking.toString());
+          bookings.add(booking);
+        }
+      }
+      nextToken = selectResult.getNextToken();
+      selectRequest.setNextToken(nextToken);
+    } while (nextToken != null);
+    logger.log("Got all bookings from simpledb for all dates");
 
     return bookings;
   }

@@ -144,6 +144,6 @@ public class Booking {
   @Override
   public String toString() {
     return com.google.common.base.MoreObjects.toStringHelper(this).addValue(this.court)
-        .addValue(this.slot).addValue(this.players).toString();
+        .addValue(this.slot).addValue(this.players).addValue(this.date).toString();
   }
 }

@@ -73,6 +73,8 @@ public class SquashSettingsCustomResourceLambda implements
    * <ul>
    *    <li>SimpleDBDomainName - name of SimpleDb domain used to store squash bookings.</li>
    *    <li>WebsiteBucket - name of S3 bucket serving the booking website.</li>
+   *    <li>DatabaseBackupBucket - name of S3 bucket in which to store bookings database backups.</li>
+   *    <li>DatabaseBackupSNSTopic - arn of SNS topic to notify with bookings database backups.</li>
    *    <li>LambdaZipsBucket - S3 bucket holding the lambda-function java source code zip.</li>
    *    <li>S3InputKey - key for the java source code zip in the LambdaZipsBucket.</li>
    *    <li>S3OutputKey - key to save the modified java source code zip to in the LambdaZipsBucket.</li>
@@ -100,6 +102,8 @@ public class SquashSettingsCustomResourceLambda implements
     Map<String, Object> resourceProps = (Map<String, Object>) request.get("ResourceProperties");
     String simpleDBDomainName = (String) resourceProps.get("SimpleDBDomainName");
     String websiteBucket = (String) resourceProps.get("WebsiteBucket");
+    String databaseBackupBucket = (String) resourceProps.get("DatabaseBackupBucket");
+    String databaseBackupSNSTopic = (String) resourceProps.get("DatabaseBackupSNSTopic");
     String lambdaZipsBucket = (String) resourceProps.get("LambdaZipsBucket");
     String s3InputKey = (String) resourceProps.get("S3InputKey");
     String s3OutputKey = (String) resourceProps.get("S3OutputKey");
@@ -109,6 +113,8 @@ public class SquashSettingsCustomResourceLambda implements
     // Log out our custom request parameters
     logger.log("SimpleDBDomainName: " + simpleDBDomainName);
     logger.log("WebsiteBucket: " + websiteBucket);
+    logger.log("DatabaseBackupBucket: " + databaseBackupBucket);
+    logger.log("DatabaseBackupSNSTopic: " + databaseBackupSNSTopic);
     logger.log("LambdaZipsBucket: " + lambdaZipsBucket);
     logger.log("S3InputKey: " + s3InputKey);
     logger.log("S3OutputKey: " + s3OutputKey);
@@ -137,7 +143,7 @@ public class SquashSettingsCustomResourceLambda implements
           // Modify the resources file to point to the correct simpleDB domain
           // name, the region, and S3 bucket.
           logger
-              .log("Modifying the resources file to point to the correct simpleDB domain name, region, and S3 bucket");
+              .log("Modifying the resources file to point to the correct simpleDB domain name, region, S3 buckets, and SNS topic");
           String zipOutputPath = "/tmp/bookingsOut.zip";
           try (ZipFile zipFile = new ZipFile(downloadedFile)) {
             try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipOutputPath))) {
@@ -164,9 +170,12 @@ public class SquashSettingsCustomResourceLambda implements
                   while ((len = (is.read(buf))) > 0) {
                     String s = new String(buf);
                     if (s
-                        .contains("simpledbdomainname=stringtobereplaced\ns3websitebucketname=stringtobereplaced\nregion=stringtobereplaced")) {
+                        .contains("simpledbdomainname=stringtobereplaced\ns3websitebucketname=stringtobereplaced\ndatabasebackupbucketname=stringtobereplaced\ndatabasebackupsnstopicarn=stringtobereplaced\nregion=stringtobereplaced")) {
                       String modified = "simpledbdomainname=" + simpleDBDomainName
-                          + "\ns3websitebucketname=" + websiteBucket + "\nregion=" + region;
+                          + "\ns3websitebucketname=" + websiteBucket
+                          + "\ndatabasebackupbucketname=" + databaseBackupBucket
+                          + "\ndatabasebackupsnstopicarn=" + databaseBackupSNSTopic + "\nregion="
+                          + region;
                       byte[] buf_check = modified.getBytes();
                       len = buf_check.length;
                       if (len > 1024) {

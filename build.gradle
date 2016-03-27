@@ -57,6 +57,7 @@ dependencies {
                           'com.amazonaws:aws-java-sdk-lambda',
                           'com.amazonaws:aws-java-sdk-simpledb',
                           'com.amazonaws:aws-java-sdk-s3',
+                          'com.amazonaws:aws-java-sdk-sns',
                           'com.amazonaws:aws-java-sdk-logs',
                           'commons-io:commons-io:2.4',
                           'com.google.guava:guava:19.0',

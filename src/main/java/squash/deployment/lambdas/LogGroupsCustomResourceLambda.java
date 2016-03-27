@@ -84,6 +84,7 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
    *    <li>SquashCognitoCustomResourceLambdaName.</li>
    *    <li>SquashScheduledCloudwatchEventCustomResourceLambdaName.</li>
    *    <li>UpdateBookingsLambdaName.</li>
+   *    <li>DatabaseBackupLambdaName.</li>
    * </ul>
    * 
    * <p>Other keys:
@@ -124,6 +125,7 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
     String squashScheduledCloudwatchEventCustomResourceLambdaName = (String) resourceProps
         .get("SquashScheduledCloudwatchEventCustomResourceLambdaName");
     String updateBookingsLambdaName = (String) resourceProps.get("UpdateBookingsLambdaName");
+    String databaseBackupLambdaName = (String) resourceProps.get("DatabaseBackupLambdaName");
     String region = (String) resourceProps.get("Region");
     String revision = (String) resourceProps.get("Revision");
 
@@ -140,6 +142,7 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
     logger.log("SquashScheduledCloudwatchEventCustomResourceLambdaName: "
         + squashScheduledCloudwatchEventCustomResourceLambdaName);
     logger.log("UpdateBookingsLambdaName: " + updateBookingsLambdaName);
+    logger.log("DatabaseBackupLambdaName: " + databaseBackupLambdaName);
     logger.log("Region: " + region);
     logger.log("Revision: " + revision);
 
@@ -158,7 +161,8 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
         // groups (these lambdas will not have run and created their log groups
         // yet)
         List<String> lambdaNames = new ArrayList<>(Arrays.asList(validDatesLambdaName,
-            bookingsGETLambdaName, bookingsPUTDELETELambdaName, updateBookingsLambdaName));
+            bookingsGETLambdaName, bookingsPUTDELETELambdaName, updateBookingsLambdaName,
+            databaseBackupLambdaName));
 
         for (String lambdaName : lambdaNames) {
           logger.log("Creating log group: " + lambdaName);

@@ -16,9 +16,11 @@
 
 package squash.booking.lambdas;
 
+import squash.booking.lambdas.utils.BackupManager;
 import squash.booking.lambdas.utils.Booking;
 import squash.booking.lambdas.utils.BookingManager;
 import squash.booking.lambdas.utils.BookingsUtilities;
+import squash.booking.lambdas.utils.IBackupManager;
 import squash.booking.lambdas.utils.IBookingManager;
 import squash.booking.lambdas.utils.IPageManager;
 import squash.booking.lambdas.utils.PageManager;
@@ -43,10 +45,12 @@ import java.util.regex.Pattern;
  */
 public class PutDeleteBookingLambda {
 
+  private Optional<IBackupManager> backupManager;
   private Optional<IBookingManager> bookingManager;
   private Optional<IPageManager> pageManager;
 
   public PutDeleteBookingLambda() {
+    backupManager = Optional.empty();
     bookingManager = Optional.empty();
     pageManager = Optional.empty();
   }
@@ -61,6 +65,18 @@ public class PutDeleteBookingLambda {
       bookingManager.get().Initialise(logger);
     }
     return bookingManager.get();
+  }
+
+  /**
+   * Returns the {@link squash.booking.lambdas.utils.IBackupManager}.
+   */
+  protected IBackupManager getBackupManager(LambdaLogger logger) throws Exception {
+    // Use a getter here so unit tests can substitute a mock manager
+    if (!backupManager.isPresent()) {
+      backupManager = Optional.of(new BackupManager());
+      backupManager.get().Initialise(getBookingManager(logger), logger);
+    }
+    return backupManager.get();
   }
 
   /**
@@ -195,6 +211,9 @@ public class PutDeleteBookingLambda {
         apiGatewayBaseUrl, true, bookings);
     logger.log("Refreshed booking page in S3 with new booking");
 
+    // Backup this booking
+    getBackupManager(logger).backupSingleBooking(booking, true);
+
     // We redirect to the uid-suffixed booking page to ensure ReadAfterWrite
     // consistency
     PutDeleteBookingLambdaResponse response = new PutDeleteBookingLambdaResponse();
@@ -219,6 +238,9 @@ public class PutDeleteBookingLambda {
     String pageUidSuffix = pageManager.refreshPage(booking.getDate(), getValidDates(),
         apiGatewayBaseUrl, true, bookings);
     logger.log("Refreshed booking page in S3 after deleting booking");
+
+    // Backup this booking deletion
+    getBackupManager(logger).backupSingleBooking(booking, false);
 
     PutDeleteBookingLambdaResponse response = new PutDeleteBookingLambdaResponse();
     // We redirect to the suffixed booking page to ensure ReadAfterWrite

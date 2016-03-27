@@ -1,3 +1,5 @@
 simpledbdomainname=stringtobereplaced
 s3websitebucketname=stringtobereplaced
+databasebackupbucketname=stringtobereplaced
+databasebackupsnstopicarn=stringtobereplaced
 region=stringtobereplaced

@@ -51,6 +51,12 @@ public interface IBookingManager {
   List<Booking> getBookings(String date);
 
   /**
+   * Returns all court bookings for all dates.
+   * 
+   */
+  List<Booking> getBookings();
+
+  /**
    * Deletes a court booking.
    * 
    * @return All bookings for the same day as the deleted booking, excluding the deleted booking.

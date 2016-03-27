@@ -58,6 +58,7 @@ import java.util.stream.Collectors;
  * <p>Scheduled events are used to:
  * <ul>
  *    <li>Move the website forward one day every midnight.</li>
+ *    <li>Backup all bookings every midnight.</li>
  *    <li>Keep the lambda functions warm by running them every 5 minutes.</li>
  * </ul>
  * 
@@ -76,6 +77,7 @@ public class ScheduledCloudwatchEventCustomResourceLambda implements
    * <ul>
    *    <li>ApiGatewayBaseUrl - base Url of the ApiGateway Api.</li>
    *    <li>UpdateBookingsLambdaArn - arn of the lambda function to move the site forward by a day.</li>
+   *    <li>DatabaseBackupLambdaArn - arn of the lambda function to backup all bookings.</li>
    *    <li>CreateOrDeleteBookingsLambdaArn - arn of the lambda function to keep warm.</li>
    *    <li>Region - the AWS region in which the Cloudformation stack is created.</li>
    *    <li>Revision - integer incremented to force stack updates to update this resource.</li>
@@ -107,6 +109,7 @@ public class ScheduledCloudwatchEventCustomResourceLambda implements
     Map<String, Object> resourceProps = (Map<String, Object>) request.get("ResourceProperties");
     String apiGatewayBaseUrl = (String) resourceProps.get("ApiGatewayBaseUrl");
     String updateBookingsLambdaArn = ((String) resourceProps.get("UpdateBookingsLambdaArn"));
+    String databaseBackupLambdaArn = ((String) resourceProps.get("DatabaseBackupLambdaArn"));
     String createOrDeleteBookingsLambdaArn = ((String) resourceProps
         .get("CreateOrDeleteBookingsLambdaArn"));
     String region = (String) resourceProps.get("Region");
@@ -115,6 +118,7 @@ public class ScheduledCloudwatchEventCustomResourceLambda implements
     // Log out our custom request parameters
     logger.log("ApiGatewayBaseUrl: " + apiGatewayBaseUrl);
     logger.log("UpdateBookingsLambdaArn: " + updateBookingsLambdaArn);
+    logger.log("DatabaseBackupLambdaArn: " + databaseBackupLambdaArn);
     logger.log("CreateOrDeleteBookingsLambdaArn: " + createOrDeleteBookingsLambdaArn);
     logger.log("Region: " + region);
     logger.log("Revision: " + revision);
@@ -132,7 +136,8 @@ public class ScheduledCloudwatchEventCustomResourceLambda implements
     String stackId = standardRequestParameters.get("StackId");
     String guid = stackId.substring(stackId.lastIndexOf('/') + 1);
     String midnight_rule_name = "MidnightRunner_" + guid;
-    String midnight_target_id = "MidnightTarget_" + guid;
+    String midnight_refresh_target_id = "MidnightRefreshTarget_" + guid;
+    String midnight_backup_target_id = "MidnightBackupTarget_" + guid;
     String prewarmer_rule_name = "Prewarmer_" + guid;
     String prewarmer_target_id = "PrewarmerTarget_" + guid;
     Map<String, String> ruleArns = null;
@@ -142,10 +147,10 @@ public class ScheduledCloudwatchEventCustomResourceLambda implements
 
       if (requestType.equals("Create")) {
 
-        ruleArns = setUpRulesAndTargets(midnight_rule_name, midnight_target_id,
-            prewarmer_rule_name, prewarmer_target_id, apiGatewayBaseUrl,
-            createOrDeleteBookingsLambdaArn, updateBookingsLambdaArn, amazonCloudWatchEventsClient,
-            logger);
+        ruleArns = setUpRulesAndTargets(midnight_rule_name, midnight_refresh_target_id,
+            midnight_backup_target_id, prewarmer_rule_name, prewarmer_target_id, apiGatewayBaseUrl,
+            createOrDeleteBookingsLambdaArn, updateBookingsLambdaArn, databaseBackupLambdaArn,
+            amazonCloudWatchEventsClient, logger);
 
       } else if (requestType.equals("Update")) {
         // First remove any existing targets from the rules
@@ -175,10 +180,10 @@ public class ScheduledCloudwatchEventCustomResourceLambda implements
 
         // Re-put the rules and then add back updated targets to them
         logger.log("Adding back updated rules and their targets");
-        ruleArns = setUpRulesAndTargets(midnight_rule_name, midnight_target_id,
-            prewarmer_rule_name, prewarmer_target_id, apiGatewayBaseUrl,
-            createOrDeleteBookingsLambdaArn, updateBookingsLambdaArn, amazonCloudWatchEventsClient,
-            logger);
+        ruleArns = setUpRulesAndTargets(midnight_rule_name, midnight_refresh_target_id,
+            midnight_backup_target_id, prewarmer_rule_name, prewarmer_target_id, apiGatewayBaseUrl,
+            createOrDeleteBookingsLambdaArn, updateBookingsLambdaArn, databaseBackupLambdaArn,
+            amazonCloudWatchEventsClient, logger);
 
       } else if (requestType.equals("Delete")) {
         logger.log("Delete request - so deleting the scheduled cloudwatch rules");
@@ -188,7 +193,8 @@ public class ScheduledCloudwatchEventCustomResourceLambda implements
         RemoveTargetsRequest removeMidnightTargetsRequest = new RemoveTargetsRequest();
         removeMidnightTargetsRequest.setRule(midnight_rule_name);
         Collection<String> midnightTargetIds = new ArrayList<>();
-        midnightTargetIds.add(midnight_target_id);
+        midnightTargetIds.add(midnight_refresh_target_id);
+        midnightTargetIds.add(midnight_backup_target_id);
         removeMidnightTargetsRequest.setIds(midnightTargetIds);
         amazonCloudWatchEventsClient.removeTargets(removeMidnightTargetsRequest);
         logger.log("Removed lambda target from MidnightRunner rule");
@@ -259,10 +265,12 @@ public class ScheduledCloudwatchEventCustomResourceLambda implements
     }
   }
 
-  Map<String, String> setUpRulesAndTargets(String midnight_rule_name, String midnight_target_id,
+  Map<String, String> setUpRulesAndTargets(String midnight_rule_name,
+      String midnight_refresh_target_id, String midnight_backup_target_id,
       String prewarmer_rule_name, String prewarmer_target_id, String apiGatewayBaseUrl,
       String createOrDeleteBookingsLambdaArn, String updateBookingsLambdaArn,
-      AmazonCloudWatchEvents amazonCloudWatchEventsClient, LambdaLogger logger) {
+      String databaseBackupLambdaArn, AmazonCloudWatchEvents amazonCloudWatchEventsClient,
+      LambdaLogger logger) {
 
     // Create midnight rule with Cron expression
     logger.log("Creating midnight rule");
@@ -274,19 +282,24 @@ public class ScheduledCloudwatchEventCustomResourceLambda implements
     putMidnightRuleRequest.setName(midnight_rule_name);
     putMidnightRuleRequest.setState(RuleState.ENABLED);
     putMidnightRuleRequest
-        .setDescription("This runs just after midnight every day to refresh all the squash booking pages in S3");
+        .setDescription("This runs just after midnight every day to backup bookings and refresh all the squash booking pages in S3");
     Map<String, String> ruleArns = new HashMap<String, String>();
     ruleArns.put("MidnightScheduledCloudwatchEventRuleArn",
         amazonCloudWatchEventsClient.putRule(putMidnightRuleRequest).getRuleArn());
 
-    // Create target with updateBookings lambda, and attach rule to it
+    // Create target with updateBookings and backupBookings lambdas, and attach
+    // rule to it
     logger.log("Attaching updataBookings lambda to the midnight rule");
-    Target midnightTarget = new Target();
-    midnightTarget.setArn(updateBookingsLambdaArn);
-    midnightTarget.setInput("{\"apiGatewayBaseUrl\" : \"" + apiGatewayBaseUrl + "\"}");
-    midnightTarget.setId(midnight_target_id);
+    Target midnightRefreshTarget = new Target();
+    midnightRefreshTarget.setArn(updateBookingsLambdaArn);
+    midnightRefreshTarget.setInput("{\"apiGatewayBaseUrl\" : \"" + apiGatewayBaseUrl + "\"}");
+    midnightRefreshTarget.setId(midnight_refresh_target_id);
     Collection<Target> midnightTargets = new ArrayList<>();
-    midnightTargets.add(midnightTarget);
+    midnightTargets.add(midnightRefreshTarget);
+    Target midnightBackupTarget = new Target();
+    midnightBackupTarget.setArn(databaseBackupLambdaArn);
+    midnightBackupTarget.setId(midnight_backup_target_id);
+    midnightTargets.add(midnightBackupTarget);
     PutTargetsRequest putMidnightTargetsRequest = new PutTargetsRequest();
     putMidnightTargetsRequest.setRule(midnight_rule_name);
     putMidnightTargetsRequest.setTargets(midnightTargets);

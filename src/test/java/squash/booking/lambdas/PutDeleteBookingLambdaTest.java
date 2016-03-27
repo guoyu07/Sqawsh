@@ -17,6 +17,7 @@
 package squash.booking.lambdas;
 
 import squash.booking.lambdas.utils.Booking;
+import squash.booking.lambdas.utils.IBackupManager;
 import squash.booking.lambdas.utils.IBookingManager;
 import squash.booking.lambdas.utils.IPageManager;
 
@@ -72,6 +73,7 @@ public class PutDeleteBookingLambdaTest {
   public void beforeTest() throws IOException {
     mockery = new Mockery();
     putDeleteBookingLambda = new TestPutDeleteBookingLambda();
+    putDeleteBookingLambda.setBackupManager(mockery.mock(IBackupManager.class));
     putDeleteBookingLambda.setPageManager(mockery.mock(IPageManager.class));
     putDeleteBookingLambda.setBookingManager(mockery.mock(IBookingManager.class));
 
@@ -127,10 +129,20 @@ public class PutDeleteBookingLambdaTest {
 
   // Define a test sublass with some overrides to facilitate testing
   public class TestPutDeleteBookingLambda extends PutDeleteBookingLambda {
+    private IBackupManager backupManager;
     private IBookingManager bookingManager;
     private IPageManager pageManager;
     private LocalDate currentLocalDate;
     private List<String> validDates;
+
+    public void setBackupManager(IBackupManager backupManager) {
+      this.backupManager = backupManager;
+    }
+
+    @Override
+    protected IBackupManager getBackupManager(LambdaLogger logger) throws Exception {
+      return backupManager;
+    }
 
     public void setBookingManager(IBookingManager bookingManager) {
       this.bookingManager = bookingManager;
@@ -321,6 +333,14 @@ public class PutDeleteBookingLambdaTest {
         never(putDeleteBookingLambda.getBookingManager(mockLogger)).deleteBooking(with(anything()));
       }
     });
+    // The backup manager should not be called
+    mockery.checking(new Expectations() {
+      {
+        never(putDeleteBookingLambda.getBackupManager(mockLogger)).backupSingleBooking(
+            with(anything()), with(anything()));
+        never(putDeleteBookingLambda.getBackupManager(mockLogger)).backupAllBookings();
+      }
+    });
 
     // Act
     putDeleteBookingLambda.createOrDeleteBooking(request, mockContext);
@@ -337,8 +357,9 @@ public class PutDeleteBookingLambdaTest {
         oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).createBooking(
             with(equal(booking)));
         will(returnValue(bookings));
-        // Not interested in PageManager calls in this test
+        // Not interested in PageManager or BackupManager calls in this test
         ignoring(putDeleteBookingLambda.getPageManager(mockLogger));
+        ignoring(putDeleteBookingLambda.getBackupManager(mockLogger));
       }
     });
 
@@ -364,6 +385,8 @@ public class PutDeleteBookingLambdaTest {
         oneOf(putDeleteBookingLambda.getPageManager(mockLogger)).refreshPage(fakeCurrentDateString,
             validDates, apiGatewayBaseUrl, true, bookings);
         will(returnValue(suffix));
+        // Not interested in BackupManager calls in this test
+        ignoring(putDeleteBookingLambda.getBackupManager(mockLogger));
       }
     });
 
@@ -371,6 +394,31 @@ public class PutDeleteBookingLambdaTest {
     doTestCreateBooking(fakeCurrentDateString, court.toString() + "-" + slot.toString(),
         playersNames, player1Name, player2Name, court.toString(), slot.toString(), password,
         apiGatewayBaseUrl, true);
+  }
+
+  @Test
+  public void testCreateBookingCorrectlyCallsTheBackupManager() throws Exception {
+    // Test createBooking makes the correct calls to the backup manager - it
+    // should backup each booking that is created or deleted.
+
+    // ARRANGE
+    // Set up a test booking
+    mockery.checking(new Expectations() {
+      {
+        oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).createBooking(
+            with(equal(booking)));
+        will(returnValue(bookings));
+        // Not interested in PageManager calls in this test
+        ignoring(putDeleteBookingLambda.getPageManager(mockLogger));
+        oneOf(putDeleteBookingLambda.getBackupManager(mockLogger)).backupSingleBooking(booking,
+            true);
+      }
+    });
+
+    // ACT and ASSERT
+    doTestCreateBooking(fakeCurrentDateString, court.toString() + "-" + slot.toString(),
+        playersNames, player1Name, player2Name, court.toString(), slot.toString(), password,
+        apiGatewayBaseUrl, false);
   }
 
   @Test
@@ -411,6 +459,31 @@ public class PutDeleteBookingLambdaTest {
         oneOf(putDeleteBookingLambda.getPageManager(mockLogger)).refreshPage(with(anything()),
             with(anything()), with(anything()), with(anything()), with(anything()));
         will(throwException(new Exception("Booking creation failed")));
+      }
+    });
+
+    thrown.expect(Exception.class);
+    thrown.expectMessage(genericExceptionMessage);
+
+    // ACT and ASSERT
+    doTestCreateBooking(fakeCurrentDateString, court.toString() + "-" + slot.toString(),
+        playersNames, player1Name, player2Name, court.toString(), slot.toString(), password,
+        apiGatewayBaseUrl, false);
+  }
+
+  @Test
+  public void testCreateBookingThrowsWhenTheBackupManagerThrows() throws Exception {
+    // Test createBooking throws when the Backup manager throws.
+
+    // ARRANGE
+    // Set up a test booking
+    mockery.checking(new Expectations() {
+      {
+        ignoring(putDeleteBookingLambda.getBookingManager(mockLogger));
+        ignoring(putDeleteBookingLambda.getPageManager(mockLogger));
+        oneOf(putDeleteBookingLambda.getBackupManager(mockLogger)).backupSingleBooking(
+            with(anything()), with(anything()));
+        will(throwException(new Exception("Booking backup failed")));
       }
     });
 
@@ -573,8 +646,9 @@ public class PutDeleteBookingLambdaTest {
         oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).deleteBooking(
             with(equal(booking)));
         will(returnValue(bookings));
-        // Not interested in PageManager calls in this test
+        // Not interested in PageManager or BackupManager calls in this test
         ignoring(putDeleteBookingLambda.getPageManager(mockLogger));
+        ignoring(putDeleteBookingLambda.getBackupManager(mockLogger));
       }
     });
 
@@ -600,6 +674,8 @@ public class PutDeleteBookingLambdaTest {
         oneOf(putDeleteBookingLambda.getPageManager(mockLogger)).refreshPage(fakeCurrentDateString,
             validDates, apiGatewayBaseUrl, true, bookings);
         will(returnValue(suffix));
+        // Not interested in BackupManager calls in this test
+        ignoring(putDeleteBookingLambda.getBackupManager(mockLogger));
       }
     });
 
@@ -607,6 +683,32 @@ public class PutDeleteBookingLambdaTest {
     doTestDeleteBooking(fakeCurrentDateString, court.toString() + "-" + slot.toString(),
         playersNames, player1Name, player2Name, court.toString(), slot.toString(), password,
         apiGatewayBaseUrl, true);
+  }
+
+  @Test
+  public void testDeleteBookingCorrectlyCallsTheBackupManager() throws Exception {
+    // Test deleteBooking makes the correct calls to the backup manager - it
+    // should backup the booking just deleted.
+
+    // ARRANGE
+    // Set up a test booking
+    mockery.checking(new Expectations() {
+      {
+        // The BookingManager returns the bookings that are passed to
+        // refreshPage.
+        oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).deleteBooking(with(anything()));
+        will(returnValue(bookings));
+        // Not interested in PageManager calls in this test
+        ignoring(putDeleteBookingLambda.getPageManager(mockLogger));
+        oneOf(putDeleteBookingLambda.getBackupManager(mockLogger)).backupSingleBooking(booking,
+            false);
+      }
+    });
+
+    // ACT and ASSERT
+    doTestDeleteBooking(fakeCurrentDateString, court.toString() + "-" + slot.toString(),
+        playersNames, player1Name, player2Name, court.toString(), slot.toString(), password,
+        apiGatewayBaseUrl, false);
   }
 
   @Test
@@ -646,6 +748,31 @@ public class PutDeleteBookingLambdaTest {
         oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).deleteBooking(
             with(any(Booking.class)));
         will(throwException(new Exception("Booking deletion failed")));
+        ignoring(putDeleteBookingLambda.getPageManager(mockLogger));
+      }
+    });
+
+    thrown.expect(Exception.class);
+    thrown.expectMessage(genericExceptionMessage);
+
+    // ACT and ASSERT
+    doTestDeleteBooking(fakeCurrentDateString, court.toString() + "-" + slot.toString(),
+        playersNames, player1Name, player2Name, court.toString(), slot.toString(), password,
+        apiGatewayBaseUrl, false);
+  }
+
+  @Test
+  public void testDeleteBookingThrowsWhenTheBackupManagerThrows() throws Exception {
+    // Test deleteBooking throws when the Backup manager throws.
+
+    // ARRANGE
+    // Set up a test booking
+    mockery.checking(new Expectations() {
+      {
+        oneOf(putDeleteBookingLambda.getBackupManager(mockLogger)).backupSingleBooking(
+            with(any(Booking.class)), with(any(Boolean.class)));
+        will(throwException(new Exception("Booking backup failed")));
+        ignoring(putDeleteBookingLambda.getBookingManager(mockLogger));
         ignoring(putDeleteBookingLambda.getPageManager(mockLogger));
       }
     });

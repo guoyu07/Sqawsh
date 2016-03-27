@@ -45,6 +45,24 @@
       "AllowedPattern" : "[\\x20-\\x7E]*",
       "ConstraintDescription" : "Can contain only ASCII characters."
     },
+    "DatabaseBackupBucketName": {
+      "Description" : "Name of the S3 bucket in which to store bookings database backups.",
+      "Type": "String",
+      "MinLength": "1",
+      "MaxLength": "255",
+      "Default" : "squashdatabasebackups",
+      "AllowedPattern" : "[\\x20-\\x7E]*",
+      "ConstraintDescription" : "Can contain only ASCII characters."
+    },
+    "DatabaseBackupEmail": {
+      "Description" : "Email address to receive bookings database backups.",
+      "Type": "String",
+      "MinLength": "1",
+      "MaxLength": "255",
+      "Default" : "robinsteel19@outlook.com",
+      "AllowedPattern" : "[\\x20-\\x7E]*",
+      "ConstraintDescription" : "Must be a valid email address."
+    },
     "LambdaZipsBucketName": {
       "Description" : "Name of the (pre-existing) S3 bucket with zips for all lambdas, and with this template.",
       "Type": "String",
@@ -85,6 +103,7 @@
   },
     
   "Resources" : {
+
     "SquashApiGatewayCustomResourceLambdaExecutionRole": {
       "Metadata" : { "Comment1" : "Role assumed by AWS Lambda service to execute",
                      "Comment2" : "the lambda that creates our ApiGateway API",
@@ -591,7 +610,8 @@
                 "Action": [
                   "sdb:putAttributes",
                   "sdb:getAttributes",
-                  "sdb:deleteAttributes"
+                  "sdb:deleteAttributes",
+                  "sdb:Select"
                 ],
                 "Resource": {"Fn::Join" : ["", [
                   "arn:aws:sdb:",
@@ -620,6 +640,27 @@
                   {"Fn::Join" : ["", [
                   "arn:aws:s3:::",
                   { "Ref" : "WebsiteBucketName" }
+                ]]},{"Fn::Join" : ["", [
+                  "arn:aws:s3:::",
+                  { "Ref" : "DatabaseBackupBucketName" },
+                  "/*"
+                ]]},
+                  {"Fn::Join" : ["", [
+                  "arn:aws:s3:::",
+                  { "Ref" : "DatabaseBackupBucketName" }
+                ]]}]
+              },
+              {
+                "Effect": "Allow",
+                "Action": "sns:Publish",
+                "Resource": [
+                  {"Fn::Join" : ["", [
+                  "arn:aws:sns:",
+                  { "Ref" : "AWS::Region" },
+                  ":",
+                  { "Ref" : "AWS::AccountId" },
+                  ":",
+                  {"Fn::GetAtt" : ["DatabaseBackupSNSTopic", "TopicName"]}
                 ]]}]
               }]
             }
@@ -798,6 +839,7 @@
     "WebsiteLogsBucket" : {
       "Metadata" : {"Comment" : "Access logs for the squash website will be written to this bucket"},
       "Type" : "AWS::S3::Bucket",
+      "DeletionPolicy" : "Retain",
       "Properties": {
         "BucketName": { "Ref" : "WebsiteAccessLogsBucketName" },
         "AccessControl": "LogDeliveryWrite",
@@ -808,6 +850,52 @@
           }]
         }
       }
+    },
+
+    "DatabaseBackupBucket" : {
+      "Metadata" : {"Comment" : "Holds backup snapshots of the bookings database"},
+      "Type" : "AWS::S3::Bucket",
+      "DeletionPolicy" : "Retain",
+      "Properties": {
+        "BucketName": { "Ref" : "DatabaseBackupBucketName" },
+        "VersioningConfiguration" : {"Status" : "Enabled"},
+        "LifecycleConfiguration" : {
+          "Rules" : [{
+            "ExpirationInDays" : 30,
+            "NoncurrentVersionExpirationInDays" : 30,
+            "Status" : "Enabled"
+          }]
+        }
+      }
+    },
+ 
+    "DatabaseBackupSNSTopic" : {
+      "Metadata" : {
+        "Comment" : "Allows subscribing an email address to receive backup snapshots of the bookings database.",
+        "Comment" : "(Primary backup is to S3 - but email can provide extra independent backup, just in case...)"},
+      "Type" : "AWS::SNS::Topic",
+      "Properties" : {
+        "Subscription" : [
+         { "Endpoint" : { "Ref" : "DatabaseBackupEmail" }, "Protocol" : "email" }
+        ]
+      }
+    },
+
+    "DatabaseBackupLambda": {
+      "Type": "AWS::Lambda::Function",
+      "Metadata" : { "Comment" : "Lambda to backup all database bookings" },
+      "Properties": {
+        "Code": {
+          "S3Bucket" : {"Ref" : "LambdaZipsBucketName"},
+          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsFolderName"}, "/", {"Ref" : "AWS::StackId"}, {"Ref" : "LambdaZipsKeyNameBase"}, "Modified", {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
+        },
+        "Handler": "squash.booking.lambdas.BackupBookingsLambda::backupBookings",
+        "Runtime": "java8",
+        "MemorySize" : 1024,
+        "Timeout": "60",
+        "Role": { "Fn::GetAtt" : ["BookingsLambdaExecutionRole", "Arn"] }
+      },
+      "DependsOn": ["BookingsLambdaExecutionRole", "SquashSettingsCustomResource"]
     },
 
     "SquashApiGatewayCustomResourceLambda": {
@@ -850,9 +938,9 @@
 
     "SquashSettingsCustomResourceLambda": {
       "Type": "AWS::Lambda::Function",
-      "Metadata" : { "Comment1" : "Lambda to manage our custom resource to redirect booking lambdas to our SimpleDB domain,",
-                     "Comment2" : "and website bucket. This modifies the lambda zip file in S3 so that its settings file",
-                     "Comment3" : "points to the simpleDB domain and the S3 website bucket." },
+      "Metadata" : { "Comment1" : "Lambda to manage our custom resource to configure settings file for use by lambda",
+                     "Comment2" : "functions. This modifies the lambda zip file in S3 so that its settings file",
+                     "Comment3" : "contains various values that are not known until stack creation time." },
       "Properties": {
         "Code": {
           "S3Bucket" : {"Ref" : "LambdaZipsBucketName"},
@@ -868,20 +956,22 @@
     },
 
     "SquashSettingsCustomResource" : {
-      "Metadata" : { "Comment" : "Lambda-backed custom resource to redirect booking lambdas to our SimpleDB domain, and website bucket" },
+      "Metadata" : { "Comment" : "Lambda-backed custom resource to configure settings file for use by lambda functions" },
       "Type" : "Custom::SquashSettings",
       "Version" : "1.0",
       "Properties" : {
         "ServiceToken": { "Fn::GetAtt" : ["SquashSettingsCustomResourceLambda", "Arn"] },
         "SimpleDBDomainName" : { "Ref" : "SquashSimpleDBDomain" },
         "WebsiteBucket" : {"Ref" : "WebsiteBucketName"},
+        "DatabaseBackupBucket" : {"Ref" : "DatabaseBackupBucketName"},
+        "DatabaseBackupSNSTopic" : {"Ref" : "DatabaseBackupSNSTopic"},
         "LambdaZipsBucket" : {"Ref" : "LambdaZipsBucketName"},
         "S3InputKey" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsFolderName"}, "/", {"Ref" : "LambdaZipsKeyNameBase"}, {"Ref" : "LambdaZipsRevision"}, ".zip"]]},
         "S3OutputKey" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsFolderName"}, "/", {"Ref" : "AWS::StackId"}, {"Ref" : "LambdaZipsKeyNameBase"}, "Modified", {"Ref" : "LambdaZipsRevision"}, ".zip"]]},
         "Region" : { "Ref" : "AWS::Region" },
         "Revision" : {"Ref" : "LambdaZipsRevision"}
       },
-      "DependsOn": ["SquashSettingsCustomResourceLambda", "SquashSimpleDBDomain", "WebsiteBucket"]
+      "DependsOn": ["SquashSettingsCustomResourceLambda", "SquashSimpleDBDomain", "WebsiteBucket", "DatabaseBackupBucket", "DatabaseBackupSNSTopic"]
     },
 
     "SquashSimpleDBDomain" : {
@@ -946,7 +1036,8 @@
     "SquashScheduledCloudwatchEventCustomResourceLambda": {
       "Type": "AWS::Lambda::Function",
       "Metadata" : { "Comment" : "Lambda to create our scheduled cloudwatch event. This will fire",
-                     "Comment" : "every midnight to update the bookings pages." },
+                     "Comment" : "every midnight to backup the bookings database and update the",
+                     "Comment" : "bookings pages."},
       "Properties": {
         "Code": {
           "S3Bucket" : {"Ref" : "LambdaZipsBucketName"},
@@ -961,11 +1052,22 @@
       "DependsOn": ["SquashScheduledCloudwatchEventCustomResourceRole", "SquashSettingsCustomResource"]
     },
 
-    "SquashMidnightScheduledCloudwatchEventCustomResourceLambdaInvokePermission": {
+    "SquashMidnightRefreshScheduledCloudwatchEventCustomResourceLambdaInvokePermission": {
       "Metadata" : { "Comment" : "Permission for our CloudwatchEvents rule to invoke the midnight lambda" },
       "Type": "AWS::Lambda::Permission",
       "Properties": {
         "FunctionName" : { "Fn::GetAtt" : ["UpdateBookingsLambda", "Arn"] },
+        "Action": "lambda:InvokeFunction",
+        "Principal": "events.amazonaws.com",
+        "SourceArn" : { "Fn::GetAtt" : [ "SquashScheduledCloudwatchEventCustomResource", "MidnightScheduledCloudwatchEventRuleArn" ] }
+      }
+    },
+
+    "SquashMidnightBackupScheduledCloudwatchEventCustomResourceLambdaInvokePermission": {
+      "Metadata" : { "Comment" : "Permission for our CloudwatchEvents rule to invoke the midnight lambda" },
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "FunctionName" : { "Fn::GetAtt" : ["DatabaseBackupLambda", "Arn"] },
         "Action": "lambda:InvokeFunction",
         "Principal": "events.amazonaws.com",
         "SourceArn" : { "Fn::GetAtt" : [ "SquashScheduledCloudwatchEventCustomResource", "MidnightScheduledCloudwatchEventRuleArn" ] }
@@ -991,6 +1093,7 @@
         "ServiceToken": { "Fn::GetAtt" : ["SquashScheduledCloudwatchEventCustomResourceLambda", "Arn"] },
         "ApiGatewayBaseUrl" : { "Fn::GetAtt" : ["SquashApiGatewayCustomResource", "ApiGatewayBaseUrl"] },
         "UpdateBookingsLambdaArn" : { "Fn::GetAtt" : ["UpdateBookingsLambda", "Arn"] },
+        "DatabaseBackupLambdaArn" : { "Fn::GetAtt" : ["DatabaseBackupLambda", "Arn"] },
         "CreateOrDeleteBookingsLambdaArn" : { "Fn::GetAtt" : ["BookingsPUTDELETELambda", "Arn"] },
         "Region" : { "Ref" : "AWS::Region" },
         "Revision" : {"Ref" : "LambdaZipsRevision"}
