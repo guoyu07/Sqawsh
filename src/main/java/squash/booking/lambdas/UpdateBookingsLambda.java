@@ -113,7 +113,12 @@ public class UpdateBookingsLambda {
     try {
       logger.log("About to refresh all bookings pages");
       IPageManager pageManager = getPageManager(logger);
-      pageManager.refreshAllPages(getValidDates(), request.getApiGatewayBaseUrl());
+      String apiGatewayBaseUrl = request.getApiGatewayBaseUrl();
+      if (apiGatewayBaseUrl == null) {
+        logger.log("Throwing because request has null ApiGatewayBaseUrl");
+        throw new Exception("ApiGatewayBaseUrl should not be null");
+      }
+      pageManager.refreshAllPages(getValidDates(), apiGatewayBaseUrl);
       logger.log("Refreshed all bookings pages");
 
       // Remove the now-previous day's bookings from the database

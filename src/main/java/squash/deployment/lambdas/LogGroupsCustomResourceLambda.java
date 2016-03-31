@@ -85,6 +85,7 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
    *    <li>SquashScheduledCloudwatchEventCustomResourceLambdaName.</li>
    *    <li>UpdateBookingsLambdaName.</li>
    *    <li>DatabaseBackupLambdaName.</li>
+   *    <li>DatabaseRestoreLambdaName.</li>
    * </ul>
    * 
    * <p>Other keys:
@@ -126,6 +127,7 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
         .get("SquashScheduledCloudwatchEventCustomResourceLambdaName");
     String updateBookingsLambdaName = (String) resourceProps.get("UpdateBookingsLambdaName");
     String databaseBackupLambdaName = (String) resourceProps.get("DatabaseBackupLambdaName");
+    String databaseRestoreLambdaName = (String) resourceProps.get("DatabaseRestoreLambdaName");
     String region = (String) resourceProps.get("Region");
     String revision = (String) resourceProps.get("Revision");
 
@@ -143,6 +145,7 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
         + squashScheduledCloudwatchEventCustomResourceLambdaName);
     logger.log("UpdateBookingsLambdaName: " + updateBookingsLambdaName);
     logger.log("DatabaseBackupLambdaName: " + databaseBackupLambdaName);
+    logger.log("DatabaseRestoreLambdaName: " + databaseRestoreLambdaName);
     logger.log("Region: " + region);
     logger.log("Revision: " + revision);
 
@@ -162,7 +165,7 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
         // yet)
         List<String> lambdaNames = new ArrayList<>(Arrays.asList(validDatesLambdaName,
             bookingsGETLambdaName, bookingsPUTDELETELambdaName, updateBookingsLambdaName,
-            databaseBackupLambdaName));
+            databaseBackupLambdaName, databaseRestoreLambdaName));
 
         for (String lambdaName : lambdaNames) {
           logger.log("Creating log group: " + lambdaName);

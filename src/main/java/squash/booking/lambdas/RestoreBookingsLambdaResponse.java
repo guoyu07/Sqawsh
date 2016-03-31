@@ -16,26 +16,10 @@
 
 package squash.booking.lambdas;
 
-import squash.booking.lambdas.utils.Booking;
-
-import java.util.List;
-
 /**
- * Response for the {@link BackupBookingsLambda BackupBookings} lambda function.
+ * Response parameter for the {@link RestoreBookingsLambda RestoreBookings} lambda function.
  * 
  * @author robinsteel19@outlook.com (Robin Steel)
  */
-public class BackupBookingsLambdaResponse {
-  List<Booking> bookings;
-
-  /**
-   *  Returns the list of all bookings from the database.
-   */
-  public List<Booking> getBookings() {
-    return bookings;
-  }
-
-  public void setBookings(List<Booking> bookings) {
-    this.bookings = bookings;
-  }
+public class RestoreBookingsLambdaResponse {
 }

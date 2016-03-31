@@ -265,4 +265,20 @@ public class UpdateBookingsLambdaTest {
 
     updateBookingsLambda.updateBookings(request, mockContext);
   }
+
+  @Test
+  public void testUpdateBookingsThrowsWhenApiGatewayIsNull() throws Exception {
+
+    // If the request has a null apiGatewayBaseUrl, then we should throw
+
+    // ARRANGE
+    thrown.expect(Exception.class);
+    thrown.expectMessage(updateBookingsExceptionMessage);
+
+    UpdateBookingsLambdaRequest request = new UpdateBookingsLambdaRequest();
+    request.setApiGatewayBaseUrl(null);
+
+    // ACT
+    updateBookingsLambda.updateBookings(request, mockContext);
+  }
 }

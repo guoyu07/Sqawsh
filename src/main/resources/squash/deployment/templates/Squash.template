@@ -103,7 +103,7 @@
   },
     
   "Resources" : {
-
+       
     "SquashApiGatewayCustomResourceLambdaExecutionRole": {
       "Metadata" : { "Comment1" : "Role assumed by AWS Lambda service to execute",
                      "Comment2" : "the lambda that creates our ApiGateway API",
@@ -892,7 +892,24 @@
         "Handler": "squash.booking.lambdas.BackupBookingsLambda::backupBookings",
         "Runtime": "java8",
         "MemorySize" : 1024,
-        "Timeout": "60",
+        "Timeout": "120",
+        "Role": { "Fn::GetAtt" : ["BookingsLambdaExecutionRole", "Arn"] }
+      },
+      "DependsOn": ["BookingsLambdaExecutionRole", "SquashSettingsCustomResource"]
+    },
+
+    "DatabaseRestoreLambda": {
+      "Type": "AWS::Lambda::Function",
+      "Metadata" : { "Comment" : "Lambda to restore all database bookings from a backup" },
+      "Properties": {
+        "Code": {
+          "S3Bucket" : {"Ref" : "LambdaZipsBucketName"},
+          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsFolderName"}, "/", {"Ref" : "AWS::StackId"}, {"Ref" : "LambdaZipsKeyNameBase"}, "Modified", {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
+        },
+        "Handler": "squash.booking.lambdas.RestoreBookingsLambda::restoreBookings",
+        "Runtime": "java8",
+        "MemorySize" : 1024,
+        "Timeout": "300",
         "Role": { "Fn::GetAtt" : ["BookingsLambdaExecutionRole", "Arn"] }
       },
       "DependsOn": ["BookingsLambdaExecutionRole", "SquashSettingsCustomResource"]
@@ -1017,6 +1034,8 @@
         "SquashCognitoCustomResourceLambdaName" : { "Ref" : "SquashCognitoCustomResourceLambda" },
         "SquashScheduledCloudwatchEventCustomResourceLambdaName" : { "Ref" : "SquashScheduledCloudwatchEventCustomResourceLambda" },
         "UpdateBookingsLambdaName" : { "Ref" : "UpdateBookingsLambda" },
+        "DatabaseBackupLambdaName" : { "Ref" : "DatabaseBackupLambda" },
+        "DatabaseRestoreLambdaName" : { "Ref" : "DatabaseRestoreLambda" },
         "Region" : { "Ref" : "AWS::Region" },
         "Revision" : {"Ref" : "LambdaZipsRevision"}
       },

@@ -27,6 +27,8 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.sns.AmazonSNS;
 import com.amazonaws.services.sns.AmazonSNSClient;
+import com.amazonaws.util.json.JSONException;
+import com.amazonaws.util.json.JSONObject;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -62,13 +64,20 @@ public class BackupManager implements IBackupManager {
 
   @Override
   public final void backupSingleBooking(Booking booking, Boolean isCreation)
-      throws InterruptedException {
+      throws InterruptedException, JSONException {
     // Backup to the S3 bucket. This method will typically be called every time
     // a booking is mutated. We upload the booking to the same key, so the
     // versions of this key should provide a timeline of all individual bookings
     // in the sequence they were made.
+
+    // Encode booking as JSON
+    JSONObject bookingJson = new JSONObject();
+    bookingJson.put("date", booking.getDate());
+    bookingJson.put("court", booking.getCourt());
+    bookingJson.put("slot", booking.getSlot());
+    bookingJson.put("players", booking.getPlayers());
     String backupString = (isCreation ? "Booking created: " : "Booking deleted: ")
-        + BookingToString(booking);
+        + System.getProperty("line.separator") + bookingJson.toString();
 
     logger.log("Backing up single booking mutation to S3 bucket");
     IS3TransferManager transferManager = getS3TransferManager();
@@ -86,18 +95,22 @@ public class BackupManager implements IBackupManager {
     getSNSClient().publish(databaseBackupSnsTopicArn, backupString, "Sqawsh single booking backup");
   }
 
-  private String BookingToString(Booking booking) {
-    return "Court: " + booking.getCourt() + ", Slot: " + booking.getSlot() + ", Players: "
-        + booking.getPlayers() + ", Date: " + booking.getDate();
-  }
-
   @Override
   public final List<Booking> backupAllBookings() throws Exception {
     List<Booking> bookings = bookingManager.getBookings();
-    String backupString = "";
+
+    // Encode bookings as JSON
+    JSONObject bookingsJson = new JSONObject();
     for (int i = 0; i < bookings.size(); i++) {
-      backupString += (BookingToString(bookings.get(i)) + System.getProperty("line.separator"));
+      Booking booking = bookings.get(i);
+      JSONObject bookingJson = new JSONObject();
+      bookingJson.put("date", booking.getDate());
+      bookingJson.put("court", booking.getCourt());
+      bookingJson.put("slot", booking.getSlot());
+      bookingJson.put("players", booking.getPlayers());
+      bookingsJson.accumulate("bookings", bookingJson);
     }
+    String backupString = bookingsJson.toString();
 
     logger.log("Backing up all bookings to S3 bucket");
     IS3TransferManager transferManager = getS3TransferManager();
@@ -115,6 +128,22 @@ public class BackupManager implements IBackupManager {
     getSNSClient().publish(databaseBackupSnsTopicArn, backupString, "Sqawsh all-bookings backup");
 
     return bookings;
+  }
+
+  @Override
+  public final void restoreBookings(List<Booking> bookings) throws Exception {
+    logger.log("About to delete all bookings from the database");
+    bookingManager.deleteAllBookings();
+
+    // Restore bookings
+    logger.log("About to restore the provided bookings to the database");
+    logger.log("Got " + bookings.size() + " bookings to restore");
+    for (Booking booking : bookings) {
+      bookingManager.createBooking(booking);
+      // sleep to avoid Too Many Requests error
+      Thread.sleep(500);
+    }
+    logger.log("Restored all bookings to the database");
   }
 
   /**

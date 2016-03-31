@@ -264,6 +264,20 @@ public class BookingManager implements IBookingManager {
     logger.log("Removed bookings from simpledb for yesterday");
   }
 
+  @Override
+  public void deleteAllBookings() throws Exception {
+    logger.log("Getting all bookings to delete");
+    List<Booking> bookings = getBookings();
+    logger.log("Found " + bookings.size() + " bookings to delete");
+    logger.log("About to delete all bookings");
+    for (Booking booking : bookings) {
+      deleteBooking(booking);
+      // sleep to avoid Too Many Requests error
+      Thread.sleep(500);
+    }
+    logger.log("Deleted all bookings");
+  }
+
   /**
    * Returns a named property from the SquashCustomResource settings file.
    */

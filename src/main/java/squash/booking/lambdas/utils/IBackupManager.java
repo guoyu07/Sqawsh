@@ -24,7 +24,7 @@ import java.util.List;
 /**
  * Interface for all classes managing backups of the bookings database.
  * 
- * <p>All bookings backup operations should use this interface.
+ * <p>All bookings backup and restore operations should use this interface.
  *
  * @author robinsteel19@outlook.com (Robin Steel)
  */
@@ -51,4 +51,12 @@ public interface IBackupManager {
    * @throws Exception when the bookings backup fails.
    */
   List<Booking> backupAllBookings() throws Exception;
+
+  /**
+  * Restore bookings.
+  * 
+  * @param bookings the bookings to restore.
+  * @throws Exception when the bookings restore fails.
+  */
+  void restoreBookings(List<Booking> bookings) throws Exception;
 }

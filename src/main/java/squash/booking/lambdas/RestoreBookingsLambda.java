@@ -17,7 +17,6 @@
 package squash.booking.lambdas;
 
 import squash.booking.lambdas.utils.BackupManager;
-import squash.booking.lambdas.utils.Booking;
 import squash.booking.lambdas.utils.BookingManager;
 import squash.booking.lambdas.utils.IBackupManager;
 import squash.booking.lambdas.utils.IBookingManager;
@@ -25,25 +24,23 @@ import squash.booking.lambdas.utils.IBookingManager;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 
-import java.util.List;
 import java.util.Optional;
 
 /**
- * AWS Lambda function to backup all bookings from the database.
+ * AWS Lambda function to restore bookings to the database.
  * 
- * <p>This is usually invoked by a scheduled event to provide regular
- *    full backups to email and S3. However it can also be manually
- *    invoked at the lambda console (e.g. you might do this
- *    immediately before a stack update, just in case...)
+ * <p>This is manually invoked at the lambda console, passing in the set
+ *    of bookings to be restored in the same JSON format as provided
+ *    by the database backup lambda.
  *
  * @author robinsteel19@outlook.com (Robin Steel)
  */
-public class BackupBookingsLambda {
+public class RestoreBookingsLambda {
 
   private Optional<IBackupManager> backupManager;
   private Optional<IBookingManager> bookingManager;
 
-  public BackupBookingsLambda() {
+  public RestoreBookingsLambda() {
     backupManager = Optional.empty();
     bookingManager = Optional.empty();
   }
@@ -73,22 +70,18 @@ public class BackupBookingsLambda {
   }
 
   /**
-  * Backs up all bookings in the database.
+  * Restore bookings to the database.
   * 
-  * @param request.
-  * @return response containing all bookings from the database.
+  * @param request containing bookings to restore.
+  * @return response.
   */
-  public BackupBookingsLambdaResponse backupBookings(BackupBookingsLambdaRequest request,
+  public RestoreBookingsLambdaResponse restoreBookings(RestoreBookingsLambdaRequest request,
       Context context) throws Exception {
     LambdaLogger logger = context.getLogger();
-    logger.log("Backup bookings for request: " + request.toString());
+    logger.log("Restoring bookings for request: " + request.toString());
+    getBackupManager(logger).restoreBookings(request.getBookings());
+    logger.log("Finished restoring bookings");
 
-    // Backup all bookings
-    List<Booking> bookings = getBackupManager(logger).backupAllBookings();
-    logger.log("Got " + bookings.size() + " bookings from backup manager");
-
-    BackupBookingsLambdaResponse backupBookingsLambdaResponse = new BackupBookingsLambdaResponse();
-    backupBookingsLambdaResponse.setBookings(bookings);
-    return backupBookingsLambdaResponse;
+    return new RestoreBookingsLambdaResponse();
   }
 }

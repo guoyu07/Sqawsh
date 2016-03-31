@@ -68,4 +68,10 @@ public interface IBookingManager {
    * Deletes all bookings for the previous day.
    */
   void deleteYesterdaysBookings();
+
+  /**
+   * Deletes all bookings.
+   * @throws Exception 
+   */
+  void deleteAllBookings() throws Exception;
 }

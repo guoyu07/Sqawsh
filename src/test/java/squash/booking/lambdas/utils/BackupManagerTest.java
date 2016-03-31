@@ -22,6 +22,7 @@ import squash.deployment.lambdas.utils.IS3TransferManager;
 
 import org.jmock.Expectations;
 import org.jmock.Mockery;
+import org.jmock.Sequence;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -31,6 +32,7 @@ import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.transfer.Transfer;
 import com.amazonaws.services.sns.AmazonSNS;
+import com.amazonaws.util.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -257,8 +259,14 @@ public class BackupManagerTest {
     backupManager.setS3TransferManager(mockTransferManager);
 
     // Set up expectation to publish to our SNS topic
+    // Encode booking as JSON
+    JSONObject bookingJson = new JSONObject();
+    bookingJson.put("date", booking.getDate());
+    bookingJson.put("court", booking.getCourt());
+    bookingJson.put("slot", booking.getSlot());
+    bookingJson.put("players", booking.getPlayers());
     String backupString = (isCreation ? "Booking created: " : "Booking deleted: ")
-        + BookingToString(booking);
+        + System.getProperty("line.separator") + bookingJson.toString();
     // Set up mock SNS client
     mockSNSClient = mockery.mock(AmazonSNS.class);
     mockery.checking(new Expectations() {
@@ -271,11 +279,6 @@ public class BackupManagerTest {
 
     // ACT
     backupManager.backupSingleBooking(booking, isCreation);
-  }
-
-  private String BookingToString(Booking booking) {
-    return "Court: " + booking.getCourt() + ", Slot: " + booking.getSlot() + ", Players: "
-        + booking.getPlayers() + ", Date: " + booking.getDate();
   }
 
   @Test
@@ -375,5 +378,36 @@ public class BackupManagerTest {
 
     // ASSERT
     assertTrue(actualBookings.equals(bookings));
+  }
+
+  @Test
+  public void testRestoreBookingsBookingCorrectlyCallsTheBookingManager() throws Exception {
+
+    // Add a second booking to our test bookings list
+    court = 7;
+    slot = 11;
+    playersNames = "A.Playera/B.Playerb";
+    Booking booking2 = new Booking(court, slot, playersNames);
+    booking2.setDate(date);
+    bookings.add(booking2);
+
+    // Set up mock booking manager
+    mockBookingManager = mockery.mock(IBookingManager.class);
+    final Sequence restoreSequence = mockery.sequence("restore");
+    mockery.checking(new Expectations() {
+      {
+        // Delete any existing bookings before restoring the new ones
+        oneOf(mockBookingManager).deleteAllBookings();
+        inSequence(restoreSequence);
+        oneOf(mockBookingManager).createBooking(bookings.get(0));
+        inSequence(restoreSequence);
+        oneOf(mockBookingManager).createBooking(bookings.get(1));
+        inSequence(restoreSequence);
+      }
+    });
+    backupManager.Initialise(mockBookingManager, mockLogger);
+
+    // ACT
+    backupManager.restoreBookings(bookings);
   }
 }
