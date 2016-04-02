@@ -29,7 +29,6 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
-import org.junit.rules.TemporaryFolder;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.lambda.runtime.Context;
@@ -86,9 +85,6 @@ public class PageManagerTest {
   @Rule
   public ExpectedException thrown = ExpectedException.none();
 
-  @Rule
-  public TemporaryFolder scratchFolder = new TemporaryFolder();
-
   @Before
   public void beforeTest() throws Exception {
     fakeCurrentDate = LocalDate.of(2015, 10, 6);
@@ -123,9 +119,6 @@ public class PageManagerTest {
       }
     });
 
-    // Ask junit to create us a temporary folder. This is a test double
-    // for the /tmp throwaway filesystem available on AWS Lambda.
-    pageManager.setTemporaryFolder(scratchFolder.newFolder("tmp"));
     websiteBucketName = "websiteBucketName";
     pageManager.setS3WebsiteBucketName(websiteBucketName);
 
@@ -164,10 +157,6 @@ public class PageManagerTest {
 
     public void setS3WebsiteBucketName(String websiteBucketName) {
       websiteBucket = websiteBucketName;
-    }
-
-    public void setTemporaryFolder(File temporaryFolder) {
-      this.temporaryFolder = temporaryFolder;
     }
 
     @Override

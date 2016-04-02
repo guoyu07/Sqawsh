@@ -16,6 +16,7 @@
 <html>
 <head>
 <title>Court Cancellation Form</title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 </head>
 <body>
 <form action=https://${context.apiId}.execute-api.${region}.amazonaws.com/Squash/bookings method="POST" style="display: inline;">

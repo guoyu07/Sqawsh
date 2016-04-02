@@ -37,11 +37,11 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.google.common.collect.Lists;
 
-import java.io.File;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -65,7 +65,6 @@ public class PageManager implements IPageManager {
   private String websiteBucketName;
   private Region region;
   private IBookingManager bookingManager;
-  protected File temporaryFolder;
   private LambdaLogger logger;
 
   @Override
@@ -74,12 +73,6 @@ public class PageManager implements IPageManager {
     websiteBucketName = getStringProperty("s3websitebucketname");
     region = Region.getRegion(Regions.fromName(getStringProperty("region")));
     this.bookingManager = bookingManager;
-    
-    // Compare to null so we don't override any value set by unit tests 
-    if (temporaryFolder == null) {
-        // Use AWS Lambda's temporary filesystem
-        temporaryFolder = new File("/tmp");
-    }
   }
 
   @Override
@@ -245,34 +238,25 @@ public class PageManager implements IPageManager {
 
     logger.log("About to copy booking page to S3");
 
-    // Temporary location for the booking page
-    File htmlOutputFile = new File(temporaryFolder, pageBaseName + ".html");
-    logger.log("Saving booking page to temporary file: " + htmlOutputFile.getAbsolutePath());
-    try (PrintWriter htmlWriter = new PrintWriter(htmlOutputFile)) {
-      htmlWriter.println(page);
-    } catch (IOException e) {
-      logger.log("Exception caught saving booking page to temporary file: " + e.getMessage());
-      throw new Exception("Exception caught saving booking page to temporary file");
-    }
-    logger.log("Saved page to temporary file");
-
     try {
       logger.log("Uploading booking page to S3 bucket: " + websiteBucketName
           + "s3websitebucketname" + " and key: " + pageBaseName + uidSuffix + ".html");
-      IS3TransferManager transferManager = getS3TransferManager();
-      PutObjectRequest putObjectRequest = new PutObjectRequest(websiteBucketName, pageBaseName
-          + uidSuffix + ".html", htmlOutputFile);
-      // Page must be public so it can be served from the website
-      putObjectRequest.setCannedAcl(CannedAccessControlList.PublicRead);
-
+      byte[] pageAsBytes = page.getBytes(StandardCharsets.UTF_8);
+      ByteArrayInputStream pageAsStream = new ByteArrayInputStream(pageAsBytes);
+      ObjectMetadata metadata = new ObjectMetadata();
+      metadata.setContentLength(pageAsBytes.length);
+      metadata.setContentType("text/html");
       // Direct caches not to satisfy future requests with this data and
       // not to store it - at least for HTTP 1.1 - we want agents to get
       // the latest bookings from S3 on every request.
-      ObjectMetadata objectMetadata = new ObjectMetadata();
-      objectMetadata.setCacheControl("no-cache, no-store, must-revalidate");
-      putObjectRequest.setMetadata(objectMetadata);
+      metadata.setCacheControl("no-cache, no-store, must-revalidate");
+      PutObjectRequest putObjectRequest = new PutObjectRequest(websiteBucketName, pageBaseName
+          + uidSuffix + ".html", pageAsStream, metadata);
+      // Page must be public so it can be served from the website
+      putObjectRequest.setCannedAcl(CannedAccessControlList.PublicRead);
+      IS3TransferManager transferManager = getS3TransferManager();
       TransferUtils.waitForS3Transfer(transferManager.upload(putObjectRequest), logger);
-      logger.log("Uploaded booking page successfully to S3");
+      logger.log("Uploaded booking page to S3 bucket");
 
       if (uidSuffix.equals("")) {
         // Nothing to copy - so return
