@@ -27,6 +27,7 @@ import java.util.List;
  */
 public class RestoreBookingsLambdaRequest {
   List<Booking> bookings;
+  Boolean clearBeforeRestore;
 
   /**
    *  Returns the bookings to be restored.
@@ -37,5 +38,16 @@ public class RestoreBookingsLambdaRequest {
 
   public void setBookings(List<Booking> bookings) {
     this.bookings = bookings;
+  }
+
+  /**
+   *  Returns whether to clear existing bookings before restoring with the supplied bookings.
+   */
+  public Boolean getClearBeforeRestore() {
+    return clearBeforeRestore;
+  }
+
+  public void setClearBeforeRestore(Boolean clearBeforeRestore) {
+    this.clearBeforeRestore = clearBeforeRestore;
   }
 }

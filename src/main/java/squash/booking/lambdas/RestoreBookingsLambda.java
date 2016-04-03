@@ -79,7 +79,8 @@ public class RestoreBookingsLambda {
       Context context) throws Exception {
     LambdaLogger logger = context.getLogger();
     logger.log("Restoring bookings for request: " + request.toString());
-    getBackupManager(logger).restoreBookings(request.getBookings());
+    getBackupManager(logger)
+        .restoreBookings(request.getBookings(), request.getClearBeforeRestore());
     logger.log("Finished restoring bookings");
 
     return new RestoreBookingsLambdaResponse();

@@ -56,7 +56,8 @@ public interface IBackupManager {
   * Restore bookings.
   * 
   * @param bookings the bookings to restore.
+  * @param clearBeforeRestore whether to clear existing bookings before restoring with the supplied bookings.
   * @throws Exception when the bookings restore fails.
   */
-  void restoreBookings(List<Booking> bookings) throws Exception;
+  void restoreBookings(List<Booking> bookings, Boolean clearBeforeRestore) throws Exception;
 }

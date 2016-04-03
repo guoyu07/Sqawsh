@@ -131,9 +131,16 @@ public class BackupManager implements IBackupManager {
   }
 
   @Override
-  public final void restoreBookings(List<Booking> bookings) throws Exception {
-    logger.log("About to delete all bookings from the database");
-    bookingManager.deleteAllBookings();
+  public final void restoreBookings(List<Booking> bookings, Boolean clearBeforeRestore)
+      throws Exception {
+    if (clearBeforeRestore) {
+      // It is possible that not all bookings can be restored within the
+      // execution time limit of lambda functions, whilst avoiding 'Too many
+      // requests' errors. This boolean allows for doing the restore in multiple
+      // parts to workaround this.
+      logger.log("About to delete all bookings from the database");
+      bookingManager.deleteAllBookings();
+    }
 
     // Restore bookings
     logger.log("About to restore the provided bookings to the database");

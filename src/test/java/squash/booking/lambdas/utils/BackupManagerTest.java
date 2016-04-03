@@ -381,7 +381,8 @@ public class BackupManagerTest {
   }
 
   @Test
-  public void testRestoreBookingsBookingCorrectlyCallsTheBookingManager() throws Exception {
+  public void testRestoreBookingsBookingCorrectlyCallsTheBookingManager_DeleteExistingBookings()
+      throws Exception {
 
     // Add a second booking to our test bookings list
     court = 7;
@@ -408,6 +409,34 @@ public class BackupManagerTest {
     backupManager.Initialise(mockBookingManager, mockLogger);
 
     // ACT
-    backupManager.restoreBookings(bookings);
+    backupManager.restoreBookings(bookings, true);
+  }
+
+  @Test
+  public void testRestoreBookingsBookingCorrectlyCallsTheBookingManager_PreserveExistingBookings()
+      throws Exception {
+
+    // Add a second booking to our test bookings list
+    court = 7;
+    slot = 11;
+    playersNames = "A.Playera/B.Playerb";
+    Booking booking2 = new Booking(court, slot, playersNames);
+    booking2.setDate(date);
+    bookings.add(booking2);
+
+    // Set up mock booking manager
+    mockBookingManager = mockery.mock(IBookingManager.class);
+    mockery.checking(new Expectations() {
+      {
+        // Do not delete any existing bookings
+        never(mockBookingManager).deleteAllBookings();
+        oneOf(mockBookingManager).createBooking(bookings.get(0));
+        oneOf(mockBookingManager).createBooking(bookings.get(1));
+      }
+    });
+    backupManager.Initialise(mockBookingManager, mockLogger);
+
+    // ACT
+    backupManager.restoreBookings(bookings, false);
   }
 }
