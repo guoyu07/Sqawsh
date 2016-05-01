@@ -338,14 +338,38 @@ public class BookingManagerTest {
 
   @Test
   public void testCreateBookingThrowsWhenTheDatabaseThrows() throws Exception {
+    // (But see exception to this rule in later test)
 
     // ARRANGE
     thrown.expect(Exception.class);
     thrown.expectMessage("Test SimpleDB exception");
 
     // Set up simpleDB to throw
-    expectCreateBookingToReturnBookingsOrThrow(
-        Optional.of(new AmazonServiceException("Test SimpleDB exception")), true);
+    AmazonServiceException ase = new AmazonServiceException("Test SimpleDB exception");
+    // Mark this as not being a ConditionalCheckFailed error
+    ase.setErrorCode("SomeOtherError");
+    expectCreateBookingToReturnBookingsOrThrow(Optional.of(ase), true);
+
+    // ACT
+    // Try to create a booking - which should throw
+    bookingManager.createBooking(bookingThatShouldCreateOk);
+  }
+
+  @Test
+  public void testCreateBookingThrowsNewExceptionWhenTheDatabaseThrowsBecauseConditionalCheckFailed()
+      throws Exception {
+    // This particular error we convert and throw with a
+    // "Booking creation failed" message instead - it probably means more than
+    // one person was trying to book the slot at once.
+
+    // ARRANGE
+    thrown.expect(Exception.class);
+    thrown.expectMessage("Booking creation failed");
+
+    AmazonServiceException ase = new AmazonServiceException("Test SimpleDB exception");
+    // Set the error code that identifies this particular case
+    ase.setErrorCode("ConditionalCheckFailed");
+    expectCreateBookingToReturnBookingsOrThrow(Optional.of(ase), true);
 
     // ACT
     // Try to create a booking - which should throw
@@ -414,15 +438,38 @@ public class BookingManagerTest {
 
   @Test
   public void testDeleteBookingThrowsWhenTheDatabaseThrows() throws Exception {
+    // (But see exception to this rule in later test)
 
     // ARRANGE
     thrown.expect(Exception.class);
     thrown.expectMessage("Test SimpleDB exception");
-    expectDeleteBookingToReturnBookingsOrThrow(
-        Optional.of(new AmazonServiceException("Test SimpleDB exception")), true);
+    AmazonServiceException ase = new AmazonServiceException("Test SimpleDB exception");
+    // Mark this as not being an AttributeDoesNotExist error
+    ase.setErrorCode("SomeOtherError");
+    expectDeleteBookingToReturnBookingsOrThrow(Optional.of(ase), true);
 
     // ACT
     // Try to delete a booking - which should throw
+    bookingManager.deleteBooking(bookingThatShouldDeleteOk);
+  }
+
+  @Test
+  public void testDeleteBookingDoesNotThrowWhenTheDatabaseThrowsBecauseAttributeDoesNotExist()
+      throws Exception {
+    // This particular error we regard as ok, and swallow - it probably just
+    // means more than one person was trying to delete the booking at once.
+
+    // ARRANGE
+    AmazonServiceException ase = new AmazonServiceException("Test SimpleDB exception");
+    // Set the error code that identifies this particular case
+    ase.setErrorCode("AttributeDoesNotExist");
+    expectDeleteBookingToReturnBookingsOrThrow(Optional.of(ase), true);
+
+    // Set up mock simpledb to expect a call to query the bookings
+    expectGetBookingsToReturnBookingsOrThrow(Optional.empty());
+
+    // ACT
+    // Try to delete a booking - which should not throw
     bookingManager.deleteBooking(bookingThatShouldDeleteOk);
   }
 

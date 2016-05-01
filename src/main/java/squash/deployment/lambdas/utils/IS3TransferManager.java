@@ -42,5 +42,8 @@ public interface IS3TransferManager {
 
   Transfer upload(String bucketName, String keyName, File target);
 
+  Transfer uploadDirectory(String bucketName, String virtualDirectoryKeyPrefix,
+      File targetDirectory, boolean includeSubdirectories);
+
   AmazonS3 getAmazonS3Client();
 }

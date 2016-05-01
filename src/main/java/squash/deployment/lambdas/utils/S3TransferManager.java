@@ -59,6 +59,13 @@ public class S3TransferManager implements IS3TransferManager {
   }
 
   @Override
+  public Transfer uploadDirectory(String bucketName, String virtualDirectoryKeyPrefix,
+      File targetDirectory, boolean includeSubdirectories) {
+    return transferManager.uploadDirectory(bucketName, virtualDirectoryKeyPrefix, targetDirectory,
+        includeSubdirectories);
+  }
+
+  @Override
   public AmazonS3 getAmazonS3Client() {
     return transferManager.getAmazonS3Client();
   }

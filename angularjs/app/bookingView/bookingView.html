@@ -1,0 +1,177 @@
+<!--
+Copyright 2016 Robin Steel
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.-->
+ 
+<style>
+  .bookingTable {
+    width: 100%;
+    height: 100%;
+    table-layout: fixed;
+  }
+  .dateButton{
+    color: black;
+    background-color: white;
+    border-color: #FA787E;
+    border: 2px solid #dadada;
+    border-radius: 7px;
+    font-size: 80%;
+    
+  }
+  .timeHeader {
+    background-color: rgba(255, 0,0, 1);
+    color: white;
+  }
+  .lefttimeFooter {
+    background-color: rgba(255, 0,0, 1);
+    color: white;
+    border-style: solid;
+    border-top-width: 0px;
+    border-bottom-width: 0px;
+    border-left-width: 0px;
+    border-right-width: 20px;
+    border-color: red;
+  }
+  .righttimeFooter {
+    background-color: rgba(255, 0,0, 1);
+    color: white;
+    border-style: solid;
+    border-top-width: 0px;
+    border-bottom-width: 0px;
+    border-left-width: 20px;
+    border-right-width: 0px;
+    border-color: red;
+  }
+  .courtHeader {
+    background-color: rgba(255, 0, 0, 1);
+    color: white;
+  }
+  .courtFooter {
+    background-color: #f5f5dc;
+    color: #f5f5dc;
+  }
+  .wideFooter{
+    color: #f5f5dc;
+  }
+  .lefttimeLabel {
+    text-align: center;
+    border-style: solid;
+    border-top-width: 0px;
+    border-bottom-width: 0px;
+    border-left-width: 0px;
+    border-right-width: 20px;
+    border-color: red;
+  }
+  .righttimeLabel {
+    text-align: center;
+    border-style: solid;
+    border-top-width: 0px;
+    border-bottom-width: 0px;
+    border-left-width: 20px;
+    border-right-width: 0px;
+    border-color: red;
+  }
+  .tableCell {
+    text-align: center;
+  }
+  .cancellationButton {
+    width: 100%;
+    border: 2px solid;
+    border-radius: 7px;
+    margin: auto;
+    display: inline-block;
+    font-family: 'Comic Sans MS', cursive, sans-serif;
+    font-size: large;
+    background-color: white;
+    color: #9ecaed;
+  }
+  .reservationButton {
+    width: 100%;
+    border: 2px solid;
+    border-radius: 7px;
+    margin: auto;
+    display: inline-block;
+    font-family: 'Comic Sans MS', cursive, sans-serif;
+    font-size: large;
+    background-color: #9ecaed;
+    color: white;
+  }
+  #goButton {
+	padding:1px 1px; 
+	background:#0099FF; 
+	border:0 none;
+	cursor:pointer;
+	-webkit-border-radius: 5px;
+	border-radius: 5px;
+  }
+  button[disabled=disabled], button:disabled {
+    color: #c0c0c0;
+    background-color: #ffffff;
+  }
+  .oddRow {
+	background-color: #f5f5dc;
+	color: black;
+  }
+  .evenRow {
+	background-color: rgba(255, 255, 255, 1);
+	color: black;
+  }
+  body {
+    font-family: 'Comic Sans MS', cursive, sans-serif;
+  }
+  .bookingView{
+    background-color: #f5f5dc;
+  }
+</style>
+<div class="bookingView" ng-show="ctrl.bookingsLoaded" ng-cloak>
+<div align="center" class="dateSelector">
+  <button class="dateButton" ng-click="ctrl.incrementOrDecrementDate(-1)" ng-disabled="ctrl.isEarliestDate()">Earlier</button>
+  <select ng-options="date as (date | date:'fullDate') for date in ctrl.validDates" ng-model="ctrl.selectedDate" ng-change="ctrl.selectedDateChanged()"></select>
+  <button class="dateButton" ng-click="ctrl.incrementOrDecrementDate(1)" ng-disabled="ctrl.isLatestDate()">Later</button>
+</div>
+<table class="bookingTable">
+<thead>
+<tr>
+  <th class="timeHeader"></th>
+  <th ng-repeat="courtNumber in ctrl.courtNumbers" class="courtHeader">Court {{courtNumber}}</th>
+  <th class="timeHeader"></th>
+</tr>
+</thead>
+<tbody>
+<div>
+  <tr ng-class-odd="'oddRow'" ng-class-even="'evenRow'" ng-repeat="timeSlot in ctrl.timeSlots">
+    <td class="lefttimeLabel">{{ctrl.timeSlots[$index] | date:'shortTime'}}</td>
+    <td ng-repeat="courtNumber in ctrl.courtNumbers">
+      <Button ng-class="ctrl.buttonStyle($parent.$index, $index)" ng-click="ctrl.showForm($parent.$index, $index)">{{ctrl.buttonText($parent.$index, $index)}}</Button>
+    </td>
+    <td class="righttimeLabel">{{ctrl.timeSlots[$index] | date:'shortTime'}}</td>
+  </tr>
+</div>
+</tbody>
+<tfoot>
+<tr>
+  <td class="lefttimeFooter" align="center"></td>
+  <td ng-repeat="courtNumber in ctrl.courtNumbers" class="courtFooter" align="center">Court {{courtNumber}}</td>
+  <td class="righttimeFooter" align="center"></td>
+</tr>
+<tr ng-repeat="n in [1,2]">
+  <td></td>
+  <td class="wideFooter" ng-repeat="col in ctrl.courtNumbers" class="courtFooter" align="center">dummy</td>
+  <td></td>
+</tr>
+</tfoot>
+</table>
+</div>
+<div ng-show="ctrl.loadFailure">
+Apologies - something has gone wrong...
+</div>

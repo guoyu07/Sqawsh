@@ -188,6 +188,10 @@ public class PutDeleteBookingLambda {
             + redirectUrl, e);
       case "The password is incorrect":
         throw new Exception("The password is incorrect. Please try again." + redirectUrl, e);
+      case "Booking creation failed":
+        throw new Exception("Booking creation failed. Please try again." + redirectUrl, e);
+      case "Booking deletion failed":
+        throw new Exception("Booking cancellation failed. Please try again." + redirectUrl, e);
       default:
         throw new Exception(
             "Apologies - something has gone wrong. Please try again." + redirectUrl, e);

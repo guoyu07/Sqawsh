@@ -24,10 +24,17 @@ jquery-*
 .settings/*
 report.js
 package-*
-index*.html
 formatter.js
 apig*.js
 hmac*
 src/main/resources/squash/booking/html/lib/*
 cucumber*
 doc/*
+
+# Angular #
+logs/*
+!.gitkeep
+node_modules/
+bower_components/
+tmp
+.idea

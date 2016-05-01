@@ -101,9 +101,9 @@
   "Conditions" : {
     "CreateWebsiteBucketCondition" : { "Fn::Equals": [{"Ref": "StackShouldCreateWebsiteBucket"}, "true"]}
   },
-    
+
   "Resources" : {
-       
+
     "SquashApiGatewayCustomResourceLambdaExecutionRole": {
       "Metadata" : { "Comment1" : "Role assumed by AWS Lambda service to execute",
                      "Comment2" : "the lambda that creates our ApiGateway API",
@@ -340,6 +340,81 @@
                   {"Fn::Join" : ["", [
                   "arn:aws:s3:::",
                   { "Ref" : "WebsiteBucketName" }
+                ]]}]
+              }]
+            }
+          }
+        ]
+      }
+    },
+
+    "AngularjsAppCustomResourceLambdaExecutionRole": {
+      "Metadata" : { "Comment1" : "Role assumed by AWS Lambda service to execute the lambda",
+                     "Comment2" : "that deploys the Angularjs app to the S3 website bucket."},
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version" : "2012-10-17",
+          "Statement": [ {
+            "Effect": "Allow",
+            "Principal": {"Service": ["lambda.amazonaws.com"]},
+            "Action": [ "sts:AssumeRole" ]
+          }]
+        },
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyName": "root",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                "Effect": "Allow",
+                "Action": ["logs:CreateLogGroup","logs:PutRetentionPolicy","logs:CreateLogStream","logs:PutLogEvents"],
+                "Resource": {"Fn::Join" : ["", [
+                  "arn:aws:logs:",
+                  { "Ref" : "AWS::Region" },
+                  ":",
+                  { "Ref" : "AWS::AccountId" },
+                  ":log-group:/aws/lambda/",
+                  { "Ref" : "AWS::StackName" },
+                  "-*"
+                ]]}
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "s3:PutObject",
+                  "s3:GetObject",
+                  "s3:DeleteObject",
+                  "s3:DeleteObjectVersion",
+                  "s3:PutObjectAcl"
+                ],
+                "Resource": [
+                  {"Fn::Join" : ["", [
+                  "arn:aws:s3:::",
+                  { "Ref" : "WebsiteBucketName" },
+                  "/*"
+                ]]},
+                  {"Fn::Join" : ["", [
+                  "arn:aws:s3:::",
+                  { "Ref" : "WebsiteBucketName" }
+                ]]}]
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "s3:GetObject"
+                ],
+                "Resource": [
+                  {"Fn::Join" : ["", [
+                  "arn:aws:s3:::",
+                  { "Ref" : "LambdaZipsBucketName" },
+                  "/*"
+                ]]},
+                  {"Fn::Join" : ["", [
+                  "arn:aws:s3:::",
+                  { "Ref" : "LambdaZipsBucketName" }
                 ]]}]
               }]
             }
@@ -991,6 +1066,41 @@
       "DependsOn": ["SquashSettingsCustomResourceLambda", "SquashSimpleDBDomain", "WebsiteBucket", "DatabaseBackupBucket", "DatabaseBackupSNSTopic"]
     },
 
+    "AngularjsAppCustomResourceLambda": {
+      "Type": "AWS::Lambda::Function",
+      "Metadata" : { "Comment1" : "Lambda to manage our custom resource to upload the Angularjs app to the website.",
+                     "Comment2" : "This first modifies the angularjs app so that it contains various values that are",
+                     "Comment3" : "not known until stack creation time, and then uploads the modified app." },
+      "Properties": {
+        "Code": {
+          "S3Bucket" : {"Ref" : "LambdaZipsBucketName"},
+          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsFolderName"}, "/", {"Ref" : "LambdaZipsKeyNameBase"}, {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
+        },
+        "Handler": "squash.deployment.lambdas.AngularjsAppCustomResourceLambda::handleRequest",
+        "Runtime": "java8",
+        "MemorySize" : 1024,
+        "Timeout": "60",
+        "Role": { "Fn::GetAtt" : ["AngularjsAppCustomResourceLambdaExecutionRole", "Arn"] }
+      },
+      "DependsOn": ["AngularjsAppCustomResourceLambdaExecutionRole"]
+    },
+
+    "AngularjsAppCustomResource" : {
+      "Metadata" : { "Comment" : "Lambda-backed custom resource to upload the Angularjs app to the website." },
+      "Type" : "Custom::AngularjsApp",
+      "Version" : "1.0",
+      "Properties" : {
+        "ServiceToken": { "Fn::GetAtt" : ["AngularjsAppCustomResourceLambda", "Arn"] },
+        "WebsiteBucket" : {"Ref" : "WebsiteBucketName"},
+        "AngularjsZipBucket" : {"Ref" : "LambdaZipsBucketName"},
+        "CognitoIdentityPoolId": { "Fn::GetAtt" : ["SquashCognitoCustomResource", "CognitoIdentityPoolId"] },
+        "ApiGatewayBaseUrl" : { "Fn::GetAtt" : ["SquashApiGatewayCustomResource", "ApiGatewayBaseUrl"] }, 
+        "Region" : { "Ref" : "AWS::Region" },
+        "Revision" : {"Ref" : "LambdaZipsRevision"}
+      },
+      "DependsOn": ["AngularjsAppCustomResourceLambda", "SquashCognitoCustomResource", "WebsiteBucket", "SquashApiGatewayCustomResource"]
+    },
+
     "SquashSimpleDBDomain" : {
       "Metadata" : { "Comment" : "Creates a new randomly-named SimpleDB domain to hold the bookings" },
       "Type" : "AWS::SDB::Domain",
@@ -1025,6 +1135,7 @@
       "Version" : "1.0",
       "Properties" : {
         "ServiceToken": { "Fn::GetAtt" : ["SquashLogGroupsCustomResourceLambda", "Arn"] },
+        "AngularjsAppCustomResourceLambdaName" : { "Ref" : "AngularjsAppCustomResourceLambda" },
         "ValidDatesLambdaName" : { "Ref" : "ValidDatesGETLambda" },
         "BookingsGETLambdaName" : { "Ref" : "BookingsGETLambda" },
         "BookingsPUTDELETELambdaName" : { "Ref" : "BookingsPUTDELETELambda" },
@@ -1198,13 +1309,16 @@
       "Description" : "URL of Squash website (ok even when javascript disabled)",
       "Value" : { "Fn::GetAtt" : [ "SquashBookingsHtmlCustomResource", "WebsiteURL" ] }
     },
-
     "SquashWebsiteJs" : {
       "Description" : "URL of Squash website (original Javascript version)",
       "Value" : {"Fn::Join" : ["/", [
                   { "Fn::GetAtt" : [ "WebsiteBucket", "WebsiteURL" ] },
                   "bookings.html"
-                ]]}               
+                ]]}
+    },
+    "SquashWebsiteAngularjs" : {
+      "Description" : "URL of Squash website using Angularjs",
+      "Value" : { "Fn::GetAtt" : [ "AngularjsAppCustomResource", "WebsiteURL" ] }
     }
   }
 }

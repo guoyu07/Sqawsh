@@ -438,7 +438,7 @@ public class PutDeleteBookingLambdaTest {
     });
 
     thrown.expect(Exception.class);
-    thrown.expectMessage(genericExceptionMessage);
+    thrown.expectMessage("Booking creation failed. Please try again." + redirectUrl);
 
     // ACT and ASSERT
     doTestCreateBooking(fakeCurrentDateString, court.toString() + "-" + slot.toString(),
@@ -463,7 +463,7 @@ public class PutDeleteBookingLambdaTest {
     });
 
     thrown.expect(Exception.class);
-    thrown.expectMessage(genericExceptionMessage);
+    thrown.expectMessage("Booking creation failed. Please try again." + redirectUrl);
 
     // ACT and ASSERT
     doTestCreateBooking(fakeCurrentDateString, court.toString() + "-" + slot.toString(),
@@ -728,7 +728,7 @@ public class PutDeleteBookingLambdaTest {
     });
 
     thrown.expect(Exception.class);
-    thrown.expectMessage(genericExceptionMessage);
+    thrown.expectMessage("Booking cancellation failed. Please try again." + redirectUrl);
 
     // ACT and ASSERT
     doTestDeleteBooking(fakeCurrentDateString, court.toString() + "-" + slot.toString(),
@@ -753,7 +753,7 @@ public class PutDeleteBookingLambdaTest {
     });
 
     thrown.expect(Exception.class);
-    thrown.expectMessage(genericExceptionMessage);
+    thrown.expectMessage("Booking cancellation failed. Please try again." + redirectUrl);
 
     // ACT and ASSERT
     doTestDeleteBooking(fakeCurrentDateString, court.toString() + "-" + slot.toString(),

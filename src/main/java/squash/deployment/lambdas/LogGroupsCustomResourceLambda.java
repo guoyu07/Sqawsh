@@ -75,6 +75,7 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
    * 
    * <p>Keys suppling names of other AWS lambda functions that log to CloudwatchLogs:
    * <ul>
+   *    <li>AngularjsAppCustomResourceLambdaName.</li>
    *    <li>ValidDatesLambdaName.</li>
    *    <li>BookingsGETLambdaName.</li>
    *    <li>BookingsPUTDELETELambdaName.</li>
@@ -112,6 +113,8 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
     logger.log("Logging custom input parameters to custom resource request");
     @SuppressWarnings("unchecked")
     Map<String, Object> resourceProps = (Map<String, Object>) request.get("ResourceProperties");
+    String angularjsAppCustomResourceLambdaName = (String) resourceProps
+        .get("AngularjsAppCustomResourceLambdaName");
     String validDatesLambdaName = (String) resourceProps.get("ValidDatesLambdaName");
     String bookingsGETLambdaName = (String) resourceProps.get("BookingsGETLambdaName");
     String bookingsPUTDELETELambdaName = (String) resourceProps.get("BookingsPUTDELETELambdaName");
@@ -132,6 +135,7 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
     String revision = (String) resourceProps.get("Revision");
 
     // Log out our custom request parameters
+    logger.log("AngularjsAppCustomResourceLambdaName: " + angularjsAppCustomResourceLambdaName);
     logger.log("ValidDatesLambdaName: " + validDatesLambdaName);
     logger.log("BookingsGETLambdaName: " + bookingsGETLambdaName);
     logger.log("BookingsPUTDELETELambdaName: " + bookingsPUTDELETELambdaName);
@@ -185,6 +189,7 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
 
         // Add in the lambdas which have already run and created their log
         // groups
+        lambdaNames.add(angularjsAppCustomResourceLambdaName);
         lambdaNames.add(squashApiGatewayCustomResourceLambdaName);
         lambdaNames.add(squashSettingsCustomResourceLambdaName);
         lambdaNames.add(squashCognitoCustomResourceLambdaName);

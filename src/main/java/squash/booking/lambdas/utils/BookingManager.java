@@ -16,6 +16,7 @@
 
 package squash.booking.lambdas.utils;
 
+import com.amazonaws.AmazonServiceException;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
@@ -89,7 +90,21 @@ public class BookingManager implements IBookingManager {
     attributes.add(attribute);
     PutAttributesRequest simpleDBPutRequest = new PutAttributesRequest(simpleDbDomainName,
         itemName, attributes, updateCondition);
-    client.putAttributes(simpleDBPutRequest);
+
+    try {
+      client.putAttributes(simpleDBPutRequest);
+    } catch (AmazonServiceException ase) {
+      if (ase.getErrorCode().contains("ConditionalCheckFailed")) {
+        // Case of trying to book an already-booked slot - this
+        // probably means more than one person was trying to book the slot
+        // at once. Convert this to a booking failed exception.
+        logger.log("Caught AmazonServiceException for ConditionalCheckFailed whilst creating"
+            + " booking so throwing as 'Booking creation failed' instead");
+        throw new Exception("Booking creation failed");
+      } else {
+        throw ase;
+      }
+    }
 
     logger.log("About to read back bookings from simpledb to check that create succeeded");
     // Do consistent read to see if the booking has succeeded. This will also
@@ -222,7 +237,20 @@ public class BookingManager implements IBookingManager {
     attributes.add(attribute);
     DeleteAttributesRequest simpleDBDeleteRequest = new DeleteAttributesRequest(simpleDbDomainName,
         itemName, attributes, updateCondition);
-    client.deleteAttributes(simpleDBDeleteRequest);
+    try {
+      client.deleteAttributes(simpleDBDeleteRequest);
+    } catch (AmazonServiceException ase) {
+      if (ase.getErrorCode().contains("AttributeDoesNotExist")) {
+        // Case of trying to delete a booking that no longer exists - that's ok
+        // - it probably just means more than one person was trying to delete
+        // the booking at once. So swallow this exception
+        logger
+            .log("Caught AmazonServiceException for AttributeDoesNotExist whilst deleting booking so"
+                + " swallowing and continuing");
+      } else {
+        throw ase;
+      }
+    }
 
     logger.log("About to read back bookings from simpledb to check that delete succeeded");
     // Do consistent read to see if the delete has succeeded. This will also

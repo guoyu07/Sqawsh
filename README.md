@@ -1,7 +1,7 @@
 Sqawsh
 ======
 
-**License:** [Apache 2.0](http://www.apache.org/licenses/LICENSE-2.0)
+**License:** [Apache 2.0](http://www.apache.org/licenses/LICENSE-2.0) (except where explicitly stated otherwise)
 
 [![Build Status](https://travis-ci.org/robinsteel/Sqawsh.svg?branch=master)](https://travis-ci.org/robinsteel/Sqawsh)
 
@@ -14,14 +14,14 @@ Building (tested on Mac, Amazon Linux, and Windows)
 * From the repo's top level, run `./gw build` (or `gw build` on Windows) to:
  * download [gradle](http://gradle.org/)
  * build the project
- * run the unit tests
+ * run the [Junit](http://junit.org/) tests
  * create the JavaDocs in the `build/docs/javadoc` folder
- * create `Squash.zip` in the `build/distributions` folder
+ * create `Squash.zip` and `AngularjsApp.zip` in the `build/distributions` folder
  
 Launching the booking service on AWS
 ------------------------------------
 * Create a new [S3](https://aws.amazon.com/s3/) bucket and upload into it:
- * `Squash.zip` from the `build/distributions` folder
+ * `Squash.zip` and `AngularjsApp.zip` from the `build/distributions` folder
  * `Squash.template` from the `src/main/resources/squash/deployment/templates` folder
 * Go to the [Cloudformation](https://aws.amazon.com/cloudformation/) console in your chosen region
 * Launch a stack:
@@ -46,3 +46,5 @@ Running the Acceptance tests
 IDE support
 -----------
 * From the repo's top level, run `./gw eclipse` (or `gw eclipse` on Windows) to generate Eclipse project and classpath files
+
+[![js-standard-style](https://cdn.rawgit.com/feross/standard/master/badge.svg)](https://github.com/feross/standard)

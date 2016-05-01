@@ -1,0 +1,80 @@
+<!--
+For code which originated from angular-seed project: https://github.com/angular/angular-seed:
+
+Copyright (c) 2010-2014 Google, Inc. http://angularjs.org
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software. -->
+
+<!--
+For changes to the original angular-seed code:
+
+Copyright 2016 Robin Steel
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.-->
+
+<!DOCTYPE html>
+<!--[if lt IE 7]>      <html lang="en" ng-app="squashApp" class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html lang="en" ng-app="squashApp" class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html lang="en" ng-app="squashApp" class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]><!--> <html lang="en" ng-app="squashApp" class="no-js"> <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Court Bookings</title>
+  <meta name="description" content="">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="bower_components/html5-boilerplate/dist/css/normalize.css">
+  <link rel="stylesheet" href="bower_components/html5-boilerplate/dist/css/main.css">
+  <link rel="stylesheet" href="app.css">
+  <script src="bower_components/html5-boilerplate/dist/js/vendor/modernizr-2.8.3.min.js"></script>
+</head>
+<body>
+  <!--[if lt IE 7]>
+      <p class="browsehappy">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> to improve your experience.</p>
+  <![endif]-->
+
+  <div ng-view></div>
+
+  <!-- In production use:
+  <script src="//ajax.googleapis.com/ajax/libs/angularjs/x.x.x/angular.min.js"></script>
+  -->
+  <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1.12.min.js"></script>
+  <script type="text/javascript" src="../lib/axios/dist/axios.standalone.js"></script>
+  <script type="text/javascript" src="../lib/CryptoJS/rollups/hmac-sha256.js"></script>
+  <script type="text/javascript" src="../lib/CryptoJS/rollups/sha256.js"></script>
+  <script type="text/javascript" src="../lib/CryptoJS/components/hmac.js"></script>
+  <script type="text/javascript" src="../lib/CryptoJS/components/enc-base64.js"></script>
+  <script type="text/javascript" src="../lib/url-template/url-template.js"></script>
+  <script type="text/javascript" src="../lib/apiGatewayCore/sigV4Client.js"></script>
+  <script type="text/javascript" src="../lib/apiGatewayCore/apiGatewayClient.js"></script>
+  <script type="text/javascript" src="../lib/apiGatewayCore/simpleHttpClient.js"></script>
+  <script type="text/javascript" src="../lib/apiGatewayCore/utils.js"></script>
+  <script type="text/javascript" src="../apigClient.js"></script>
+  
+  <script src="bower_components/angular/angular.js"></script>
+  <script src="bower_components/angular-route/angular-route.js"></script>
+  <script src="app.js"></script>
+  <script src="bookingView/bookingView.js"></script>
+  <script src="reservationView/reservationView.js"></script>
+  <script src="cancellationView/cancellationView.js"></script>
+  <script src="components/bookings/bookingsService.js"></script>
+</body>
+</html>
