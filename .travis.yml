@@ -16,7 +16,7 @@ before_script:
   - sleep 1 # give server time to start
 script:
   - ./gw build
-  - node_modules/karma/bin/karma start karma.conf.js --no-auto-watch --single-run --reporters=dots --browsers=Firefox
+  - ./angularjs/node_modules/karma/bin/karma start karma.conf.js --no-auto-watch --single-run --reporters=dots --browsers=Firefox
 notifications:
   email:
   - robinsteel19@outlook.com
