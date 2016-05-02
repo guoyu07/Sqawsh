@@ -150,21 +150,26 @@ if (!project.hasProperty("ZipRevision")) {
     ext.ZipRevision = 1
 }
 task uploadAngularjsZipToAws(type: Exec) {
+    description 'Uploads the zipped Angularjs app to the S3 bucket specified by the S3ZipBucketName property (defaults to squashzips).'
     commandLine 'aws', 's3', 'cp', 'build/distributions/AngularjsApp.zip', "s3://$S3ZipBucketName/AngularjsApp.zip"
 }
 uploadAngularjsZipToAws.dependsOn(zipAngularjsApp)
 
 task uploadLambdaZipsToAws(type: Exec) {
+    description 'Uploads the zipped lambda code to the lambdas folder of the S3 bucket specified by the S3ZipBucketName property (defaults to squashzips). Appends an integer suffix specified by the ZipRevision property (defaults to 1).'
     commandLine 'aws', 's3', 'cp', 'build/distributions/Squash.zip', "s3://$S3ZipBucketName/lambdas/Squash${ZipRevision}.zip"
 }
 uploadLambdaZipsToAws.dependsOn(zipAllLambdas)
 
 task uploadCloudFormationTemplateToAws(type: Exec) {
+    description 'Uploads the cloudformation template to the lambdas folder of the S3 bucket specified by the S3ZipBucketName property (defaults to squashzips).'
     commandLine 'aws', 's3', 'cp', 'src/main/resources/squash/deployment/templates/Squash.template', "s3://$S3ZipBucketName/lambdas/Squash.template"
 }
 
 // Combo task to Upload both zips and the template
-task uploadToS3()
+task uploadToS3() {
+    description 'Uploads the Angularjs app, the lambda code, and the cloudformation template to S3.'
+}
 uploadToS3.dependsOn(uploadCloudFormationTemplateToAws, uploadAngularjsZipToAws, uploadLambdaZipsToAws)
 
 build.dependsOn(javadoc)

@@ -35,12 +35,8 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.DeleteVersionRequest;
-import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.ListVersionsRequest;
-import com.amazonaws.services.s3.model.ObjectListing;
-import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.model.VersionListing;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.util.json.JSONException;
@@ -52,6 +48,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * AWS Cloudformation custom resource to deploy the Angularjs squash app.
@@ -100,7 +97,7 @@ public class AngularjsAppCustomResourceLambda implements
    *    <li>WebsiteURL - Url of the Angularjs website.</li>
    * </ul>
    *
-   * <p>Updates will ...?
+   * <p>Updates will delete the previous deployment and replace it with the new one.
    *
    * @param request
    *            request parameters as provided by the CloudFormation service
@@ -204,18 +201,8 @@ public class AngularjsAppCustomResourceLambda implements
 
           // Page must be public so it can be served from the website
           logger.log("Modifying Angularjs app ACL in S3 website bucket");
-          ListObjectsRequest listObjectsRequest = new ListObjectsRequest().withBucketName(
-              websiteBucket).withPrefix("app/");
-          ObjectListing objectListing;
-          AmazonS3 s3Client = transferManager.getAmazonS3Client();
-          do {
-            objectListing = s3Client.listObjects(listObjectsRequest);
-            for (S3ObjectSummary objectSummary : objectListing.getObjectSummaries()) {
-              s3Client.setObjectAcl(objectSummary.getBucketName(), objectSummary.getKey(),
-                  CannedAccessControlList.PublicRead);
-            }
-            listObjectsRequest.setMarker(objectListing.getNextMarker());
-          } while (objectListing.isTruncated());
+          TransferUtils
+              .setPublicReadPermissionsOnBucket(websiteBucket, Optional.of("app/"), logger);
           logger.log("Modified Angularjs app ACL in S3 website bucket");
         } catch (IOException ioe) {
           logger.log("Caught an IO Exception: " + ioe.getMessage());

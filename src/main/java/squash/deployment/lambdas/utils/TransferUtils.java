@@ -26,6 +26,8 @@ import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.transfer.Transfer;
 import com.amazonaws.services.s3.transfer.TransferManager;
 
+import java.util.Optional;
+
 /**
  * Sundry S3 utilities.
  * 
@@ -68,17 +70,28 @@ public class TransferUtils {
   }
 
   /**
-   * Sets public read permissions on everything in an S3 bucket.
+   * Sets public read permissions on content within an S3 bucket.
    * 
    * <p>Web content served from an S3 bucket must have public read permissions.
    * 
    *    @param bucketName the bucket to apply the permissions to.
+   *    @param prefix prefix within the bucket, beneath which to apply the permissions.
    *    @param logger a CloudwatchLogs logger.
    */
-  public static void setPublicReadPermissionsOnBucket(String bucketName, LambdaLogger logger) {
+  public static void setPublicReadPermissionsOnBucket(String bucketName, Optional<String> prefix,
+      LambdaLogger logger) {
     // Ensure newly uploaded content has public read permission
-    logger.log("Setting public read permission on bucket: " + bucketName);
-    ListObjectsRequest listObjectsRequest = new ListObjectsRequest().withBucketName(bucketName);
+    ListObjectsRequest listObjectsRequest;
+    if (prefix.isPresent()) {
+      logger.log("Setting public read permission on bucket: " + bucketName + " and prefix: "
+          + prefix.get());
+      listObjectsRequest = new ListObjectsRequest().withBucketName(bucketName).withPrefix(
+          prefix.get());
+    } else {
+      logger.log("Setting public read permission on bucket: " + bucketName);
+      listObjectsRequest = new ListObjectsRequest().withBucketName(bucketName);
+    }
+
     ObjectListing objectListing;
     AmazonS3 client = new TransferManager().getAmazonS3Client();
     do {
@@ -89,6 +102,6 @@ public class TransferUtils {
       }
       listObjectsRequest.setMarker(objectListing.getNextMarker());
     } while (objectListing.isTruncated());
-    logger.log("Finished setting public read permissions on bucket");
+    logger.log("Finished setting public read permissions");
   }
 }

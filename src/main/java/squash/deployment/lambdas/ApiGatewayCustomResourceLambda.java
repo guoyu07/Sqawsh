@@ -88,6 +88,7 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -491,7 +492,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       logger.log("Uploaded sdk successfully to S3");
 
       logger.log("Setting public read permission on uploaded sdk");
-      TransferUtils.setPublicReadPermissionsOnBucket(squashWebsiteBucket, logger);
+      TransferUtils.setPublicReadPermissionsOnBucket(squashWebsiteBucket, Optional.empty(), logger);
       logger.log("Finished setting public read permissions on uploaded sdk");
     } catch (Exception e) {
       logger.log("Exception caught whilst copying Javascript SDK to S3: " + e.getMessage());
@@ -800,7 +801,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       putIntegration500ResponseRequest
           .setSelectionPattern("Apologies - something has gone wrong. Please try again.");
       putIntegration400ResponseRequest
-          .setSelectionPattern("The booking court.*|The booking time.*|The players names.*|The booking date.*|The password is incorrect.*");
+          .setSelectionPattern("The booking court.*|The booking time.*|The players names.*|The booking date.*|The password is incorrect.*|Booking creation failed.*|Booking cancellation failed.*");
     } else if (methodName.equals("BookingsDELETE")) {
       putMethodRequest.setHttpMethod("DELETE");
       putMethod200ResponseRequest.setHttpMethod("DELETE");
@@ -824,7 +825,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       putIntegration500ResponseRequest
           .setSelectionPattern("Apologies - something has gone wrong. Please try again.");
       putIntegration400ResponseRequest
-          .setSelectionPattern("The booking court.*|The booking time.*|The 2 players.*|The players names.*|The booking date.*|The password is incorrect.*");
+          .setSelectionPattern("The booking court.*|The booking time.*|The players names.*|The booking date.*|The password is incorrect.*|Booking creation failed.*|Booking cancellation failed.*");
     } else if (methodName.equals("BookingsPOST")) {
       // Redirect to the mutated booking page after creating or cancelling a
       // booking
@@ -897,7 +898,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       putIntegration500ResponseRequest
           .setSelectionPattern("Apologies - something has gone wrong. Please try again.");
       putIntegration400ResponseRequest
-          .setSelectionPattern("The booking court.*|The booking time.*|The 2 players.*|The players names.*|The booking date.*|Names of both players.*|The password is incorrect.*");
+          .setSelectionPattern("The booking court.*|The booking time.*|The players names.*|The booking date.*|The password is incorrect.*|Booking creation failed.*|Booking cancellation failed.*");
     } else if (methodName.equals("BookingsOPTIONS")) {
       // OPTIONS method is required for CORS.
       putMethodRequest.setHttpMethod("OPTIONS");
