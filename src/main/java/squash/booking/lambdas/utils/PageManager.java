@@ -30,11 +30,14 @@ import com.amazonaws.AmazonServiceException;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
+import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.CopyObjectRequest;
 import com.amazonaws.services.s3.model.DeleteObjectRequest;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
+import com.amazonaws.util.json.JSONException;
+import com.amazonaws.util.json.JSONObject;
 import com.google.common.collect.Lists;
 
 import java.io.ByteArrayInputStream;
@@ -94,14 +97,20 @@ public class PageManager implements IPageManager {
     copyUpdatedBookingPageToS3(date, newPage, createDuplicate ? pageGuid : "");
     logger.log("Copied booking page to S3");
 
+    // Create cached booking data as JSON for the Angularjs app to use
+    logger.log("About to create and upload cached booking data to S3");
+    copyUpdatedCachedJsonDataToS3(date, createCachedBookingData(date, validDates, bookings));
+    logger.log("Uploaded cached booking data to S3");
+
     return pageGuid;
   }
 
   @Override
   public void refreshAllPages(List<String> validDates, String apiGatewayBaseUrl) throws Exception {
-    // Upload all bookings pages and the index page to the S3 bucket.
-    // N.B. This should upload the most-future page first to ensure all links
-    // are valid during the several seconds the update takes to complete.
+    // Upload all bookings pages, cached booking data, and the index page to the
+    // S3 bucket. N.B. This should upload for the most-future date first to
+    // ensure all links are valid during the several seconds the update takes to
+    // complete.
     logger.log("About to upload new set of bookings pages to S3 at midnight");
     logger.log("Using valid dates: " + validDates);
     logger.log("Using ApigatewayBaseUrl: " + apiGatewayBaseUrl);
@@ -116,17 +125,25 @@ public class PageManager implements IPageManager {
     uploadBookingsPagesToS3(validDates, apiGatewayBaseUrl);
     logger.log("Uploaded new set of bookings pages to S3 at midnight");
 
-    // Remove the now-previous day's bookings page from S3.
+    // Save the valid dates in JSON form
+    logger.log("About to create and upload cached valid dates data to S3");
+    copyUpdatedCachedJsonDataToS3("validdates", createValidDatesData(validDates));
+    logger.log("Uploaded cached valid dates data to S3");
+
+    // Remove the now-previous day's bookings page and cached data from S3.
     // (If this page does not exist then this is a no-op.)
     String yesterdaysDate = getCurrentLocalDate().minusDays(1).format(
         DateTimeFormatter.ofPattern("yyyy-MM-dd"));
-    logger.log("About to remove yesterday's booking page from S3 bucket: " + websiteBucketName
-        + " and key: " + yesterdaysDate + ".html");
+    logger.log("About to remove yesterday's booking page and cached data from S3 bucket: "
+        + websiteBucketName + " and key: " + yesterdaysDate + ".html");
     IS3TransferManager transferManager = getS3TransferManager();
     DeleteObjectRequest deleteObjectRequest = new DeleteObjectRequest(websiteBucketName,
         yesterdaysDate + ".html");
-    transferManager.getAmazonS3Client().deleteObject(deleteObjectRequest);
-    logger.log("Removed yesterday's booking page successfully from S3");
+    AmazonS3 client = transferManager.getAmazonS3Client();
+    client.deleteObject(deleteObjectRequest);
+    deleteObjectRequest = new DeleteObjectRequest(websiteBucketName, yesterdaysDate + ".json");
+    client.deleteObject(deleteObjectRequest);
+    logger.log("Removed yesterday's booking page and cached data successfully from S3");
   }
 
   /**
@@ -216,6 +233,71 @@ public class PageManager implements IPageManager {
     return writer.toString();
   }
 
+  /**
+   * Returns JSON-encoded booking data for a specified date.
+   * 
+   * <p>This is not private only so that it can be unit-tested.
+   * 
+   * @param date the date in YYYY-MM-DD format.
+   * @param validDates the dates for which bookings can be made, in YYYY-MM-DD format.
+   * @param bookings the bookings for the specified date.
+   * @throws JSONException 
+   */
+  protected String createCachedBookingData(String date, List<String> validDates,
+      List<Booking> bookings) throws IllegalArgumentException, IOException, JSONException {
+
+    // N.B. we assume that the date is known to be a valid date
+    logger.log("About to create cached booking data");
+
+    // Encode bookings as JSON
+    JSONObject bookingsJson = new JSONObject();
+    bookingsJson.put("date", date);
+    bookingsJson.put("validdates", new ArrayList<String>());
+    for (int i = 0; i < validDates.size(); i++) {
+      bookingsJson.accumulate("validdates", validDates.get(i));
+    }
+    bookingsJson.put("bookings", new ArrayList<String>());
+    for (int i = 0; i < bookings.size(); i++) {
+      Booking booking = bookings.get(i);
+      JSONObject bookingJson = new JSONObject();
+      bookingJson.put("court", booking.getCourt());
+      bookingJson.put("slot", booking.getSlot());
+      bookingJson.put("players", booking.getPlayers());
+      bookingsJson.accumulate("bookings", bookingJson);
+    }
+
+    String bookingDataString = bookingsJson.toString();
+    logger.log("Created cached booking data: " + bookingDataString);
+
+    return bookingDataString;
+  }
+
+  /**
+   * Returns JSON-encoded valid-dates data for a specified date.
+   * 
+   * <p>This is not private only so that it can be unit-tested.
+   * 
+   * @param validDates the dates for which bookings can be made, in YYYY-MM-DD format.
+   * @throws JSONException 
+   */
+  protected String createValidDatesData(List<String> validDates) throws IllegalArgumentException,
+      IOException, JSONException {
+
+    // N.B. we assume that the date is known to be a valid date
+    logger.log("About to create cached valid dates data");
+
+    // Encode valid dates as JSON
+    JSONObject validDatesJson = new JSONObject();
+    validDatesJson.put("dates", new ArrayList<String>());
+    for (int i = 0; i < validDates.size(); i++) {
+      validDatesJson.accumulate("dates", validDates.get(i));
+    }
+    String validDatesDataString = validDatesJson.toString();
+    logger.log("Created cached valid dates data: " + validDatesDataString);
+
+    return validDatesDataString;
+  }
+
   private List<String> getTimeSlotLabels() {
 
     // First time slot of the day is 10am...
@@ -231,6 +313,42 @@ public class PageManager implements IPageManager {
     logger.log("Got slot labels: " + timeSlots);
 
     return timeSlots;
+  }
+
+  private void copyUpdatedCachedJsonDataToS3(String keyName, String jsonToCopy) throws Exception {
+
+    logger.log("About to copy cached json data to S3");
+
+    try {
+      logger.log("Uploading json data to S3 bucket: " + websiteBucketName + " and key: " + keyName
+          + ".json");
+      byte[] jsonAsBytes = jsonToCopy.getBytes(StandardCharsets.UTF_8);
+      ByteArrayInputStream jsonAsStream = new ByteArrayInputStream(jsonAsBytes);
+      ObjectMetadata metadata = new ObjectMetadata();
+      metadata.setContentLength(jsonAsBytes.length);
+      metadata.setContentType("application/json");
+      // Direct caches not to satisfy future requests with this data and
+      // not to store it - at least for HTTP 1.1 - we want agents to get
+      // the latest data from S3 on every request.
+      metadata.setCacheControl("no-cache, no-store, must-revalidate");
+      PutObjectRequest putObjectRequest = new PutObjectRequest(websiteBucketName,
+          keyName + ".json", jsonAsStream, metadata);
+      // Data must be public so it can be served from the website
+      putObjectRequest.setCannedAcl(CannedAccessControlList.PublicRead);
+      IS3TransferManager transferManager = getS3TransferManager();
+      TransferUtils.waitForS3Transfer(transferManager.upload(putObjectRequest), logger);
+      logger.log("Uploaded cached json data to S3 bucket");
+    } catch (AmazonServiceException ase) {
+      ExceptionUtils.logAmazonServiceException(ase, logger);
+      throw new Exception("Exception caught while copying json data to S3");
+    } catch (AmazonClientException ace) {
+      ExceptionUtils.logAmazonClientException(ace, logger);
+      throw new Exception("Exception caught while copying json data to S3");
+    } catch (InterruptedException e) {
+      logger.log("Caught interrupted exception: ");
+      logger.log("Error Message: " + e.getMessage());
+      throw new Exception("Exception caught while copying json data to S3");
+    }
   }
 
   private void copyUpdatedBookingPageToS3(String pageBaseName, String page, String uidSuffix)

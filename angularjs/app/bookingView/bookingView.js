@@ -29,7 +29,7 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService']
     var self = this
     self.bookings = []
 
-    // Prevent gradual booking table rendering
+    // Prevent gradual booking table rendering on initial load
     self.bookingsLoaded = false
 
     // Boolean used to show error ui when loading of the bookings fails
@@ -39,65 +39,101 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService']
     self.courtNumbers = BookingService.getCourtNumbers() // e.g. [1,2,3,4,5]
     self.timeSlots = BookingService.getTimeSlots() // e.g. ["10:00 AM", ..., "9:15 PM"]
 
-    // Get the dates for which bookings can currently be viewed/made
-    BookingService.getValidDates()
-      .then(function (validDates) {
-        self.validDates = validDates // array of dates in YYYY-MM-DD format
-        // If we were previously viewing bookings for a particular day, and that day is still valid, view
-        // that day again, otherwise view the first day
-        if ((typeof BookingService.activeDate !== 'undefined') &&
-          (self.validDates.indexOf(BookingService.activeDate) > -1)
+    // Create promise chain to render the bookings for the selected date
+    BookingService.getCachedValidDates(new BookingDataBuilder())
+      .then(function (builder) {
+        return getBookingsForSelectedDate(builder, true)
+      })
+      .then(function (builder) {
+        return commitBookingsIfDateStillValid(builder)
+      })
+      .catch(function (e) {
+        // If we've failed to render from cached data, we carry on
+        // to see if we can render from backend data instead
+        return new BookingDataBuilder()
+      })
+      // If we successfully rendered from cached data, we also carry
+      // on to get backend data in case the cache was out-of-date.
+      .then(function (builder) {
+        return BookingService.getValidDates(builder)
+      })
+      .then(function (builder) {
+        return getBookingsForSelectedDate(builder, false)
+      })
+      .then(function (builder) {
+        return commitBookingsIfDateStillValid(builder)
+      })
+      .catch(function (e) {
+        // Set flag so UI can display a general failure message only if we also
+        // failed to render from cached data
+        if ((typeof e.builder === 'undefined') ||
+          ((typeof e.builder !== 'undefined') && (e.builder.getRenderFromCacheFailed() === true))
         ) {
-          self.selectedDate = BookingService.activeDate
-        } else {
-          self.selectedDate = self.validDates[0]
+          // Don't know how to recover from this one...
+          // Set flag so UI can display a general failure message...
+          self.loadFailure = true
+          reset()
+          updateUi()
         }
-
-        // Get the bookings for the selected date
-        return BookingService.getBookings(self.selectedDate)
       })
-      .then(applyBookingsIfDateStillValid)
-      .catch(function (error) {
-        // Set flag so UI can display a general failure message...
-        console.log('Rendering bookings failed with error: ')
-        console.dir(error)
-        // Reset some variables in case they were set before the error we're handling
-        reset()
-        self.loadFailure = true
-        updateUi()
-      })
-
-    function reset () {
-      self.selectedDate = undefined
-      self.validDates = undefined
-      self.bookings = []
-    }
 
     // Helper functions
-    function updateBookedPlayersArray () {
+    function updateBookedPlayersArray (builder) {
       // Initialise array holding who, if anyone, has a court/time booked
-      self.bookedPlayers = new Array(self.timeSlots.length)
-      for (var slotIndex = 0; slotIndex < self.bookedPlayers.length; slotIndex++) {
-        self.bookedPlayers[slotIndex] = new Array(self.courtNumbers.length)
+      var bookedPlayers = new Array(self.timeSlots.length)
+      for (var slotIndex = 0; slotIndex < bookedPlayers.length; slotIndex++) {
+        bookedPlayers[slotIndex] = new Array(self.courtNumbers.length)
       }
 
       // Iterate over bookings, updating corresponding bookedPlayers entry
-      for (var i = 0; i < self.bookings.length; i++) {
-        self.bookedPlayers[self.bookings[i].slot - 1][self.bookings[i].court - 1] = self.bookings[i].players
+      var bookings = builder.getBookings()
+      for (var i = 0; i < bookings.length; i++) {
+        bookedPlayers[bookings[i].slot - 1][bookings[i].court - 1] = bookings[i].players
+      }
+      builder.setBookedPlayers(bookedPlayers)
+    }
+
+    function getBookingsForSelectedDate (builder, useCache) {
+      // If we were previously viewing bookings for a particular day, and that day is
+      // still valid, view that day again, otherwise view the first day
+      var validDates = builder.getValidDates()
+      if ((typeof BookingService.activeDate !== 'undefined') &&
+        (validDates.indexOf(BookingService.activeDate) > -1)
+      ) {
+        builder.setSelectedDate(BookingService.activeDate)
+      } else {
+        builder.setSelectedDate(validDates[0])
+      }
+
+      // Get the bookings for the selected date
+      if (useCache === true) {
+        return BookingService.getCachedBookings(builder)
+      } else {
+        return BookingService.getBookings(builder)
       }
     }
 
-    function applyBookingsIfDateStillValid (result) {
+    function commitBookingsIfDateStillValid (builder) {
       // It is possible the user could have switched to a different date since this result's async
-      // request was triggered - so we apply the bookings only if the date agrees.
-      if (result.date === self.selectedDate) {
-        self.bookings = result.bookings
-        updateBookedPlayersArray()
+      // request was triggered - so we apply the bookings only if the date agrees, or if this is the
+      // first call to this function.
+      var selectedDate = builder.getSelectedDate()
+      if ((typeof self.selectedDate === 'undefined') || (selectedDate === self.selectedDate)) {
+        updateBookedPlayersArray(builder)
+
+        // Update variables on self now that the transaction has succeeded
+        self.validDates = angular.copy(builder.getValidDates())
+        self.selectedDate = angular.copy(builder.getSelectedDate())
+        self.bookings = angular.copy(builder.getBookings())
+        self.bookedPlayers = angular.copy(builder.getBookedPlayers())
+        builder.setRenderFromCacheFailed(false)
 
         // Update the UI with these new bookings
         self.bookingsLoaded = true
         updateUi()
       }
+
+      return builder
     }
 
     self.courtIsReserved = function (timeSlotIndex, courtNumberIndex) {
@@ -139,6 +175,12 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService']
       }
     }
 
+    function reset () {
+      self.selectedDate = undefined
+      self.validDates = undefined
+      self.bookings = []
+    }
+
     // Date-related helper functions
     self.incrementOrDecrementDate = function (stepSize) {
       // Use Date instead? Update validDates first?
@@ -164,22 +206,51 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService']
 
     self.selectedDateChanged = function () {
       self.loadFailure = false
-      BookingService.getBookings(self.selectedDate)
-        .then(applyBookingsIfDateStillValid)
-        .catch(function (error) {
+      var builder = new BookingDataBuilder()
+      builder.setSelectedDate(self.selectedDate)
+      builder.setValidDates(self.validDates)
+
+      BookingService.getCachedBookings(builder)
+        .then(function (builder) {
+          return commitBookingsIfDateStillValid(builder)
+        })
+        .catch(function (e) {
+          // If we've failed to render from cached data, we carry on
+          // to see if we can render from backend data instead
+          var builder = new BookingDataBuilder()
+          builder.setSelectedDate(self.selectedDate)
+          builder.setValidDates(self.validDates)
+          return builder
+        })
+        // If we successfully rendered from cached data, we also carry
+        // on to get backend data in case the cache was out-of-date.
+        .then(function (builder) {
+          return BookingService.getBookings(builder)
+        })
+        .then(function (builder) {
+          return commitBookingsIfDateStillValid(builder)
+        })
+        .catch(function (e) {
+          if ((typeof e.builder !== 'undefined') && (e.builder.getRenderFromCacheFailed() === false)
+          ) {
+            // Don't fail here if we rendered ok from cached data
+            return
+          }
+
           // If the failure is bc the selectedDate is no longer valid, trigger a full reload
           // to re-get the valid dates from the backend. This can happen if you use a browser
           // left open overnight.
-          if (error.data.indexOf('The booking date is outside the valid range') > -1) {
+          if ((typeof e.error !== 'undefined') &&
+            (typeof e.error.data !== 'undefined') &&
+            (e.error.data.indexOf('The booking date is outside the valid range') > -1)
+          ) {
             // This should reload and show bookings for the first valid date.
             $route.reload()
           } else {
             // Don't know how to recover from this one...
             // Set flag so UI can display a general failure message...
-            console.log('Changing date failed with error: ')
-            console.dir(error)
-            reset()
             self.loadFailure = true
+            reset()
             updateUi()
           }
         })
@@ -204,5 +275,48 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService']
       $timeout(function () {
         $scope.$apply()
       })
+    }
+
+    // Helper object to accumulate bookings-related data during the asynchronous
+    // execution of each promise chain. This prevents chains that fail before
+    // completion, or execute interleaved with other chains, from corrupting the
+    // data on self, or on each other.
+    function BookingDataBuilder () {
+      this.validDates = undefined
+      this.selectedDate = undefined
+      this.bookings = undefined
+      this.bookedPlayers = undefined
+      this.renderFromCacheFailed = true // Will be set to false on success
+
+      this.setValidDates = function (validDates) {
+        this.validDates = angular.copy(validDates)
+      }
+      this.getValidDates = function () {
+        return this.validDates
+      }
+      this.setSelectedDate = function (selectedDate) {
+        this.selectedDate = angular.copy(selectedDate)
+      }
+      this.getSelectedDate = function () {
+        return this.selectedDate
+      }
+      this.setBookings = function (bookings) {
+        this.bookings = angular.copy(bookings)
+      }
+      this.getBookings = function () {
+        return this.bookings
+      }
+      this.setBookedPlayers = function (bookedPlayers) {
+        this.bookedPlayers = angular.copy(bookedPlayers)
+      }
+      this.getBookedPlayers = function () {
+        return this.bookedPlayers
+      }
+      this.setRenderFromCacheFailed = function (renderFromCacheFailed) {
+        this.renderFromCacheFailed = angular.copy(renderFromCacheFailed)
+      }
+      this.getRenderFromCacheFailed = function () {
+        return this.renderFromCacheFailed
+      }
     }
   }])

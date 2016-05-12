@@ -26,7 +26,7 @@ Launching the booking service on AWS
 * Go to the [Cloudformation](https://aws.amazon.com/cloudformation/) console in your chosen region
 * Launch a stack:
  * using the uploaded `Squash.template`
- * specifying the parameters appropriately to point to the uploaded `Squash.zip`
+ * specifying the parameters appropriately to point to the uploaded `Squash.zip` and `AngularjsApp.zip`
 * The stack should complete in a few minutes
 * The URL of the new court booking service will be provided as a stack output
 * Check logs in [CloudwatchLogs](https://aws.amazon.com/cloudwatch/) to troubleshoot any problems

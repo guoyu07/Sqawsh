@@ -60,8 +60,9 @@ import java.util.Map;
  *    
  * <p>It substitutes some stack-creation-time strings in the Bookings.html
  *    version of the site (i.e. the actual Cognito identity pool id, the
- *    AWS region, and the base URL of the ApiGateway api). It then uploads
- *    Bookings.html and a booking page for each bookable day to the website.
+ *    AWS region, the base URL of the ApiGateway api, and the website bucket
+ *    name). It then uploads Bookings.html, a booking page, and a bookings
+ *    json file for each bookable day to the website.
  * 
  * @author robinsteel19@outlook.com (Robin Steel)
  */
@@ -146,8 +147,10 @@ public class BookingsHtmlCustomResourceLambda implements
           String html = CharStreams.toString(new InputStreamReader(stream, "UTF-8"));
           logger.log("HTML read from resources: " + html);
 
-          // Modify it to insert the cognito pool id, region, and base url
-          logger.log("Inserting Cognito pool id, region, and ApiGatewayBaseUrl into bookings.html");
+          // Modify it to insert the cognito pool id, region, base url, and
+          // website bucket name.
+          logger
+              .log("Inserting Cognito pool id, region, ApiGatewayBaseUrl, and website bucket name into bookings.html");
           String modifiedHtml = html.replaceAll("com_squash_identityPoolId = 'stringtobereplaced'",
               "com_squash_identityPoolId = '" + cognitoIdentityPoolId + "'");
           modifiedHtml = modifiedHtml.replaceAll(

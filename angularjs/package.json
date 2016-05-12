@@ -34,6 +34,6 @@
     "ignore": [
       "**/bower_components/**"
     ],
-    "globals": [ "angular", "beforeEach", "describe", "expect", "inject", "it", "spyOn" ]
+    "globals": [ "angular", "beforeEach", "describe", "expect", "inject", "jasmine", "it", "spyOn" ]
   }
 }

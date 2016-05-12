@@ -38,6 +38,7 @@ import com.amazonaws.services.s3.model.CopyObjectRequest;
 import com.amazonaws.services.s3.model.DeleteObjectRequest;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.transfer.Transfer;
+import com.amazonaws.util.json.JSONException;
 import com.google.common.io.CharStreams;
 
 import java.io.File;
@@ -205,9 +206,11 @@ public class PageManagerTest {
     // checking argument details.
     mockery.checking(new Expectations() {
       {
-        oneOf(mockTransferManager).upload(with(any(PutObjectRequest.class)));
+        // We have one upload for the page and one for the cached data
+        exactly(2).of(mockTransferManager).upload(with(any(PutObjectRequest.class)));
         will(returnValue(mockTransfer));
-        // We _do_ have the copy in this case
+        // We _do_ have the copy in this case - for the page, but not for the
+        // cached data
         oneOf(mockTransferManager).copy(with(any(CopyObjectRequest.class)));
         will(returnValue(mockTransfer));
       }
@@ -242,7 +245,8 @@ public class PageManagerTest {
     // checking argument details.
     mockery.checking(new Expectations() {
       {
-        oneOf(mockTransferManager).upload(with(any(PutObjectRequest.class)));
+        // We have one upload for the page and one for the cached data
+        exactly(2).of(mockTransferManager).upload(with(any(PutObjectRequest.class)));
         will(returnValue(mockTransfer));
         // We do _not_ have the copy in this case
         never(mockTransferManager).copy(with(anything()));
@@ -305,8 +309,9 @@ public class PageManagerTest {
     final Sequence refreshSequence = mockery.sequence("refresh");
     mockery.checking(new Expectations() {
       {
-        // 1 upload for each date + 1 upload for the index page
-        exactly(validDates.size() + 1).of(mockTransferManager).upload(
+        // 2 uploads for each date + 1 upload for the index page + 1 upload for
+        // the validdates json
+        exactly(2 * validDates.size() + 2).of(mockTransferManager).upload(
             with(any(PutObjectRequest.class)));
         will(returnValue(mockTransfer));
         inSequence(refreshSequence);
@@ -315,15 +320,15 @@ public class PageManagerTest {
         never(mockTransferManager).copy(with(anything()));
       }
     });
-    // Delete previous day's bookings at end
+    // Delete previous day's bookings and cached data at end
     mockS3Client = mockery.mock(AmazonS3.class);
     mockery.checking(new Expectations() {
       {
-        oneOf(mockS3Client).deleteObject(with(aNonNull(DeleteObjectRequest.class)));
-        // Ensures this delete occurs after uploads of new pages
+        exactly(2).of(mockS3Client).deleteObject(with(aNonNull(DeleteObjectRequest.class)));
+        // Ensures this delete occurs after uploads of new pages and cached data
         inSequence(refreshSequence);
 
-        oneOf(mockTransferManager).getAmazonS3Client();
+        exactly(1).of(mockTransferManager).getAmazonS3Client();
         will(returnValue(mockS3Client));
       }
     });
@@ -450,5 +455,162 @@ public class PageManagerTest {
       }
     }
     assertTrue("Created booking page is incorrect: " + actualBookingPage, pageIsCorrect);
+  }
+
+  @Test
+  public void testCreateCachedBookingDataCreatesCorrectData() throws IOException,
+      IllegalArgumentException, JSONException {
+
+    // We create two bookings, and verify resulting json directly
+    // against regression data.
+
+    // ARRANGE
+    // Set up 2 bookings
+    Booking booking1 = new Booking();
+    booking1.setSlot(3);
+    booking1.setCourt(5);
+    booking1.setPlayers("A.Playera/B.Playerb");
+    Booking booking2 = new Booking();
+    booking2.setSlot(4);
+    booking2.setCourt(3);
+    booking2.setPlayers("C.Playerc/D.Playerd");
+    List<Booking> bookingsForDate = new ArrayList<>();
+    bookingsForDate.add(booking1);
+    bookingsForDate.add(booking2);
+
+    // Set up the expected cached data
+    String expectedCachedBookingData = "{\"date\":\"2015-10-06\",\"validdates\":[\"2015-10-06\",\"2015-10-07\"],\"bookings\":[{\"players\":\"A.Playera/B.Playerb\",\"slot\":3,\"court\":5},{\"players\":\"C.Playerc/D.Playerd\",\"slot\":4,\"court\":3}]}";
+
+    // ACT
+    String actualCachedBookingData = pageManager.createCachedBookingData(fakeCurrentDateString,
+        validDates, bookingsForDate);
+
+    // ASSERT
+    boolean dataIsCorrect = actualCachedBookingData.equals(expectedCachedBookingData);
+    assertTrue("Created cached booking data is incorrect: " + actualCachedBookingData + " versus "
+        + expectedCachedBookingData, dataIsCorrect);
+  }
+
+  @Test
+  public void testCreateCachedBookingDataHasBookingsArrayWhenThereIsOneBooking()
+      throws IOException, IllegalArgumentException, JSONException {
+
+    // Aim here is to check that a single booking is encoded as a 1-element
+    // array rather than degenerating to a non-array object.
+
+    // ARRANGE
+    // We create 1 bookings, and verify resulting json directly
+    // against regression data.
+    Booking booking = new Booking();
+    booking.setSlot(3);
+    booking.setCourt(5);
+    booking.setPlayers("A.Playera/B.Playerb");
+    List<Booking> bookingsForDate = new ArrayList<>();
+    bookingsForDate.add(booking);
+
+    // Set up the expected cached data
+    String expectedCachedBookingData = "{\"date\":\"2015-10-06\",\"validdates\":[\"2015-10-06\",\"2015-10-07\"],\"bookings\":[{\"players\":\"A.Playera/B.Playerb\",\"slot\":3,\"court\":5}]}";
+
+    // ACT
+    String actualCachedBookingData = pageManager.createCachedBookingData(fakeCurrentDateString,
+        validDates, bookingsForDate);
+
+    // ASSERT
+    boolean dataIsCorrect = actualCachedBookingData.equals(expectedCachedBookingData);
+    assertTrue("Created cached booking data is incorrect: " + actualCachedBookingData + " versus "
+        + expectedCachedBookingData, dataIsCorrect);
+  }
+
+  @Test
+  public void testCreateCachedBookingDataHasEmptyBookingsArrayWhenThereAreNoBookings()
+      throws IOException, IllegalArgumentException, JSONException {
+
+    // Aim here is to check that no bookings is encoded as an empty array
+    // rather than being dropped altogether from the JSON.
+
+    // We create no bookings, and verify resulting json directly
+    // against regression data.
+
+    // ARRANGE
+    // Create empty bookings array
+    List<Booking> bookingsForDate = new ArrayList<>();
+
+    // Set up the expected cached data
+    String expectedCachedBookingData = "{\"date\":\"2015-10-06\",\"validdates\":[\"2015-10-06\",\"2015-10-07\"],\"bookings\":[]}";
+
+    // ACT
+    String actualCachedBookingData = pageManager.createCachedBookingData(fakeCurrentDateString,
+        validDates, bookingsForDate);
+
+    // ASSERT
+    boolean dataIsCorrect = actualCachedBookingData.equals(expectedCachedBookingData);
+    assertTrue("Created cached booking data is incorrect: " + actualCachedBookingData + " versus "
+        + expectedCachedBookingData, dataIsCorrect);
+  }
+
+  @Test
+  public void testCreateCachedValidDatesDataCreatesCorrectData() throws IOException,
+      IllegalArgumentException, JSONException {
+
+    // ARRANGE
+    // Set up the expected cached data
+    String expectedCachedValidDatesData = "{\"dates\":[\"2015-10-06\",\"2015-10-07\"]}";
+
+    // ACT
+    String actualCachedValidDatesData = pageManager.createValidDatesData(validDates);
+
+    // ASSERT
+    boolean dataIsCorrect = actualCachedValidDatesData.equals(expectedCachedValidDatesData);
+    assertTrue("Created cached valid dates data is incorrect: " + actualCachedValidDatesData
+        + " versus " + expectedCachedValidDatesData, dataIsCorrect);
+  }
+
+  @Test
+  public void testCreateCachedValidDatesDataWhenThereIsOneValidDate() throws IOException,
+      IllegalArgumentException, JSONException {
+
+    // Aim here is to check that a single date is encoded as a 1-element
+    // array rather than degenerating to a non-array object.
+
+    // ARRANGE
+    // We create a single valid date, and verify resulting json directly
+    // against regression data.
+    validDates = new ArrayList<>();
+    validDates.add(fakeCurrentDateString);
+
+    // Set up the expected cached data
+    String expectedCachedValidDatesData = "{\"dates\":[\"2015-10-06\"]}";
+
+    // ACT
+    String actualCachedValidDatesData = pageManager.createValidDatesData(validDates);
+
+    // ASSERT
+    boolean dataIsCorrect = actualCachedValidDatesData.equals(expectedCachedValidDatesData);
+    assertTrue("Created cached valid dates data is incorrect: " + actualCachedValidDatesData
+        + " versus " + expectedCachedValidDatesData, dataIsCorrect);
+  }
+
+  @Test
+  public void testCreateCachedValidDatesDataWhenThereAreNoValidDates() throws IOException,
+      IllegalArgumentException, JSONException {
+
+    // Aim here is to check that no valid dates is encoded as an empty array
+    // rather than being dropped altogether from the JSON.
+
+    // ARRANGE
+    // We create no valid dates, and verify resulting json directly
+    // against regression data.
+    validDates = new ArrayList<>();
+
+    // Set up the expected cached data
+    String expectedCachedValidDatesData = "{\"dates\":[]}";
+
+    // ACT
+    String actualCachedValidDatesData = pageManager.createValidDatesData(validDates);
+
+    // ASSERT
+    boolean dataIsCorrect = actualCachedValidDatesData.equals(expectedCachedValidDatesData);
+    assertTrue("Created cached valid dates data is incorrect: " + actualCachedValidDatesData
+        + " versus " + expectedCachedValidDatesData, dataIsCorrect);
   }
 }

@@ -101,7 +101,7 @@
   "Conditions" : {
     "CreateWebsiteBucketCondition" : { "Fn::Equals": [{"Ref": "StackShouldCreateWebsiteBucket"}, "true"]}
   },
-
+    
   "Resources" : {
 
     "SquashApiGatewayCustomResourceLambdaExecutionRole": {
@@ -875,6 +875,7 @@
         "Comment" : "N.B. The routing rules are to redirect GETs with the selectedDate query string",
         "Comment" : "parameter to the booking page html (in same bucket, but without a query string).",
         "Comment" : "Today.html will redirect to the current days bookings.",
+        "Comment" : "CORS config is to allow javascript clients to retrieve json data from the bucket.",
         "Comment" : "N.B. Bucket uses versioning for extra protection against accidental deletion."
       },
       "Type" : "AWS::S3::Bucket",
@@ -906,6 +907,14 @@
             "ExpirationInDays" : 30,
             "NoncurrentVersionExpirationInDays" : 30,
             "Status" : "Enabled"
+          }]
+        },
+        "CorsConfiguration" : {
+          "CorsRules" : [{
+            "AllowedOrigins" : [ {"Fn::Join" : ["", ["http://", {"Ref" : "WebsiteBucketName"}, ".s3-website-", { "Ref" : "AWS::Region" }, ".amazonaws.com"]]}],
+            "AllowedMethods" : ["GET"],
+            "AllowedHeaders" : ["*"],
+            "MaxAge" : 3000
           }]
         }
       }

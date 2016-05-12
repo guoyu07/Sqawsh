@@ -38,11 +38,13 @@ public interface IPageManager {
   void Initialise(IBookingManager bookingsManager, LambdaLogger logger) throws Exception;
 
   /**
-   * Refreshes a bookings web page for a specified date.
+   * Refreshes a bookings web page and cached JSON data for a specified date.
    * 
    * <p>This has a parameter for requesting a guid-suffixed duplicate of the page also be created.
    *    This is a workaround for S3's only-eventual-consistency, to ensure someone creating or
    *    deleting a booking will always be shown a booking page with their change immediately visible.
+   *    The cached JSON data does not have a guid suffix - we assume the javascript client for this
+   *    is capable of handling eventual-consistency issues itself.
    *
    * @param date the date to refresh in YYYY-MM-DD format.
    * @param validDates the dates for which bookings can be made, in YYYY-MM-DD format.
@@ -51,7 +53,7 @@ public interface IPageManager {
    * @param bookings the bookings for the specified date.
    *
    * @return The guid embedded in the refreshed page, and used as a suffix when a duplicate is created.
-   * @throws Exception when page refresh fails.
+   * @throws Exception when the method fails.
    */
   String refreshPage(String date, List<String> validDates, String apiGatewayBaseUrl,
       Boolean createDuplicate, List<Booking> bookings) throws Exception;

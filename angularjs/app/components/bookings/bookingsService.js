@@ -36,6 +36,7 @@ angular.module('squashApp.bookingsService', [])
     var com_squash_region = 'stringtobereplaced' // will be replaced at stack creation time
     var com_squash_identityPoolId = 'stringtobereplaced' // will be replaced at stack creation time
     var com_squash_apiGatewayBaseUrl = 'stringtobereplaced' // will be replaced at stack creation time
+    var com_squash_websiteBucket = 'stringtobereplaced' // will be replaced at stack creation time
     AWS.config.region = com_squash_region // Region
     AWS.config.credentials = new AWS.CognitoIdentityCredentials({
       IdentityPoolId: com_squash_identityPoolId
@@ -44,7 +45,7 @@ angular.module('squashApp.bookingsService', [])
     // N.B. Lambda can be sluggish on cold-starts. May need tweaking.
     AWS.config.maxRetries = 4
 
-    // Client for calling AWS ApiGateway
+    // AWS ApiGateway client
     var apigClient
     var getApigClient = function () {
       return $q(function (resolve, reject) {
@@ -68,10 +69,60 @@ angular.module('squashApp.bookingsService', [])
       })
     }
 
+    // AWS S3 client
+    var s3Client
+    var getS3Client = function () {
+      return $q(function (resolve, reject) {
+        // Return existing client if we have one...
+        if (s3Client) {
+          resolve(s3Client)
+        }
+
+        // ...otherwise create a new one with new guest credentials from Cognito
+        AWS.config.credentials.get(function (error) {
+          if (error) {
+            reject(error)
+          }
+          resolve(new AWS.S3({
+            accessKeyId: AWS.config.credentials.accessKeyId,
+            secretKey: AWS.config.credentials.secretAccessKey,
+            sessionToken: AWS.config.credentials.sessionToken,
+            region: com_squash_region
+          }))
+        })
+      })
+    }
+
+    // Our custom error type - allowing us to pass back the builder as well as the error
+    function BookingServiceError (error, builder) {
+      this.name = 'BookingServiceError'
+      this.message = 'Booking service error'
+      this.stack = (new Error()).stack
+      this.error = error
+      this.builder = builder
+    }
+    BookingServiceError.prototype = Object.create(Error.prototype)
+    BookingServiceError.prototype.constructor = BookingServiceError
+
     return {
       getCourtNumbers: function () { return courtNumbers },
       getTimeSlots: function () { return timeSlots },
-      getValidDates: function () {
+      getCachedValidDates: function (builder) {
+        return getS3Client()
+          .then(function (client) {
+            // Query AWS for the currently valid dates for viewing/mutating bookings
+            return client.getObject({Bucket: com_squash_websiteBucket, Key: 'validdates.json'}).promise()
+          })
+          .then(function (response) {
+            // Array of valid dates in YYYY-MM-DD format
+            builder.setValidDates(JSON.parse(response.Body.toString()).dates)
+            return builder
+          })
+          .catch(function (error) {
+            throw new BookingServiceError(error, builder)
+          })
+      },
+      getValidDates: function (builder) {
         return getApigClient()
           .then(function (client) {
             // Query AWS for the currently valid dates for viewing/mutating bookings
@@ -80,28 +131,44 @@ angular.module('squashApp.bookingsService', [])
             var additionalParams = {}
             return client.validdatesGet(params, body, additionalParams)
           })
-          .then(function (result) {
+          .then(function (response) {
             // Array of valid dates in YYYY-MM-DD format
-            return result.data.dates
+            builder.setValidDates(response.data.dates)
+            return builder
           })
           .catch(function (error) {
-            throw error
+            throw new BookingServiceError(error, builder)
           })
       },
-      getBookings: function (date) {
+      getCachedBookings: function (builder) {
+        // Return the bookings for the specified date
+        return getS3Client()
+          .then(function (client) {
+            return client.getObject({Bucket: com_squash_websiteBucket, Key: builder.getSelectedDate() + '.json'}).promise()
+          })
+          .then(function (response) {
+            builder.setBookings(JSON.parse(response.Body.toString()).bookings)
+            return builder
+          })
+          .catch(function (error) {
+            throw new BookingServiceError(error, builder)
+          })
+      },
+      getBookings: function (builder) {
         // Return the bookings for the specified date
         return getApigClient()
           .then(function (client) {
-            var params = {'date': date}
+            var params = {'date': builder.getSelectedDate()}
             var body = {}
             var additionalParams = {}
             return client.bookingsGet(params, body, additionalParams)
           })
-          .then(function (result) {
-            return result.data
+          .then(function (response) {
+            builder.setBookings(response.data.bookings)
+            return builder
           })
           .catch(function (error) {
-            throw error
+            throw new BookingServiceError(error, builder)
           })
       },
       reserveCourt: function (court, slot, date, player1, player2, password) {

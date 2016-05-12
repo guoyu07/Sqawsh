@@ -18,7 +18,9 @@
 
 describe('squashApp.bookingView module', function () {
   var bookingService
+  var getCachedValidDatesSpy
   var getValidDatesSpy
+  var getCachedBookingsSpy
   var getBookingsSpy
 
   beforeEach(function () {
@@ -32,7 +34,11 @@ describe('squashApp.bookingView module', function () {
   var bookingViewCtrl
   beforeEach(inject(function ($rootScope, $controller, BookingService) {
     // Configure mock response from the BookingService
+    getCachedValidDatesSpy = spyOn(BookingService, 'getCachedValidDates')
+      .and.callThrough()
     getValidDatesSpy = spyOn(BookingService, 'getValidDates')
+      .and.callThrough()
+    getCachedBookingsSpy = spyOn(BookingService, 'getCachedBookings')
       .and.callThrough()
     getBookingsSpy = spyOn(BookingService, 'getBookings')
       .and.callThrough()
@@ -103,19 +109,25 @@ describe('squashApp.bookingView module', function () {
 
   describe('BookingViewCtrl controller constructor', function () {
     it('should get its valid dates from the bookings service', inject(function ($rootScope) {
-      expect(bookingService.getValidDates).toHaveBeenCalled()
-      expect(bookingService.getValidDates.calls.count()).toEqual(1)
+      expect(bookingService.getCachedValidDates).toHaveBeenCalled()
+      expect(bookingService.getCachedValidDates.calls.count()).toEqual(1)
+      expect(bookingService.getValidDates).not.toHaveBeenCalled()
       expect(bookingViewCtrl.validDates).toBeUndefined()
 
       // Trigger the promise chain
       $rootScope.$apply()
       expect(bookingViewCtrl.validDates).toEqual(['2016-04-23', '2016-04-24'])
+      expect(bookingService.getCachedValidDates).toHaveBeenCalled()
+      expect(bookingService.getCachedValidDates.calls.count()).toEqual(1)
+      expect(bookingService.getValidDates).toHaveBeenCalled()
+      expect(bookingService.getValidDates.calls.count()).toEqual(1)
     }))
 
     it('should set the selected date to the first valid date when the bookings service has no active date', inject(function ($rootScope, $controller) {
-      // We store an 'active date' on the bookings service to record the date for which bookings were last requested.
-      // This is used to ensure e.g. we return to the correct day's bookings after reserving/cancelling a court.
-      // But if we've not viewed any bookings yet we should see those for the first valid date i.e. for today.
+      // We store an 'active date' on the bookings service to record the date for which bookings were last displayed
+      // prior to viewing the reservation or the cancellation forms. This is used to ensure e.g. we return to the
+      // correct day's bookings after reserving/cancelling a court. But if we've not viewed any bookings yet we should
+      // see those for the first valid date i.e. for today.
 
       // Create a new controller so we can configure the activeDate first
       bookingService.activeDate = undefined
@@ -156,13 +168,20 @@ describe('squashApp.bookingView module', function () {
 
     it('should get its bookings for the selected date from the bookings service', inject(function ($rootScope, $controller) {
       expect(bookingViewCtrl.bookings).toEqual([])
+      expect(bookingService.getCachedBookings).not.toHaveBeenCalled()
       expect(bookingService.getBookings).not.toHaveBeenCalled()
 
       // Trigger the promise chain
       $rootScope.$apply()
-      expect(bookingService.getBookings).toHaveBeenCalledWith('2016-04-23')
-      expect(bookingService.getBookings.calls.count()).toEqual(1)
       expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'slot': 3, 'players': 'R.Ashour/J.Power'}])
+      expect(bookingService.getCachedBookings).toHaveBeenCalledWith(jasmine.objectContaining({
+        selectedDate: '2016-04-23'
+      }))
+      expect(bookingService.getCachedBookings.calls.count()).toEqual(1)
+      expect(bookingService.getBookings).toHaveBeenCalledWith(jasmine.objectContaining({
+        selectedDate: '2016-04-23'
+      }))
+      expect(bookingService.getBookings.calls.count()).toEqual(1)
     }))
 
     it('should not use bookings if the selected date has changed since they were requested', inject(function ($rootScope, $controller) {
@@ -173,7 +192,9 @@ describe('squashApp.bookingView module', function () {
       // Trigger the promise chain to return initial set of bookings for 2016-04-23
       $rootScope.$apply()
       expect(bookingViewCtrl.bookingsLoaded).toBe(true)
-      expect(bookingService.getBookings).toHaveBeenCalledWith('2016-04-23')
+      expect(bookingService.getBookings).toHaveBeenCalledWith(jasmine.objectContaining({
+        selectedDate: '2016-04-23'
+      }))
       expect(bookingService.getBookings.calls.count()).toEqual(1)
       expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'slot': 3, 'players': 'R.Ashour/J.Power'}])
 
@@ -182,9 +203,11 @@ describe('squashApp.bookingView module', function () {
       // Trigger fetch of bookings for this new date
       bookingViewCtrl.selectedDateChanged()
       // But before bookings are returned, change the date again - to mimic user-browsing
-      bookingViewCtrl.selectedDate = '2016-04-25'
-      expect(bookingService.getBookings).toHaveBeenCalledWith('2016-04-24')
-      expect(bookingService.getBookings.calls.count()).toEqual(2)
+      bookingViewCtrl.selectedDate = '2016-04-26'
+      expect(bookingService.getCachedBookings).toHaveBeenCalledWith(jasmine.objectContaining({
+        selectedDate: '2016-04-24'
+      }))
+      expect(bookingService.getCachedBookings.calls.count()).toEqual(2)
       // Because the date has changed, the bookings should not have changed
       $rootScope.$apply()
       expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'slot': 3, 'players': 'R.Ashour/J.Power'}])
@@ -192,8 +215,10 @@ describe('squashApp.bookingView module', function () {
       // Repeat but with the date now agreeing - so bookings should now be updated
       bookingViewCtrl.selectedDate = '2016-04-24'
       bookingViewCtrl.selectedDateChanged()
-      expect(bookingService.getBookings).toHaveBeenCalledWith('2016-04-24')
-      expect(bookingService.getBookings.calls.count()).toEqual(3)
+      expect(bookingService.getCachedBookings).toHaveBeenCalledWith(jasmine.objectContaining({
+        selectedDate: '2016-04-24'
+      }))
+      expect(bookingService.getCachedBookings.calls.count()).toEqual(3)
       // Because the date has not changed, the bookings should have changed
       $rootScope.$apply()
       expect(bookingViewCtrl.bookings).toEqual([{'court': 3, 'slot': 1, 'players': 'R.Ashour/G.Gaultier'}])
@@ -215,6 +240,185 @@ describe('squashApp.bookingView module', function () {
       $rootScope.$apply()
       expect(bookingViewCtrl.bookingsLoaded).toBe(true)
     }))
+
+    it('should get its bookings from the backend if it fails to get cached valid dates', inject(function ($rootScope, $controller, $q) {
+      // If any cache retrieval fails, the user should not be shown an error, and we should continue to
+      // try to fetch bookings from the backend instead. This test is for cached valid dates failure.
+
+      // Trigger the promise chain to complete initial load correctly
+      $rootScope.$apply()
+      // Reset relevant mocks from this initial load
+      bookingService.getCachedValidDates.calls.reset()
+      bookingService.getValidDates.calls.reset()
+      bookingService.getCachedBookings.calls.reset()
+      bookingService.getBookings.calls.reset()
+
+      // ARRANGE
+      // Configure cached valid dates to return an error
+      getCachedValidDatesSpy.and.returnValue($q(function (resolve, reject) {
+        reject({'data': 'Boom!'})
+      }))
+      // Create a new controller since we've reconfigured getCachedValidDates to return an error
+      var scope = $rootScope.$new()
+      bookingViewCtrl = $controller('BookingViewCtrl', {$scope: scope})
+
+      expect(bookingViewCtrl.bookings).toEqual([])
+      expect(bookingService.getCachedValidDates).toHaveBeenCalled()
+      expect(bookingService.getCachedValidDates.calls.count()).toEqual(1)
+      expect(bookingService.getValidDates).not.toHaveBeenCalled()
+
+      // ACT
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      // ASSERT
+      // Expect the bookings to be those from the backend
+      expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'slot': 3, 'players': 'R.Ashour/J.Power'}])
+      expect(bookingViewCtrl.loadFailure).toBe(false)
+      expect(bookingService.getBookings).toHaveBeenCalledWith(jasmine.objectContaining({
+        selectedDate: '2016-04-23'
+      }))
+      expect(bookingService.getBookings.calls.count()).toEqual(1)
+      // Should have skipped cached bookings call since cached valid dates call failed
+      expect(bookingService.getCachedBookings).not.toHaveBeenCalled()
+    }))
+
+    it('should get its bookings from the backend if it fails to get cached bookings', inject(function ($rootScope, $controller, $q) {
+      // If any cache retrieval fails, the user should not be shown an error, and we should continue to
+      // try to fetch bookings from the backend instead. This test is for cached bookings failure.
+
+      // Trigger the promise chain to complete initial load correctly
+      $rootScope.$apply()
+      // Reset relevant mocks from this initial load
+      bookingService.getCachedValidDates.calls.reset()
+      bookingService.getValidDates.calls.reset()
+      bookingService.getCachedBookings.calls.reset()
+      bookingService.getBookings.calls.reset()
+
+      // ARRANGE
+      // Configure cached bookings to return an error
+      getCachedBookingsSpy.and.returnValue($q(function (resolve, reject) {
+        reject({'data': 'Boom!'})
+      }))
+      // Create a new controller since we've reconfigured getCachedBookings to return an error
+      var scope = $rootScope.$new()
+      bookingViewCtrl = $controller('BookingViewCtrl', {$scope: scope})
+
+      expect(bookingViewCtrl.bookings).toEqual([])
+      expect(bookingService.getCachedValidDates).toHaveBeenCalled()
+      expect(bookingService.getCachedValidDates.calls.count()).toEqual(1)
+      expect(bookingService.getValidDates).not.toHaveBeenCalled()
+
+      // ACT
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      // ASSERT
+      // Expect the bookings to be those from the backend
+      expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'slot': 3, 'players': 'R.Ashour/J.Power'}])
+      expect(bookingViewCtrl.loadFailure).toBe(false)
+      expect(bookingService.getBookings).toHaveBeenCalledWith(jasmine.objectContaining({
+        selectedDate: '2016-04-23'
+      }))
+      expect(bookingService.getBookings.calls.count()).toEqual(1)
+      // Should have called cached validdates and bookings
+      expect(bookingService.getCachedValidDates).toHaveBeenCalled()
+      expect(bookingService.getCachedBookings).toHaveBeenCalled()
+    }))
+
+    it('should get its bookings from the cache if the backend fails', inject(function ($rootScope, $controller, $q) {
+      // We try to get bookings from the cache, then the backend. If the cache succeeds, and the backend then
+      // fails, we should ignore the backend failure and use the bookings retrieved earlier from the cache.
+
+      // Trigger the promise chain to complete initial load correctly
+      $rootScope.$apply()
+      // Reset relevant mocks from this initial load
+      bookingService.getCachedValidDates.calls.reset()
+      bookingService.getValidDates.calls.reset()
+      bookingService.getCachedBookings.calls.reset()
+      bookingService.getBookings.calls.reset()
+
+      // ARRANGE
+      // Configure backend bookings to return an error
+      var mockBuilder = {getRenderFromCacheFailed: function () { return false }}
+      getBookingsSpy.and.returnValue($q(function (resolve, reject) {
+        reject({'builder': mockBuilder, 'error': {'data': 'Boom!'}})
+      }))
+      // Create a new controller since we've reconfigured getBookings to return an error
+      var scope = $rootScope.$new()
+      bookingViewCtrl = $controller('BookingViewCtrl', {$scope: scope})
+
+      expect(bookingViewCtrl.bookings).toEqual([])
+      expect(bookingService.getCachedValidDates).toHaveBeenCalled()
+      expect(bookingService.getCachedValidDates.calls.count()).toEqual(1)
+      expect(bookingService.getValidDates).not.toHaveBeenCalled()
+
+      // ACT
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      // ASSERT
+      // Expect the bookings to be those from the cache
+      expect(bookingViewCtrl.bookings).toEqual([{'court': 1, 'slot': 2, 'players': 'H.Ashour/H.AckerTDog'}])
+      expect(bookingViewCtrl.loadFailure).toBe(false)
+      expect(bookingService.getCachedBookings).toHaveBeenCalledWith(jasmine.objectContaining({
+        selectedDate: '2016-04-23'
+      }))
+      expect(bookingService.getCachedBookings.calls.count()).toEqual(1)
+      expect(bookingService.getBookings).toHaveBeenCalledWith(jasmine.objectContaining({
+        selectedDate: '2016-04-23'
+      }))
+      expect(bookingService.getBookings.calls.count()).toEqual(1)
+      expect(bookingService.getCachedValidDates).toHaveBeenCalled()
+      expect(bookingService.getCachedBookings).toHaveBeenCalled()
+    }))
+
+    it('should show user an error if bookings retrieval from both the cache and the backend fail', inject(function ($rootScope, $controller, $q) {
+      // If bookings retrieval fails from both the cache and the backend then we have little option
+      // but to show an error page to the user.
+
+      // Trigger the promise chain to complete initial load correctly
+      $rootScope.$apply()
+      // Reset relevant mocks from this initial load
+      bookingService.getCachedValidDates.calls.reset()
+      bookingService.getValidDates.calls.reset()
+      bookingService.getCachedBookings.calls.reset()
+      bookingService.getBookings.calls.reset()
+
+      // ARRANGE
+      // Configure both cached bookings and bookings to return an error
+      getCachedBookingsSpy.and.returnValue($q(function (resolve, reject) {
+        reject({'data': 'Boom!'})
+      }))
+      getBookingsSpy.and.returnValue($q(function (resolve, reject) {
+        reject({'data': 'Boom!'})
+      }))
+      // Create a new controller since we've reconfigured the bookings methods to return an error
+      var scope = $rootScope.$new()
+      bookingViewCtrl = $controller('BookingViewCtrl', {$scope: scope})
+
+      expect(bookingViewCtrl.bookings).toEqual([])
+      expect(bookingService.getCachedValidDates).toHaveBeenCalled()
+      expect(bookingService.getCachedValidDates.calls.count()).toEqual(1)
+      expect(bookingService.getValidDates).not.toHaveBeenCalled()
+
+      // ACT
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      // ASSERT
+      // Expect no bookings to have been retrieved
+      expect(bookingViewCtrl.bookings).toEqual([])
+      expect(bookingViewCtrl.loadFailure).toBe(true)
+      expect(bookingService.getCachedBookings).toHaveBeenCalledWith(jasmine.objectContaining({
+        selectedDate: '2016-04-23'
+      }))
+      expect(bookingService.getCachedBookings.calls.count()).toEqual(1)
+      expect(bookingService.getBookings).toHaveBeenCalledWith(jasmine.objectContaining({
+        selectedDate: '2016-04-23'
+      }))
+      expect(bookingService.getBookings.calls.count()).toEqual(1)
+    }))
   })
 
   describe('BookingViewCtrl controller selectedDateChanged function', function () {
@@ -223,13 +427,15 @@ describe('squashApp.bookingView module', function () {
       $rootScope.$apply()
       expect(bookingViewCtrl.selectedDate).toEqual('2016-04-23')
 
-      // Call selectedDateChanged and check this gives a loadFailure error
+      // Call selectedDateChanged and verify we load the bookings for the new date
       bookingViewCtrl.selectedDate = '2016-04-24'
       bookingViewCtrl.selectedDateChanged()
       // Trigger the promise chain
       $rootScope.$apply()
 
-      expect(bookingService.getBookings).toHaveBeenCalledWith('2016-04-24')
+      expect(bookingService.getBookings).toHaveBeenCalledWith(jasmine.objectContaining({
+        selectedDate: '2016-04-24'
+      }))
       expect(bookingService.getBookings.calls.count()).toEqual(2)
       expect(bookingViewCtrl.bookings).toEqual([{'court': 3, 'slot': 1, 'players': 'R.Ashour/G.Gaultier'}])
     }))
@@ -240,7 +446,9 @@ describe('squashApp.bookingView module', function () {
       expect(bookingViewCtrl.selectedDate).toEqual('2016-04-23')
 
       // Reconfigure getBookings to return an error
-      getBookingsSpy.and.returnValue($q(function (resolve, reject) { reject({'data': 'Boom!'}) }))
+      // Setup mock builder to say rendering from cached data also failed
+      var mockBuilder = {getRenderFromCacheFailed: function () { return true }}
+      getBookingsSpy.and.returnValue($q(function (resolve, reject) { reject({'builder': mockBuilder, 'error': {'data': 'Boom!'}}) }))
 
       // Call selectedDateChanged and check this gives a loadFailure error
       bookingViewCtrl.selectedDateChanged()
@@ -260,10 +468,9 @@ describe('squashApp.bookingView module', function () {
       $rootScope.$apply()
       expect(bookingViewCtrl.selectedDate).toEqual('2016-04-23')
 
-      // Configure getBookings to return the 'invalid date' error
-      getBookingsSpy.and.returnValue(
-        $q(function (resolve, reject) { reject({'data': 'The booking date is outside the valid range'}) })
-      )
+      // Setup mock builder to say rendering from cached data also failed
+      var mockBuilder = {getRenderFromCacheFailed: function () { return true }}
+      getBookingsSpy.and.returnValue($q(function (resolve, reject) { reject({'builder': mockBuilder, 'error': {'data': 'The booking date is outside the valid range'}}) }))
       spyOn($route, 'reload').and.callThrough()
 
       // Call selectedDateChanged and check this triggers a reload of the route
@@ -274,6 +481,128 @@ describe('squashApp.bookingView module', function () {
       expect($route.reload).toHaveBeenCalled()
       expect($route.reload.calls.count()).toEqual(1)
     }))
+
+    it('should get its bookings from the backend if it fails to get cached bookings', inject(function ($rootScope, $controller, $q) {
+      // If we fail to get the cached bookings, the user should not be shown an error, and we should continue to
+      // try to fetch bookings from the backend instead.
+
+      // Trigger the promise chain to complete initial load correctly
+      $rootScope.$apply()
+      // Reset relevant mocks from this initial load
+      bookingService.getCachedValidDates.calls.reset()
+      bookingService.getValidDates.calls.reset()
+      bookingService.getCachedBookings.calls.reset()
+      bookingService.getBookings.calls.reset()
+
+      // ARRANGE
+      // Configure cached bookings to return an error
+      getCachedBookingsSpy.and.returnValue($q(function (resolve, reject) {
+        reject({'data': 'Boom!'})
+      }))
+      // Set the date away from the default, so we can verify a bookings change
+      bookingViewCtrl.selectedDate = '2016-04-24'
+      expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'slot': 3, 'players': 'R.Ashour/J.Power'}])
+
+      // ACT
+      bookingViewCtrl.selectedDateChanged()
+
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      // ASSERT
+      // Expect the bookings to be those from the backend
+      expect(bookingViewCtrl.bookings).toEqual([{'court': 3, 'slot': 1, 'players': 'R.Ashour/G.Gaultier'}])
+      expect(bookingViewCtrl.loadFailure).toBe(false)
+      expect(bookingService.getCachedBookings).toHaveBeenCalledWith(jasmine.objectContaining({
+        selectedDate: '2016-04-24'
+      }))
+      expect(bookingService.getCachedBookings.calls.count()).toEqual(1)
+      expect(bookingService.getBookings).toHaveBeenCalledWith(jasmine.objectContaining({
+        selectedDate: '2016-04-24'
+      }))
+      expect(bookingService.getBookings.calls.count()).toEqual(1)
+    }))
+
+    it('should get its bookings from the cache if the backend fails', inject(function ($rootScope, $controller, $q) {
+      // We try to get bookings from the cache, then the backend. If the cache succeeds, and the backend then
+      // fails, we should ignore the backend failure and use the bookings retrieved earlier from the cache.
+
+      // Trigger the promise chain to complete initial load correctly
+      $rootScope.$apply()
+      // Reset relevant mocks from this initial load
+      bookingService.getCachedBookings.calls.reset()
+      bookingService.getBookings.calls.reset()
+
+      // ARRANGE
+      // Configure backend bookings to return an error
+      var mockBuilder = {getRenderFromCacheFailed: function () { return false }}
+      getBookingsSpy.and.returnValue($q(function (resolve, reject) {
+        reject({'builder': mockBuilder, 'error': {'data': 'Boom!'}})
+      }))
+      // Set the date away from the default, so we can verify a bookings change
+      bookingViewCtrl.selectedDate = '2016-04-24'
+      expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'slot': 3, 'players': 'R.Ashour/J.Power'}])
+
+      // ACT
+      bookingViewCtrl.selectedDateChanged()
+
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      // ASSERT
+      // Expect the bookings to be those from the cache
+      expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'slot': 4, 'players': 'J.Khan/J.Barrington'}])
+      expect(bookingViewCtrl.loadFailure).toBe(false)
+      expect(bookingService.getCachedBookings).toHaveBeenCalledWith(jasmine.objectContaining({
+        selectedDate: '2016-04-24'
+      }))
+      expect(bookingService.getCachedBookings.calls.count()).toEqual(1)
+      expect(bookingService.getBookings).toHaveBeenCalledWith(jasmine.objectContaining({
+        selectedDate: '2016-04-24'
+      }))
+      expect(bookingService.getBookings.calls.count()).toEqual(1)
+    }))
+
+    it('should show user an error if bookings retrieval from both the cache and the backend fail', inject(function ($rootScope, $controller, $q) {
+      // If bookings retrieval fails from both the cache and the backend then we have little option
+      // but to show an error page to the user.
+
+      // Trigger the promise chain to complete initial load correctly
+      $rootScope.$apply()
+      // Reset relevant mocks from this initial load
+      bookingService.getCachedValidDates.calls.reset()
+      bookingService.getValidDates.calls.reset()
+      bookingService.getCachedBookings.calls.reset()
+      bookingService.getBookings.calls.reset()
+
+      // ARRANGE
+      // Configure both cached bookings and bookings to return an error
+      getCachedBookingsSpy.and.returnValue($q(function (resolve, reject) {
+        reject({'data': 'Boom!'})
+      }))
+      getBookingsSpy.and.returnValue($q(function (resolve, reject) {
+        reject({'data': 'Boom!'})
+      }))
+
+      // ACT
+      bookingViewCtrl.selectedDateChanged()
+
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      // ASSERT
+      // Expect no bookings to have been retrieved
+      expect(bookingViewCtrl.bookings).toEqual([])
+      expect(bookingViewCtrl.loadFailure).toBe(true)
+      expect(bookingService.getCachedBookings).toHaveBeenCalledWith(jasmine.objectContaining({
+        selectedDate: '2016-04-23'
+      }))
+      expect(bookingService.getCachedBookings.calls.count()).toEqual(1)
+      expect(bookingService.getBookings).toHaveBeenCalledWith(jasmine.objectContaining({
+        selectedDate: '2016-04-23'
+      }))
+      expect(bookingService.getBookings.calls.count()).toEqual(1)
+    }))
   })
 
   describe('BookingViewCtrl controller incrementOrDecrementDate function', function () {
@@ -281,14 +610,18 @@ describe('squashApp.bookingView module', function () {
       // Trigger the promise chain
       $rootScope.$apply()
       expect(bookingViewCtrl.selectedDate).toEqual('2016-04-23')
-      expect(bookingService.getBookings).not.toHaveBeenCalledWith('2016-04-24')
+      expect(bookingService.getBookings).not.toHaveBeenCalledWith(jasmine.objectContaining({
+        selectedDate: '2016-04-24'
+      }))
       expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'slot': 3, 'players': 'R.Ashour/J.Power'}])
 
       bookingViewCtrl.incrementOrDecrementDate(1)
       $rootScope.$apply()
       expect(bookingViewCtrl.selectedDate).toEqual('2016-04-24')
       // And it should have retrieved the bookings for the new date also
-      expect(bookingService.getBookings).toHaveBeenCalledWith('2016-04-24')
+      expect(bookingService.getBookings).toHaveBeenCalledWith(jasmine.objectContaining({
+        selectedDate: '2016-04-24'
+      }))
       expect(bookingViewCtrl.bookings).toEqual([{'court': 3, 'slot': 1, 'players': 'R.Ashour/G.Gaultier'}])
 
       // Stepping again should be noop, as we are already on the last valid date
@@ -301,14 +634,18 @@ describe('squashApp.bookingView module', function () {
       // Trigger the promise chain
       $rootScope.$apply()
       expect(bookingViewCtrl.selectedDate).toEqual('2016-04-23')
-      expect(bookingService.getBookings).not.toHaveBeenCalledWith('2016-04-24')
+      expect(bookingService.getBookings).not.toHaveBeenCalledWith(jasmine.objectContaining({
+        selectedDate: '2016-04-24'
+      }))
       expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'slot': 3, 'players': 'R.Ashour/J.Power'}])
 
       // Advance the date - ready for a step backwards...and trigger update
       bookingViewCtrl.selectedDate = '2016-04-24'
       bookingViewCtrl.selectedDateChanged()
       $rootScope.$apply()
-      expect(bookingService.getBookings).toHaveBeenCalledWith('2016-04-24')
+      expect(bookingService.getBookings).toHaveBeenCalledWith(jasmine.objectContaining({
+        selectedDate: '2016-04-24'
+      }))
       expect(bookingViewCtrl.bookings).toEqual([{'court': 3, 'slot': 1, 'players': 'R.Ashour/G.Gaultier'}])
 
       // Step backwards
@@ -316,7 +653,9 @@ describe('squashApp.bookingView module', function () {
       $rootScope.$apply()
       expect(bookingViewCtrl.selectedDate).toEqual('2016-04-23')
       // And it should have retrieved the bookings for the new date also
-      expect(bookingService.getBookings).toHaveBeenCalledWith('2016-04-23')
+      expect(bookingService.getBookings).toHaveBeenCalledWith(jasmine.objectContaining({
+        selectedDate: '2016-04-23'
+      }))
       expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'slot': 3, 'players': 'R.Ashour/J.Power'}])
 
       // Stepping again should be noop, as we are already on the first valid date
@@ -383,7 +722,9 @@ describe('squashApp.bookingView module', function () {
   })
 
   describe('BookingViewCtrl controller constructor error handling', function () {
-    it('should set the loadFailure flag if the BookingsService getValidDates returns an error', inject(function ($rootScope, $location, $controller, $q) {
+    it('should set the loadFailure flag if the BookingsService getValidDates returns an unexpected error', inject(function ($rootScope, $location, $controller, $q) {
+      // 'Unexpected' here means one not derived from BookingServiceError with 'builder' and 'error' properties
+
       // Create a new controller so we can configure getValidDates to return an error
       getValidDatesSpy.and.returnValue($q(function (resolve, reject) { reject('Boom!') }))
 
@@ -399,7 +740,9 @@ describe('squashApp.bookingView module', function () {
       expect(bookingViewCtrl.bookings).toEqual([])
     }))
 
-    it('should set the loadFailure flag if the BookingsService getBookings returns an error', inject(function ($rootScope, $location, $controller, $q) {
+    it('should set the loadFailure flag if the BookingsService getBookings returns an unexpected error', inject(function ($rootScope, $location, $controller, $q) {
+      // 'Unexpected' here means one not derived from BookingServiceError with 'builder' and 'error' properties
+
       // Create a new controller so we can configure getBookings to return an error
       getBookingsSpy.and.returnValue($q(function (resolve, reject) { reject('Boom!') }))
 

@@ -21,23 +21,43 @@ angular.module('squashApp.bookingsService', [])
     return {
       getCourtNumbers: function () { return [1, 2, 3, 4] },
       getTimeSlots: function () { return ['9:15 AM', '10:15 AM', '11:15 AM', '12:15 PM', '1:15 PM'] },
-      getValidDates: function () {
+      getCachedValidDates: function (builder) {
         return $q(function (resolve, reject) {
-          resolve(['2016-04-23', '2016-04-24'])
+          builder.setValidDates(['2016-04-23', '2016-04-24'])
+          resolve(builder)
         })
       },
-      getBookings: function (date) {
+      getValidDates: function (builder) {
         return $q(function (resolve, reject) {
+          builder.setValidDates(['2016-04-23', '2016-04-24'])
+          resolve(builder)
+        })
+      },
+      getCachedBookings: function (builder) {
+        return $q(function (resolve, reject) {
+          var date = builder.getSelectedDate()
           if (date === '2016-04-23') {
-            resolve({
-              bookings: [{'court': 2, 'slot': 3, 'players': 'R.Ashour/J.Power'}],
-              date: '2016-04-23'
-            })
+            builder.setBookings([{'court': 1, 'slot': 2, 'players': 'H.Ashour/H.AckerTDog'}])
+            builder.setSelectedDate('2016-04-23')
+            resolve(builder)
           } else {
-            resolve({
-              bookings: [{'court': 3, 'slot': 1, 'players': 'R.Ashour/G.Gaultier'}],
-              date: '2016-04-24'
-            })
+            builder.setBookings([{'court': 2, 'slot': 4, 'players': 'J.Khan/J.Barrington'}])
+            builder.setSelectedDate('2016-04-24')
+            resolve(builder)
+          }
+        })
+      },
+      getBookings: function (builder) {
+        return $q(function (resolve, reject) {
+          var date = builder.getSelectedDate()
+          if (date === '2016-04-23') {
+            builder.setBookings([{'court': 2, 'slot': 3, 'players': 'R.Ashour/J.Power'}])
+            builder.setSelectedDate('2016-04-23')
+            resolve(builder)
+          } else {
+            builder.setBookings([{'court': 3, 'slot': 1, 'players': 'R.Ashour/G.Gaultier'}])
+            builder.setSelectedDate('2016-04-24')
+            resolve(builder)
           }
         })
       },

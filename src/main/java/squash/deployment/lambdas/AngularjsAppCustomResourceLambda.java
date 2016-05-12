@@ -187,7 +187,9 @@ public class AngularjsAppCustomResourceLambda implements
               .replace("var com_squash_identityPoolId = 'stringtobereplaced'",
                   "var com_squash_identityPoolId = '" + cognitoIdentityPoolId + "'")
               .replace("var com_squash_apiGatewayBaseUrl = 'stringtobereplaced'",
-                  "var com_squash_apiGatewayBaseUrl = '" + apiGatewayBaseUrl + "'");
+                  "var com_squash_apiGatewayBaseUrl = '" + apiGatewayBaseUrl + "'")
+              .replace("var com_squash_websiteBucket = 'stringtobereplaced'",
+                  "var com_squash_websiteBucket = '" + websiteBucket + "'");
           FileUtils.writeStringToFile(new File(bookingsServicePath), bookingsServiceContent);
           logger
               .log("Modified the BookingsService file to point to the correct Cognito identity pool, ApiGatewayBaseUrl, and region");

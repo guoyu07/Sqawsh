@@ -55,8 +55,6 @@ angular.module('squashApp.cancellationView', ['ngRoute', 'squashApp.bookingsServ
           updateUi()
         })
         .catch(function (error) {
-          console.log('Cancellation failed with error: ')
-          console.dir(error)
           if (typeof error.data !== 'undefined' && error.data.indexOf('The password is incorrect') > -1) {
             self.passwordIncorrect = true
           } else if (typeof error.data !== 'undefined' && error.data.indexOf('Booking cancellation failed') > -1) {

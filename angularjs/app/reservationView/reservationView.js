@@ -54,8 +54,6 @@ angular.module('squashApp.reservationView', ['ngRoute', 'squashApp.bookingsServi
           updateUi()
         })
         .catch(function (error) {
-          console.log('Reservation failed with error: ')
-          console.dir(error)
           if (typeof error.data !== 'undefined' && error.data.indexOf('The password is incorrect') > -1) {
             self.passwordIncorrect = true
           } else if (typeof error.data !== 'undefined' && error.data.indexOf('Booking creation failed') > -1) {
