@@ -158,6 +158,9 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService']
     }
 
     self.showForm = function (timeSlotIndex, courtNumberIndex) {
+      // Get famous players from the booking service
+      var famousPlayers = BookingService.getTwoFamousPlayers()
+
       // Transfer state to the form view via the booking service
       BookingService.activeCourt = self.courtNumbers[courtNumberIndex]
       BookingService.activeSlot = self.timeSlots[timeSlotIndex]
@@ -166,6 +169,8 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService']
       BookingService.player1 = ''
       BookingService.player2 = ''
       BookingService.players = self.buttonText(timeSlotIndex, courtNumberIndex)
+      BookingService.famousPlayer1 = famousPlayers[0]
+      BookingService.famousPlayer2 = famousPlayers[1]
 
       // Show either the reservation or cancellation form
       if (self.courtIsReserved(timeSlotIndex, courtNumberIndex)) {

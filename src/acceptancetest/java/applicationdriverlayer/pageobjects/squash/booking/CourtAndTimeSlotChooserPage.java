@@ -155,7 +155,7 @@ public class CourtAndTimeSlotChooserPage extends SquashBasePage<CourtAndTimeSlot
     }
 
     // Should not get here
-    return null;
+    return Optional.empty();
   }
 
   @Override
@@ -335,7 +335,7 @@ public class CourtAndTimeSlotChooserPage extends SquashBasePage<CourtAndTimeSlot
     // Click Go if javascript is disabled (but not otherwise or might get
     // staleref exception)
     String javascriptEnabled = System.getProperty("WebDriverJavascriptEnabled");
-    if (javascriptEnabled.equals(false)) {
+    if (javascriptEnabled.equals("false")) {
       dateGoButton.click();
     }
 

@@ -21,6 +21,9 @@ angular.module('squashApp.bookingsService', [])
     return {
       getCourtNumbers: function () { return [1, 2, 3, 4] },
       getTimeSlots: function () { return ['9:15 AM', '10:15 AM', '11:15 AM', '12:15 PM', '1:15 PM'] },
+      getTwoFamousPlayers: function () {
+        return ['A.Shabana', 'J.Power']
+      },
       getCachedValidDates: function (builder) {
         return $q(function (resolve, reject) {
           builder.setValidDates(['2016-04-23', '2016-04-24'])

@@ -54,7 +54,7 @@ limitations under the License.-->
 <h2>You are reserving court {{ctrl.activeCourt}} for {{ctrl.activeSlot | date:'shortTime'}} on {{ctrl.activeDate | date:'fullDate'}}</h2>
 <div class="form-box">
   Your name:<br>
-<input type="text" ng-model="ctrl.player1" ng-model-options="{ updateOn: 'blur' }" ng-maxlength=12 placeholder="e.g. A.Shabana" ng-pattern="/^[a-zA-Z]\.[a-zA-Z]+$/" name="player1" required>
+<input type="text" ng-model="ctrl.player1" ng-model-options="{ updateOn: 'blur' }" ng-maxlength=12 placeholder="e.g. {{ctrl.famousPlayer1}}" ng-pattern="/^[a-zA-Z]\.[a-zA-Z]+$/" name="player1" required>
 <span class="error" ng-show="reservationForm.player1.$error.pattern && reservationForm.$submitted">
   Should be Initial.Surname
 </span>
@@ -66,7 +66,7 @@ limitations under the License.-->
 </span>
 <br>
   Your opponent's name:<br>
-<input type="text" ng-model="ctrl.player2" ng-model-options="{ updateOn: 'blur' }" ng-maxlength=12 placeholder="e.g. J.Power" ng-pattern="/^[a-zA-Z]\.[a-zA-Z]+$/" name="player2" required>
+<input type="text" ng-model="ctrl.player2" ng-model-options="{ updateOn: 'blur' }" ng-maxlength=12 placeholder="e.g. {{ctrl.famousPlayer2}}" ng-pattern="/^[a-zA-Z]\.[a-zA-Z]+$/" name="player2" required>
 <span class="error" ng-show="reservationForm.player2.$error.pattern && reservationForm.$submitted">
   Should be Initial.Surname
 </span>

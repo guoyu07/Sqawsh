@@ -310,8 +310,8 @@ public class PageManagerTest {
     mockery.checking(new Expectations() {
       {
         // 2 uploads for each date + 1 upload for the index page + 1 upload for
-        // the validdates json
-        exactly(2 * validDates.size() + 2).of(mockTransferManager).upload(
+        // the validdates json + 1 upload for the famous players json.
+        exactly(2 * validDates.size() + 3).of(mockTransferManager).upload(
             with(any(PutObjectRequest.class)));
         will(returnValue(mockTransfer));
         inSequence(refreshSequence);

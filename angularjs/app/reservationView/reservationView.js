@@ -34,6 +34,8 @@ angular.module('squashApp.reservationView', ['ngRoute', 'squashApp.bookingsServi
     self.activeDate = BookingService.activeDate
     self.player1 = BookingService.player1
     self.player2 = BookingService.player2
+    self.famousPlayer1 = BookingService.famousPlayer1
+    self.famousPlayer2 = BookingService.famousPlayer2
 
     self.returnToBookings = function () {
       $location.url('/bookings')

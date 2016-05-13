@@ -21,6 +21,7 @@ import squash.deployment.lambdas.utils.IS3TransferManager;
 import squash.deployment.lambdas.utils.S3TransferManager;
 import squash.deployment.lambdas.utils.TransferUtils;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.velocity.Template;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
@@ -99,7 +100,7 @@ public class PageManager implements IPageManager {
 
     // Create cached booking data as JSON for the Angularjs app to use
     logger.log("About to create and upload cached booking data to S3");
-    copyUpdatedCachedJsonDataToS3(date, createCachedBookingData(date, validDates, bookings));
+    copyJsonDataToS3(date, createCachedBookingData(date, validDates, bookings));
     logger.log("Uploaded cached booking data to S3");
 
     return pageGuid;
@@ -107,11 +108,11 @@ public class PageManager implements IPageManager {
 
   @Override
   public void refreshAllPages(List<String> validDates, String apiGatewayBaseUrl) throws Exception {
-    // Upload all bookings pages, cached booking data, and the index page to the
-    // S3 bucket. N.B. This should upload for the most-future date first to
-    // ensure all links are valid during the several seconds the update takes to
-    // complete.
-    logger.log("About to upload new set of bookings pages to S3 at midnight");
+    // Upload all bookings pages, cached booking data, famous players data, and
+    // the index page to the S3 bucket. N.B. This should upload for the
+    // most-future date first to ensure all links are valid during the several
+    // seconds the update takes to complete.
+    logger.log("About to refresh S3 website at midnight");
     logger.log("Using valid dates: " + validDates);
     logger.log("Using ApigatewayBaseUrl: " + apiGatewayBaseUrl);
 
@@ -127,8 +128,12 @@ public class PageManager implements IPageManager {
 
     // Save the valid dates in JSON form
     logger.log("About to create and upload cached valid dates data to S3");
-    copyUpdatedCachedJsonDataToS3("validdates", createValidDatesData(validDates));
+    copyJsonDataToS3("validdates", createValidDatesData(validDates));
     logger.log("Uploaded cached valid dates data to S3");
+
+    logger.log("About to upload famous players data to S3");
+    uploadFamousPlayers();
+    logger.log("Uploaded famous players data to S3");
 
     // Remove the now-previous day's bookings page and cached data from S3.
     // (If this page does not exist then this is a no-op.)
@@ -144,6 +149,21 @@ public class PageManager implements IPageManager {
     deleteObjectRequest = new DeleteObjectRequest(websiteBucketName, yesterdaysDate + ".json");
     client.deleteObject(deleteObjectRequest);
     logger.log("Removed yesterday's booking page and cached data successfully from S3");
+  }
+
+  @Override
+  public void uploadFamousPlayers() throws Exception {
+    String famousPlayers;
+    try {
+      famousPlayers = IOUtils.toString(PageManager.class
+          .getResourceAsStream("/squash/booking/lambdas/utils/FamousPlayers.json"));
+    } catch (IOException e) {
+      logger.log("Exception caught reading FamousPlayers.json file: " + e.getMessage());
+      throw new Exception("Exception caught reading FamousPlayers.json file");
+    }
+    logger.log("Uploading famousplayers.json to S3");
+    copyJsonDataToS3("famousplayers", famousPlayers);
+    logger.log("Uploaded famousplayers.json to S3 successfully");
   }
 
   /**
@@ -315,7 +335,7 @@ public class PageManager implements IPageManager {
     return timeSlots;
   }
 
-  private void copyUpdatedCachedJsonDataToS3(String keyName, String jsonToCopy) throws Exception {
+  private void copyJsonDataToS3(String keyName, String jsonToCopy) throws Exception {
 
     logger.log("About to copy cached json data to S3");
 

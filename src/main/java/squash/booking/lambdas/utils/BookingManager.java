@@ -116,8 +116,8 @@ public class BookingManager implements IBookingManager {
     // Check that our new booking is amongst those just read back
     Boolean bookingSucceeded = false;
     for (Booking booking : bookings) {
-      if ((booking.getCourt() == bookingToCreate.getCourt())
-          && (booking.getSlot() == bookingToCreate.getSlot())
+      if ((booking.getCourt().equals(bookingToCreate.getCourt()))
+          && (booking.getSlot().equals(bookingToCreate.getSlot()))
           && (booking.getPlayers().equals(bookingToCreate.getPlayers()))) {
         bookingSucceeded = true;
         break;
@@ -264,8 +264,8 @@ public class BookingManager implements IBookingManager {
     // Someone else could have recreated it super-fast?
     Boolean deleteSucceeded = true;
     for (Booking booking : bookings) {
-      if ((booking.getCourt() == bookingToDelete.getCourt())
-          && (booking.getSlot() == bookingToDelete.getSlot())
+      if ((booking.getCourt().equals(bookingToDelete.getCourt()))
+          && (booking.getSlot().equals(bookingToDelete.getSlot()))
           && (booking.getPlayers().equals(bookingToDelete.getPlayers()))) {
         deleteSucceeded = false;
         break;

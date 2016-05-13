@@ -93,6 +93,22 @@ angular.module('squashApp.bookingsService', [])
       })
     }
 
+    // Start asynchronous load of famous players list
+    var allFamousPlayers = 'undefined'
+    getS3Client()
+      .then(function (client) {
+        // Query AWS for the list of famous players
+        return client.getObject({Bucket: com_squash_websiteBucket, Key: 'famousplayers.json'}).promise()
+      })
+      .then(function (players) {
+        allFamousPlayers = JSON.parse(players.Body.toString()).famousplayers
+      })
+      .catch(function (error) {
+        // Just swallow any errors - we can use the default famous players instead
+        console.dir(error)
+        return
+      })
+
     // Our custom error type - allowing us to pass back the builder as well as the error
     function BookingServiceError (error, builder) {
       this.name = 'BookingServiceError'
@@ -107,6 +123,14 @@ angular.module('squashApp.bookingsService', [])
     return {
       getCourtNumbers: function () { return courtNumbers },
       getTimeSlots: function () { return timeSlots },
+      getTwoFamousPlayers: function () {
+        if (typeof allFamousPlayers === 'undefined') {
+          // Full list not yet loaded - so return default players
+          return ['A.Shabana', 'J.Power']
+        }
+        // Choose 2 famous players at random
+        return [allFamousPlayers[Math.floor(Math.random() * allFamousPlayers.length)], allFamousPlayers[Math.floor(Math.random() * allFamousPlayers.length)]]
+      },
       getCachedValidDates: function (builder) {
         return getS3Client()
           .then(function (client) {

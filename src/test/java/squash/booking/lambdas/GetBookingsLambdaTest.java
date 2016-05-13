@@ -60,7 +60,6 @@ public class GetBookingsLambdaTest {
   List<Booking> bookings;
   LocalDate fakeCurrentDate;
   String fakeCurrentDateString;
-  List<String> validDates;
   String redirectUrl;
   String genericExceptionMessage;
 
@@ -106,7 +105,6 @@ public class GetBookingsLambdaTest {
     booking = new Booking(court, slot, playersNames);
     bookings = new ArrayList<>();
     bookings.add(booking);
-    validDates = new ArrayList<>();
     redirectUrl = "redirectUrl.html";
 
     // Exception message thrown to apigateway invocations has a redirecturl

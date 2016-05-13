@@ -75,4 +75,15 @@ public interface IPageManager {
    * @throws Exception when refreshing all pages fails.
    */
   void refreshAllPages(List<String> validDates, String apiGatewayBaseUrl) throws Exception;
+
+  /**
+   * Uploads famous players JSON data.
+   * 
+   * <p>This uploads a single json file with names of the most recent mens and womens world finalists.
+   *    This is used to provide two names to use as placeholders on the court reservation form, which
+   *    will be chosen randomly from this file for each view of the form.
+   *
+   * @throws Exception when the method fails.
+   */
+  void uploadFamousPlayers() throws Exception;
 }

@@ -247,11 +247,11 @@ public class ScheduledCloudwatchEventCustomResourceLambda implements
         outputs = new JSONObject();
         outputs.put(
             "MidnightScheduledCloudwatchEventRuleArn",
-            requestType.equals("Delete") ? "Not available" : ruleArns
+            (requestType.equals("Delete") || (ruleArns == null)) ? "Not available" : ruleArns
                 .get("MidnightScheduledCloudwatchEventRuleArn"));
         outputs.put(
             "PrewarmerScheduledCloudwatchEventRuleArn",
-            requestType.equals("Delete") ? "Not available" : ruleArns
+            (requestType.equals("Delete") || (ruleArns == null)) ? "Not available" : ruleArns
                 .get("PrewarmerScheduledCloudwatchEventRuleArn"));
       } catch (JSONException e) {
         e.printStackTrace(printStream);
