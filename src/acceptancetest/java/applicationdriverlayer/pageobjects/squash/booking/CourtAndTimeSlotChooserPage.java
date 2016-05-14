@@ -137,12 +137,11 @@ public class CourtAndTimeSlotChooserPage extends SquashBasePage<CourtAndTimeSlot
         s3ConsistencyHelper.updateGuid(guidKey, pagesGuid);
       }
       return true;
-    } else {
-      // We are not consistent, no need to update the guid
-      System.out.println("Guid is: " + guid + " and member Guid is: " + pagesGuid
-          + " and expectChangedPage is: " + expectChangedPage + " so saying not consistent");
-      return false;
     }
+    // We are not consistent, no need to update the guid
+    System.out.println("Guid is: " + guid + " and member Guid is: " + pagesGuid
+        + " and expectChangedPage is: " + expectChangedPage + " so saying not consistent");
+    return false;
   }
 
   @Override
@@ -187,14 +186,14 @@ public class CourtAndTimeSlotChooserPage extends SquashBasePage<CourtAndTimeSlot
   public List<java.time.LocalTime> getAllPossibleBookingStartTimes() {
 
     // Use HashSet to avoid duplicate entries from right and left of screen
-    HashSet<java.time.LocalTime> startTimes = new HashSet<java.time.LocalTime>();
+    HashSet<java.time.LocalTime> startTimes = new HashSet<>();
     for (WebElement element : timeSlotLabels) {
       startTimes.add(java.time.LocalTime.parse(element.getText(),
           DateTimeFormatter.ofPattern("h:mm a")));
     }
 
     // Ensure we return the times in earlier-to-later order
-    List<java.time.LocalTime> startTimesList = new ArrayList<java.time.LocalTime>();
+    List<java.time.LocalTime> startTimesList = new ArrayList<>();
     startTimesList.addAll(startTimes);
     Collections.sort(startTimesList,
         (java.time.LocalTime t1, java.time.LocalTime t2) -> t1.compareTo(t2));

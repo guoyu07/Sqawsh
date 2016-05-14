@@ -49,7 +49,7 @@ public class LambdaInputLogger {
     logger.log("Logging standard input parameters to custom resource request");
 
     // Create map of params lambda actually uses
-    Map<String, String> standardRequestParameters = new HashMap<String, String>();
+    Map<String, String> standardRequestParameters = new HashMap<>();
     String requestType = (String) request.get("RequestType");
     standardRequestParameters.put("RequestType", requestType);
     String requestId = (String) request.get("RequestId");
@@ -59,9 +59,9 @@ public class LambdaInputLogger {
     String logicalResourceId = (String) request.get("LogicalResourceId");
     standardRequestParameters.put("LogicalResourceId", logicalResourceId);
     String physicalResourceId = (String) request.get("PhysicalResourceId");
-    if(physicalResourceId != null) {
-    	// Create RequestTypes do not have the physical id
-        standardRequestParameters.put("PhysicalResourceId", physicalResourceId);
+    if (physicalResourceId != null) {
+      // Create RequestTypes do not have the physical id
+      standardRequestParameters.put("PhysicalResourceId", physicalResourceId);
     }
     String responseURL = (String) request.get("ResponseURL");
     standardRequestParameters.put("ResponseURL", responseURL);
@@ -71,8 +71,8 @@ public class LambdaInputLogger {
     logger.log("RequestId: " + requestId);
     logger.log("StackId: " + stackId);
     logger.log("LogicalResourceId: " + logicalResourceId);
-    if(physicalResourceId != null) {
-    	logger.log("PhysicalResourceId: " + physicalResourceId);
+    if (physicalResourceId != null) {
+      logger.log("PhysicalResourceId: " + physicalResourceId);
     }
     logger.log("ResponseURL: " + responseURL);
 

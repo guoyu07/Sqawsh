@@ -56,7 +56,7 @@ public class BookingManager implements IBookingManager {
   private LambdaLogger logger;
 
   @Override
-  public final void Initialise(LambdaLogger logger) throws IOException {
+  public final void initialise(LambdaLogger logger) throws IOException {
     this.logger = logger;
     simpleDbDomainName = getStringProperty("simpledbdomainname");
     region = Region.getRegion(Regions.fromName(getStringProperty("region")));
@@ -101,9 +101,8 @@ public class BookingManager implements IBookingManager {
         logger.log("Caught AmazonServiceException for ConditionalCheckFailed whilst creating"
             + " booking so throwing as 'Booking creation failed' instead");
         throw new Exception("Booking creation failed");
-      } else {
-        throw ase;
       }
+      throw ase;
     }
 
     logger.log("About to read back bookings from simpledb to check that create succeeded");

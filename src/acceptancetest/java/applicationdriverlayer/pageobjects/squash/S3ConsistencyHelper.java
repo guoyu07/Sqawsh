@@ -56,7 +56,7 @@ public class S3ConsistencyHelper {
   private Map<String, String> s3PageGuids;
 
   public S3ConsistencyHelper() {
-    s3PageGuids = new HashMap<String, String>();
+    s3PageGuids = new HashMap<>();
   }
 
   /**

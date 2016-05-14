@@ -34,7 +34,6 @@ import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 
-import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -67,7 +66,7 @@ public class GetBookingsLambdaTest {
   public ExpectedException thrown = ExpectedException.none();
 
   @Before
-  public void beforeTest() throws IOException {
+  public void beforeTest() {
     mockery = new Mockery();
     getBookingsLambda = new TestGetBookingsLambda();
     getBookingsLambda.setBookingManager(mockery.mock(IBookingManager.class));

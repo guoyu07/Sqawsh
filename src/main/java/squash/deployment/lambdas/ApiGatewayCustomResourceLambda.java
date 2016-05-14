@@ -278,7 +278,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
             });
 
         // Remove the existing SDK from the S3 website bucket
-        removeSdkFromS3(squashWebsiteBucket, logger);
+        removeSdkFromS3(logger);
 
         // And add back the updated set of resources and SDK
         logger.log("Adding back updated resources to Api with apiId: " + restApiId);
@@ -310,7 +310,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
           apiGatewayClient.deleteRestApi(deleteRestApiRequest);
 
           // Remove the sdk from the website bucket
-          removeSdkFromS3(squashWebsiteBucket, logger);
+          removeSdkFromS3(logger);
         }
       }
 
@@ -446,7 +446,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     getSdkRequest.setSdkType("JavaScript");
     // This is for Android sdks but it crashes if the map is empty - so set
     // to something
-    Map<String, String> paramsMap = new HashMap<String, String>();
+    Map<String, String> paramsMap = new HashMap<>();
     paramsMap.put("GroupID", "Dummy");
     getSdkRequest.setParameters(paramsMap);
     GetSdkResult getSdkResult = apiGatewayClient.getSdk(getSdkRequest);
@@ -456,10 +456,9 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     try {
       logger.log("Saving SDK to lambda's temporary file system");
       ByteBuffer sdkBuffer = getSdkResult.getBody().asReadOnlyBuffer();
-      OutputStream os = new FileOutputStream("/tmp/sdk.zip");
-      WritableByteChannel channel = Channels.newChannel(os);
-      channel.write(sdkBuffer);
-
+      try (WritableByteChannel channel = Channels.newChannel(new FileOutputStream("/tmp/sdk.zip"))) {
+        channel.write(sdkBuffer);
+      }
       // Unzip the sdk
       logger.log("SDK saved. Now unzipping");
       String outputFolder = "/tmp/extractedSdk";
@@ -500,7 +499,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     }
   }
 
-  void removeSdkFromS3(String squashWebsiteBucket, LambdaLogger logger) {
+  void removeSdkFromS3(LambdaLogger logger) {
     logger.log("About to remove apigateway sdk from website versioned S3 bucket");
     // We need to delete every version of every key
     ListVersionsRequest listVersionsRequest = new ListVersionsRequest()
@@ -589,7 +588,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     putMethodRequest.setApiKeyRequired(false);
     putMethodRequest.setRestApiId(restApiId);
     putMethodRequest.setResourceId(resourceId);
-    Map<String, Boolean> methodRequestParameters = new HashMap<String, Boolean>();
+    Map<String, Boolean> methodRequestParameters = new HashMap<>();
 
     // Variables for the happy-path method response
     PutMethodResponseRequest putMethod200ResponseRequest = new PutMethodResponseRequest();
@@ -614,19 +613,19 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     // Response models are used to specify the response Body schema - so we can
     // populate the values using the integration response template (when we have
     // one)
-    Map<String, String> methodResponseModels = new HashMap<String, String>();
+    Map<String, String> methodResponseModels = new HashMap<>();
     // Response parameters allows us to specify response headers
-    Map<String, Boolean> methodResponseParameters = new HashMap<String, Boolean>();
+    Map<String, Boolean> methodResponseParameters = new HashMap<>();
     // Add CORS response headers to all method responses
     methodResponseParameters.put("method.response.header.access-control-allow-headers",
-        new Boolean("true"));
+        Boolean.valueOf("true"));
     methodResponseParameters.put("method.response.header.access-control-allow-methods",
-        new Boolean("true"));
-    methodResponseParameters.put("method.response.header.access-control-allow-origin", new Boolean(
-        "true"));
-    methodResponseParameters.put("method.response.header.content-type", new Boolean("true"));
+        Boolean.valueOf("true"));
+    methodResponseParameters.put("method.response.header.access-control-allow-origin",
+        Boolean.valueOf("true"));
+    methodResponseParameters.put("method.response.header.content-type", Boolean.valueOf("true"));
     // Add header to prevent caching of booking pages
-    methodResponseParameters.put("method.response.header.cache-control", new Boolean("true"));
+    methodResponseParameters.put("method.response.header.cache-control", Boolean.valueOf("true"));
     // Variables for integration input
     PutIntegrationRequest putIntegrationRequest = new PutIntegrationRequest();
     putIntegrationRequest.setRestApiId(restApiId);
@@ -638,14 +637,14 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     // "integration.request.querystring.integrationQueryParam" :
     // "method.request.querystring.longitude"
     // }
-    Map<String, String> requestParameters = new HashMap<String, String>();
+    Map<String, String> requestParameters = new HashMap<>();
 
     // Request templates follow pattern like:
     // "requestTemplates" : {
     // "application/json" : "json request template 2",
     // "application/xml" : "xml request template 2"
     // }
-    Map<String, String> requestTemplates = new HashMap<String, String>();
+    Map<String, String> requestTemplates = new HashMap<>();
 
     // Variables for integration response
     // Configure the integration response for the happy-path case
@@ -672,7 +671,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     // "method.response.header.test-method-response-header" :
     // "integration.response.header.integrationResponseHeaderParam1"
     // }
-    Map<String, String> responseParameters = new HashMap<String, String>();
+    Map<String, String> responseParameters = new HashMap<>();
     // Add CORS response headers to all method responses
     responseParameters
         .put("method.response.header.access-control-allow-headers",
@@ -688,9 +687,9 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     // "application/json" : "json 200 response template",
     // "application/xml" : "xml 200 response template"
     // }
-    Map<String, String> response200Templates = new HashMap<String, String>();
-    Map<String, String> response500Templates = new HashMap<String, String>();
-    Map<String, String> response400Templates = new HashMap<String, String>();
+    Map<String, String> response200Templates = new HashMap<>();
+    Map<String, String> response500Templates = new HashMap<>();
+    Map<String, String> response400Templates = new HashMap<>();
     // Set as default response unless covered by other
     // PutIntegrationResponseInput-s
     putIntegration200ResponseRequest.setSelectionPattern(".*");
@@ -749,7 +748,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       responseParameters
           .put("method.response.header.access-control-allow-methods", "'GET,OPTIONS'");
     } else if (methodName.equals("BookingsGET")) {
-      methodRequestParameters.put("method.request.querystring.date", new Boolean("true"));
+      methodRequestParameters.put("method.request.querystring.date", Boolean.valueOf("true"));
       putMethodRequest.setRequestParameters(methodRequestParameters);
       putMethodRequest.setHttpMethod("GET");
       putMethod200ResponseRequest.setHttpMethod("GET");
@@ -856,7 +855,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
           getBookingPostRequestTemplate(logger));
       responseParameters.put("method.response.header.access-control-allow-methods",
           "'GET,PUT,DELETE,POST,OPTIONS'");
-      methodResponseParameters.put("method.response.header.location", new Boolean("true"));
+      methodResponseParameters.put("method.response.header.location", Boolean.valueOf("true"));
       // Redirect to the newly-mutated booking page in S3 if we have it in the
       // json from our lambda function which will have put the appropriate
       // redirectUrl into the body, unless there was an error. Recognised
@@ -911,11 +910,11 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       responseParameters.put("method.response.header.access-control-allow-methods",
           "'GET,PUT,DELETE,POST,OPTIONS'");
     } else if (methodName.equals("ReservationformGET")) {
-      methodRequestParameters.put("method.request.querystring.court", new Boolean("true"));
-      methodRequestParameters.put("method.request.querystring.slot", new Boolean("true"));
-      methodRequestParameters.put("method.request.querystring.slotLong", new Boolean("true"));
-      methodRequestParameters.put("method.request.querystring.date", new Boolean("true"));
-      methodRequestParameters.put("method.request.querystring.dateLong", new Boolean("true"));
+      methodRequestParameters.put("method.request.querystring.court", Boolean.valueOf("true"));
+      methodRequestParameters.put("method.request.querystring.slot", Boolean.valueOf("true"));
+      methodRequestParameters.put("method.request.querystring.slotLong", Boolean.valueOf("true"));
+      methodRequestParameters.put("method.request.querystring.date", Boolean.valueOf("true"));
+      methodRequestParameters.put("method.request.querystring.dateLong", Boolean.valueOf("true"));
       putMethodRequest.setRequestParameters(methodRequestParameters);
       putMethodRequest.setHttpMethod("GET");
       putMethod200ResponseRequest.setHttpMethod("GET");
@@ -940,12 +939,12 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       responseParameters
           .put("method.response.header.access-control-allow-methods", "'GET,OPTIONS'");
     } else if (methodName.equals("CancellationformGET")) {
-      methodRequestParameters.put("method.request.querystring.court", new Boolean("true"));
-      methodRequestParameters.put("method.request.querystring.slot", new Boolean("true"));
-      methodRequestParameters.put("method.request.querystring.slotLong", new Boolean("true"));
-      methodRequestParameters.put("method.request.querystring.players", new Boolean("true"));
-      methodRequestParameters.put("method.request.querystring.date", new Boolean("true"));
-      methodRequestParameters.put("method.request.querystring.dateLong", new Boolean("true"));
+      methodRequestParameters.put("method.request.querystring.court", Boolean.valueOf("true"));
+      methodRequestParameters.put("method.request.querystring.slot", Boolean.valueOf("true"));
+      methodRequestParameters.put("method.request.querystring.slotLong", Boolean.valueOf("true"));
+      methodRequestParameters.put("method.request.querystring.players", Boolean.valueOf("true"));
+      methodRequestParameters.put("method.request.querystring.date", Boolean.valueOf("true"));
+      methodRequestParameters.put("method.request.querystring.dateLong", Boolean.valueOf("true"));
       putMethodRequest.setRequestParameters(methodRequestParameters);
       putMethodRequest.setHttpMethod("GET");
       putMethod200ResponseRequest.setHttpMethod("GET");

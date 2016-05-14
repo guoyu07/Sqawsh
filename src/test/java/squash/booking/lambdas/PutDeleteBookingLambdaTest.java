@@ -34,7 +34,6 @@ import org.junit.rules.ExpectedException;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 
-import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -70,7 +69,7 @@ public class PutDeleteBookingLambdaTest {
   public ExpectedException thrown = ExpectedException.none();
 
   @Before
-  public void beforeTest() throws IOException {
+  public void beforeTest() {
     mockery = new Mockery();
     putDeleteBookingLambda = new TestPutDeleteBookingLambda();
     putDeleteBookingLambda.setBackupManager(mockery.mock(IBackupManager.class));
@@ -364,9 +363,8 @@ public class PutDeleteBookingLambdaTest {
     });
 
     // ACT and ASSERT
-    doTestCreateBooking(fakeCurrentDateString, court.toString() + "-" + slot.toString(),
-        playersNames, player1Name, player2Name, court.toString(), slot.toString(), password,
-        apiGatewayBaseUrl, false);
+    doTestCreateBooking(fakeCurrentDateString, playersNames, player1Name, player2Name,
+        court.toString(), slot.toString(), password, apiGatewayBaseUrl, false);
   }
 
   @Test
@@ -391,9 +389,8 @@ public class PutDeleteBookingLambdaTest {
     });
 
     // ACT and ASSERT
-    doTestCreateBooking(fakeCurrentDateString, court.toString() + "-" + slot.toString(),
-        playersNames, player1Name, player2Name, court.toString(), slot.toString(), password,
-        apiGatewayBaseUrl, true);
+    doTestCreateBooking(fakeCurrentDateString, playersNames, player1Name, player2Name,
+        court.toString(), slot.toString(), password, apiGatewayBaseUrl, true);
   }
 
   @Test
@@ -416,9 +413,8 @@ public class PutDeleteBookingLambdaTest {
     });
 
     // ACT and ASSERT
-    doTestCreateBooking(fakeCurrentDateString, court.toString() + "-" + slot.toString(),
-        playersNames, player1Name, player2Name, court.toString(), slot.toString(), password,
-        apiGatewayBaseUrl, false);
+    doTestCreateBooking(fakeCurrentDateString, playersNames, player1Name, player2Name,
+        court.toString(), slot.toString(), password, apiGatewayBaseUrl, false);
   }
 
   @Test
@@ -441,9 +437,8 @@ public class PutDeleteBookingLambdaTest {
     thrown.expectMessage("Booking creation failed. Please try again." + redirectUrl);
 
     // ACT and ASSERT
-    doTestCreateBooking(fakeCurrentDateString, court.toString() + "-" + slot.toString(),
-        playersNames, player1Name, player2Name, court.toString(), slot.toString(), password,
-        apiGatewayBaseUrl, false);
+    doTestCreateBooking(fakeCurrentDateString, playersNames, player1Name, player2Name,
+        court.toString(), slot.toString(), password, apiGatewayBaseUrl, false);
   }
 
   @Test
@@ -466,9 +461,8 @@ public class PutDeleteBookingLambdaTest {
     thrown.expectMessage("Booking creation failed. Please try again." + redirectUrl);
 
     // ACT and ASSERT
-    doTestCreateBooking(fakeCurrentDateString, court.toString() + "-" + slot.toString(),
-        playersNames, player1Name, player2Name, court.toString(), slot.toString(), password,
-        apiGatewayBaseUrl, false);
+    doTestCreateBooking(fakeCurrentDateString, playersNames, player1Name, player2Name,
+        court.toString(), slot.toString(), password, apiGatewayBaseUrl, false);
   }
 
   @Test
@@ -491,14 +485,13 @@ public class PutDeleteBookingLambdaTest {
     thrown.expectMessage(genericExceptionMessage);
 
     // ACT and ASSERT
-    doTestCreateBooking(fakeCurrentDateString, court.toString() + "-" + slot.toString(),
-        playersNames, player1Name, player2Name, court.toString(), slot.toString(), password,
-        apiGatewayBaseUrl, false);
+    doTestCreateBooking(fakeCurrentDateString, playersNames, player1Name, player2Name,
+        court.toString(), slot.toString(), password, apiGatewayBaseUrl, false);
   }
 
-  private void doTestCreateBooking(String date, String attributeName, String playersNames,
-      String player1Name, String player2Name, String court, String slot, String password,
-      String apiGatewayBaseUrl, Boolean checkRedirectUrl) throws Exception {
+  private void doTestCreateBooking(String date, String playersNames, String player1Name,
+      String player2Name, String court, String slot, String password, String apiGatewayBaseUrl,
+      Boolean checkRedirectUrl) throws Exception {
 
     // ACT
     // Call create booking with valid parameters
@@ -653,9 +646,8 @@ public class PutDeleteBookingLambdaTest {
     });
 
     // ACT and ASSERT
-    doTestDeleteBooking(fakeCurrentDateString, court.toString() + "-" + slot.toString(),
-        playersNames, player1Name, player2Name, court.toString(), slot.toString(), password,
-        apiGatewayBaseUrl, false);
+    doTestDeleteBooking(fakeCurrentDateString, playersNames,
+        court.toString(), slot.toString(), password, apiGatewayBaseUrl, false);
   }
 
   @Test
@@ -680,9 +672,8 @@ public class PutDeleteBookingLambdaTest {
     });
 
     // ACT and ASSERT
-    doTestDeleteBooking(fakeCurrentDateString, court.toString() + "-" + slot.toString(),
-        playersNames, player1Name, player2Name, court.toString(), slot.toString(), password,
-        apiGatewayBaseUrl, true);
+    doTestDeleteBooking(fakeCurrentDateString, playersNames,
+        court.toString(), slot.toString(), password, apiGatewayBaseUrl, true);
   }
 
   @Test
@@ -706,9 +697,8 @@ public class PutDeleteBookingLambdaTest {
     });
 
     // ACT and ASSERT
-    doTestDeleteBooking(fakeCurrentDateString, court.toString() + "-" + slot.toString(),
-        playersNames, player1Name, player2Name, court.toString(), slot.toString(), password,
-        apiGatewayBaseUrl, false);
+    doTestDeleteBooking(fakeCurrentDateString, playersNames,
+        court.toString(), slot.toString(), password, apiGatewayBaseUrl, false);
   }
 
   @Test
@@ -731,9 +721,8 @@ public class PutDeleteBookingLambdaTest {
     thrown.expectMessage("Booking cancellation failed. Please try again." + redirectUrl);
 
     // ACT and ASSERT
-    doTestDeleteBooking(fakeCurrentDateString, court.toString() + "-" + slot.toString(),
-        playersNames, player1Name, player2Name, court.toString(), slot.toString(), password,
-        apiGatewayBaseUrl, false);
+    doTestDeleteBooking(fakeCurrentDateString, playersNames,
+        court.toString(), slot.toString(), password, apiGatewayBaseUrl, false);
   }
 
   @Test
@@ -756,9 +745,8 @@ public class PutDeleteBookingLambdaTest {
     thrown.expectMessage("Booking cancellation failed. Please try again." + redirectUrl);
 
     // ACT and ASSERT
-    doTestDeleteBooking(fakeCurrentDateString, court.toString() + "-" + slot.toString(),
-        playersNames, player1Name, player2Name, court.toString(), slot.toString(), password,
-        apiGatewayBaseUrl, false);
+    doTestDeleteBooking(fakeCurrentDateString, playersNames,
+        court.toString(), slot.toString(), password, apiGatewayBaseUrl, false);
   }
 
   @Test
@@ -781,14 +769,12 @@ public class PutDeleteBookingLambdaTest {
     thrown.expectMessage(genericExceptionMessage);
 
     // ACT and ASSERT
-    doTestDeleteBooking(fakeCurrentDateString, court.toString() + "-" + slot.toString(),
-        playersNames, player1Name, player2Name, court.toString(), slot.toString(), password,
-        apiGatewayBaseUrl, false);
+    doTestDeleteBooking(fakeCurrentDateString, playersNames,
+        court.toString(), slot.toString(), password, apiGatewayBaseUrl, false);
   }
 
-  private void doTestDeleteBooking(String date, String attributeName, String playersNames,
-      String player1Name, String player2Name, String court, String slot, String password,
-      String apiGatewayBaseUrl, Boolean checkRedirectUrl) throws Exception {
+  private void doTestDeleteBooking(String date, String playersNames, String court,
+      String slot, String password, String apiGatewayBaseUrl, Boolean checkRedirectUrl) throws Exception {
 
     // ACT
     // Call create booking with valid parameters

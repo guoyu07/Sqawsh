@@ -128,7 +128,7 @@ public class PageManagerTest {
     slot = 12;
     playersNames = "D.Playerd/F.Playerf";
     booking = new Booking(court, slot, playersNames);
-    bookings = new ArrayList<Booking>();
+    bookings = new ArrayList<>();
     bookings.add(booking);
 
     apiGatewayBaseUrl = "apiGatewayBaseUrl";
@@ -167,9 +167,8 @@ public class PageManagerTest {
       }
       if (propertyName.equals("region")) {
         return "eu-west-1";
-      } else {
-        return null;
       }
+      return null;
     }
 
     public void setCurrentLocalDate(LocalDate localDate) {
@@ -458,8 +457,8 @@ public class PageManagerTest {
   }
 
   @Test
-  public void testCreateCachedBookingDataCreatesCorrectData() throws IOException,
-      IllegalArgumentException, JSONException {
+  public void testCreateCachedBookingDataCreatesCorrectData() throws IllegalArgumentException,
+      JSONException {
 
     // We create two bookings, and verify resulting json directly
     // against regression data.
@@ -493,7 +492,7 @@ public class PageManagerTest {
 
   @Test
   public void testCreateCachedBookingDataHasBookingsArrayWhenThereIsOneBooking()
-      throws IOException, IllegalArgumentException, JSONException {
+      throws IllegalArgumentException, JSONException {
 
     // Aim here is to check that a single booking is encoded as a 1-element
     // array rather than degenerating to a non-array object.
@@ -523,7 +522,7 @@ public class PageManagerTest {
 
   @Test
   public void testCreateCachedBookingDataHasEmptyBookingsArrayWhenThereAreNoBookings()
-      throws IOException, IllegalArgumentException, JSONException {
+      throws IllegalArgumentException, JSONException {
 
     // Aim here is to check that no bookings is encoded as an empty array
     // rather than being dropped altogether from the JSON.
@@ -549,8 +548,8 @@ public class PageManagerTest {
   }
 
   @Test
-  public void testCreateCachedValidDatesDataCreatesCorrectData() throws IOException,
-      IllegalArgumentException, JSONException {
+  public void testCreateCachedValidDatesDataCreatesCorrectData() throws IllegalArgumentException,
+      JSONException {
 
     // ARRANGE
     // Set up the expected cached data
@@ -566,8 +565,8 @@ public class PageManagerTest {
   }
 
   @Test
-  public void testCreateCachedValidDatesDataWhenThereIsOneValidDate() throws IOException,
-      IllegalArgumentException, JSONException {
+  public void testCreateCachedValidDatesDataWhenThereIsOneValidDate()
+      throws IllegalArgumentException, JSONException {
 
     // Aim here is to check that a single date is encoded as a 1-element
     // array rather than degenerating to a non-array object.
@@ -591,8 +590,8 @@ public class PageManagerTest {
   }
 
   @Test
-  public void testCreateCachedValidDatesDataWhenThereAreNoValidDates() throws IOException,
-      IllegalArgumentException, JSONException {
+  public void testCreateCachedValidDatesDataWhenThereAreNoValidDates()
+      throws IllegalArgumentException, JSONException {
 
     // Aim here is to check that no valid dates is encoded as an empty array
     // rather than being dropped altogether from the JSON.

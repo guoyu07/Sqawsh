@@ -33,7 +33,7 @@ public interface IBookingManager {
   /**
    * Initialises the manager with a CloudwatchLogs logger.
    */
-  void Initialise(LambdaLogger logger) throws IOException;
+  void initialise(LambdaLogger logger) throws IOException;
 
   /**
    * Creates a court booking.

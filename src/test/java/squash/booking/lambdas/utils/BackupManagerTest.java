@@ -96,7 +96,7 @@ public class BackupManagerTest {
     playersNames = "D.Playerd/F.Playerf";
     booking = new Booking(court, slot, playersNames);
     booking.setDate(date);
-    bookings = new ArrayList<Booking>();
+    bookings = new ArrayList<>();
     bookings.add(booking);
   }
 
@@ -148,9 +148,8 @@ public class BackupManagerTest {
       }
       if (propertyName.equals("region")) {
         return "eu-west-1";
-      } else {
-        return null;
       }
+      return null;
     }
   }
 
@@ -180,7 +179,7 @@ public class BackupManagerTest {
         }
       }
     });
-    backupManager.Initialise(mockBookingManager, mockLogger);
+    backupManager.initialise(mockBookingManager, mockLogger);
 
     Transfer mockTransfer = mockery.mock(Transfer.class);
     mockery.checking(new Expectations() {
@@ -238,7 +237,7 @@ public class BackupManagerTest {
         ignoring(mockBookingManager);
       }
     });
-    backupManager.Initialise(mockBookingManager, mockLogger);
+    backupManager.initialise(mockBookingManager, mockLogger);
 
     // Not interested in S3 calls in this test
     Transfer mockTransfer = mockery.mock(Transfer.class);
@@ -292,7 +291,7 @@ public class BackupManagerTest {
         will(returnValue(bookings));
       }
     });
-    backupManager.Initialise(mockBookingManager, mockLogger);
+    backupManager.initialise(mockBookingManager, mockLogger);
 
     Transfer mockTransfer = mockery.mock(Transfer.class);
     mockery.checking(new Expectations() {
@@ -344,7 +343,7 @@ public class BackupManagerTest {
         will(returnValue(bookings));
       }
     });
-    backupManager.Initialise(mockBookingManager, mockLogger);
+    backupManager.initialise(mockBookingManager, mockLogger);
 
     Transfer mockTransfer = mockery.mock(Transfer.class);
     mockery.checking(new Expectations() {
@@ -406,7 +405,7 @@ public class BackupManagerTest {
         inSequence(restoreSequence);
       }
     });
-    backupManager.Initialise(mockBookingManager, mockLogger);
+    backupManager.initialise(mockBookingManager, mockLogger);
 
     // ACT
     backupManager.restoreBookings(bookings, true);
@@ -434,7 +433,7 @@ public class BackupManagerTest {
         oneOf(mockBookingManager).createBooking(bookings.get(1));
       }
     });
-    backupManager.Initialise(mockBookingManager, mockLogger);
+    backupManager.initialise(mockBookingManager, mockLogger);
 
     // ACT
     backupManager.restoreBookings(bookings, false);

@@ -62,7 +62,7 @@ public class PutDeleteBookingLambda {
     // Use a getter here so unit tests can substitute a mock manager
     if (!bookingManager.isPresent()) {
       bookingManager = Optional.of(new BookingManager());
-      bookingManager.get().Initialise(logger);
+      bookingManager.get().initialise(logger);
     }
     return bookingManager.get();
   }
@@ -74,7 +74,7 @@ public class PutDeleteBookingLambda {
     // Use a getter here so unit tests can substitute a mock manager
     if (!backupManager.isPresent()) {
       backupManager = Optional.of(new BackupManager());
-      backupManager.get().Initialise(getBookingManager(logger), logger);
+      backupManager.get().initialise(getBookingManager(logger), logger);
     }
     return backupManager.get();
   }
@@ -135,7 +135,7 @@ public class PutDeleteBookingLambda {
       }
 
       logger.log("About to validate booking parameters");
-      Booking booking = convertBookingRequest(request, logger);
+      Booking booking = convertBookingRequest(request);
       String password = request.getPassword();
       String apiGatewayBaseUrl = request.getApiGatewayBaseUrl();
       validateBookingParameters(booking, password, logger);
@@ -255,8 +255,7 @@ public class PutDeleteBookingLambda {
     return response;
   }
 
-  private Booking convertBookingRequest(PutDeleteBookingLambdaRequest request, LambdaLogger logger)
-      throws Exception {
+  private Booking convertBookingRequest(PutDeleteBookingLambdaRequest request) throws Exception {
     Booking booking = new Booking();
     booking.setCourt(Integer.parseInt(request.getCourt()));
     booking.setSlot(Integer.parseInt(request.getSlot()));

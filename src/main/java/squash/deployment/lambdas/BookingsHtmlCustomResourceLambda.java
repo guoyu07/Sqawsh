@@ -46,7 +46,6 @@ import com.google.common.io.CharStreams;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.io.PrintWriter;
@@ -141,10 +140,11 @@ public class BookingsHtmlCustomResourceLambda implements
         String htmlOutputPath = "/tmp/bookings.html";
 
         // Get the unmodified html file from our resources
-        try (InputStream stream = GetBookingsLambda.class
-            .getResourceAsStream("/squash/booking/html/bookings.html")) {
+        try (InputStreamReader streamReader = new InputStreamReader(
+            GetBookingsLambda.class.getResourceAsStream("/squash/booking/html/bookings.html"),
+            "UTF-8")) {
           logger.log("Reading bookings.html from resources");
-          String html = CharStreams.toString(new InputStreamReader(stream, "UTF-8"));
+          String html = CharStreams.toString(streamReader);
           logger.log("HTML read from resources: " + html);
 
           // Modify it to insert the cognito pool id, region, base url, and

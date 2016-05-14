@@ -283,7 +283,7 @@ public class ScheduledCloudwatchEventCustomResourceLambda implements
     putMidnightRuleRequest.setState(RuleState.ENABLED);
     putMidnightRuleRequest
         .setDescription("This runs just after midnight every day to backup bookings and refresh all the squash booking pages in S3");
-    Map<String, String> ruleArns = new HashMap<String, String>();
+    Map<String, String> ruleArns = new HashMap<>();
     ruleArns.put("MidnightScheduledCloudwatchEventRuleArn",
         amazonCloudWatchEventsClient.putRule(putMidnightRuleRequest).getRuleArn());
 

@@ -55,7 +55,7 @@ public class BackupBookingsLambda {
     // Use a getter here so unit tests can substitute a mock manager
     if (!bookingManager.isPresent()) {
       bookingManager = Optional.of(new BookingManager());
-      bookingManager.get().Initialise(logger);
+      bookingManager.get().initialise(logger);
     }
     return bookingManager.get();
   }
@@ -67,7 +67,7 @@ public class BackupBookingsLambda {
     // Use a getter here so unit tests can substitute a mock manager
     if (!backupManager.isPresent()) {
       backupManager = Optional.of(new BackupManager());
-      backupManager.get().Initialise(getBookingManager(logger), logger);
+      backupManager.get().initialise(getBookingManager(logger), logger);
     }
     return backupManager.get();
   }

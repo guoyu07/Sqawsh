@@ -33,7 +33,7 @@ public interface IBackupManager {
   /**
    * Initialises the manager.
    */
-  void Initialise(IBookingManager bookingManager, LambdaLogger logger) throws IOException;
+  void initialise(IBookingManager bookingManager, LambdaLogger logger) throws IOException;
 
   /**
    * Backup a single court booking.

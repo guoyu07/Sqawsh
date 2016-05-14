@@ -125,7 +125,7 @@ public class BookingManagerTest {
     bookingThatShouldDeleteOk = bookingThatShouldFailToCreate;
     bookingThatShouldFailToDelete = bookingThatShouldCreateOk;
 
-    bookingManager.Initialise(mockLogger);
+    bookingManager.initialise(mockLogger);
   }
 
   private void expectCreateBookingToReturnBookingsOrThrow(Optional<Exception> exceptionToThrow,
@@ -152,7 +152,7 @@ public class BookingManagerTest {
         fakeCurrentDateString, replaceableAttributes, updateCondition);
 
     if (!exceptionToThrow.isPresent()) {
-      List<Booking> expectedBooking = new ArrayList<Booking>();
+      List<Booking> expectedBooking = new ArrayList<>();
       expectedBooking.add(bookingThatShouldCreateOk);
       mockery.checking(new Expectations() {
         {
@@ -253,7 +253,7 @@ public class BookingManagerTest {
   public class TestBookingManager extends BookingManager {
     private LocalDate currentLocalDate;
     private AmazonSimpleDB amazonSimpleDBClient;
-    private String simpleDBDomainName;
+    private String mockSimpleDBDomainName;
 
     public void setSimpleDBClient(AmazonSimpleDB client) {
       amazonSimpleDBClient = client;
@@ -265,19 +265,18 @@ public class BookingManagerTest {
     }
 
     public void setSimpleDBDomainName(String simpleDBDomainName) {
-      this.simpleDBDomainName = simpleDBDomainName;
+      this.mockSimpleDBDomainName = simpleDBDomainName;
     }
 
     @Override
     protected String getStringProperty(String propertyName) {
       if (propertyName.equals("simpledbdomainname")) {
-        return this.simpleDBDomainName;
+        return this.mockSimpleDBDomainName;
       }
       if (propertyName.equals("region")) {
         return "eu-west-1";
-      } else {
-        return null;
       }
+      return null;
     }
 
     public void setCurrentLocalDate(LocalDate localDate) {

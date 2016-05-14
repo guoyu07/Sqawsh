@@ -21,7 +21,6 @@ import static org.junit.Assert.assertTrue;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -38,7 +37,7 @@ public class GetValidDatesLambdaTest {
   List<String> validDates;
 
   @Before
-  public void beforeTest() throws IOException {
+  public void beforeTest() {
     getValidDatesLambda = new TestGetValidDatesLambda();
     // Set up the valid date range
     fakeCurrentDate = LocalDate.of(2015, 10, 6);

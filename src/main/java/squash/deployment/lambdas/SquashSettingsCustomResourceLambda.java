@@ -153,39 +153,41 @@ public class SquashSettingsCustomResourceLambda implements
                     "squash/booking/lambdas/SquashCustomResource.settings")) {
                   logger.log("Entry name: " + entryIn.getName());
                   zos.putNextEntry(entryIn);
-                  InputStream is = zipFile.getInputStream(entryIn);
-                  byte[] buf = new byte[1024];
-                  int len;
-                  while ((len = (is.read(buf))) > 0) {
-                    zos.write(buf, 0, len);
+                  try (InputStream is = zipFile.getInputStream(entryIn)) {
+                    byte[] buf = new byte[1024];
+                    int len;
+                    while ((len = (is.read(buf))) > 0) {
+                      zos.write(buf, 0, len);
+                    }
                   }
                 } else {
                   logger.log("Entry name to modify: " + entryIn.getName());
                   zos.putNextEntry(new ZipEntry(
                       "squash/booking/lambdas/SquashCustomResource.settings"));
 
-                  InputStream is = zipFile.getInputStream(entryIn);
-                  byte[] buf = new byte[1024];
-                  int len;
-                  while ((len = (is.read(buf))) > 0) {
-                    String s = new String(buf);
-                    if (s
-                        .contains("simpledbdomainname=stringtobereplaced\ns3websitebucketname=stringtobereplaced\ndatabasebackupbucketname=stringtobereplaced\ndatabasebackupsnstopicarn=stringtobereplaced\nregion=stringtobereplaced")) {
-                      String modified = "simpledbdomainname=" + simpleDBDomainName
-                          + "\ns3websitebucketname=" + websiteBucket
-                          + "\ndatabasebackupbucketname=" + databaseBackupBucket
-                          + "\ndatabasebackupsnstopicarn=" + databaseBackupSNSTopic + "\nregion="
-                          + region;
-                      byte[] buf_check = modified.getBytes();
-                      len = buf_check.length;
-                      if (len > 1024) {
-                        logger
-                            .log("Error: modified settings file is longer than 1024-length buffer - increase buffer length and retry");
-                        return null;
+                  try (InputStream is = zipFile.getInputStream(entryIn)) {
+                    byte[] buf = new byte[1024];
+                    int len;
+                    while ((len = (is.read(buf))) > 0) {
+                      String s = new String(buf);
+                      if (s
+                          .contains("simpledbdomainname=stringtobereplaced\ns3websitebucketname=stringtobereplaced\ndatabasebackupbucketname=stringtobereplaced\ndatabasebackupsnstopicarn=stringtobereplaced\nregion=stringtobereplaced")) {
+                        String modified = "simpledbdomainname=" + simpleDBDomainName
+                            + "\ns3websitebucketname=" + websiteBucket
+                            + "\ndatabasebackupbucketname=" + databaseBackupBucket
+                            + "\ndatabasebackupsnstopicarn=" + databaseBackupSNSTopic + "\nregion="
+                            + region;
+                        byte[] buf_check = modified.getBytes();
+                        len = buf_check.length;
+                        if (len > 1024) {
+                          logger
+                              .log("Error: modified settings file is longer than 1024-length buffer - increase buffer length and retry");
+                          return null;
+                        }
+                        buf = modified.getBytes();
                       }
-                      buf = modified.getBytes();
+                      zos.write(buf, 0, (len < buf.length) ? len : buf.length);
                     }
-                    zos.write(buf, 0, (len < buf.length) ? len : buf.length);
                   }
                 }
                 zos.closeEntry();

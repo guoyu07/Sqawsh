@@ -64,7 +64,7 @@ public class GetBookingsLambda {
     // Use a getter here so unit tests can substitute a mock manager
     if (!bookingManager.isPresent()) {
       bookingManager = Optional.of(new BookingManager());
-      bookingManager.get().Initialise(logger);
+      bookingManager.get().initialise(logger);
     }
     return bookingManager.get();
   }

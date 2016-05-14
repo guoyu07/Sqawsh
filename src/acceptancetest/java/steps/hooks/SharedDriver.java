@@ -21,7 +21,6 @@ import static org.junit.Assert.fail;
 import org.openqa.selenium.OutputType;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebDriverException;
-import org.openqa.selenium.WebElement;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.htmlunit.HtmlUnitDriver;
@@ -205,7 +204,7 @@ public class SharedDriver extends EventFiringWebDriver {
         } catch (MalformedURLException e) {
           e.printStackTrace();
         }
-        REAL_IPAD_DRIVER = new IOSDriver<WebElement>(url, desiredCapabilities);
+        REAL_IPAD_DRIVER = new IOSDriver<>(url, desiredCapabilities);
       }
       return REAL_IPAD_DRIVER;
     } else {

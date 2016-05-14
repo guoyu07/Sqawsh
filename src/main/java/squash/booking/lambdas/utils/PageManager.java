@@ -181,7 +181,7 @@ public class PageManager implements IPageManager {
    */
   protected String createBookingPage(String date, List<String> validDates,
       String reservationFormGetUrl, String cancellationFormGetUrl, String s3WebsiteUrl,
-      List<Booking> bookings, String pageGuid) throws IllegalArgumentException, IOException {
+      List<Booking> bookings, String pageGuid) throws IllegalArgumentException {
 
     // N.B. we assume that the date is known to be a valid date
     logger.log("About to create booking page");
@@ -202,8 +202,8 @@ public class PageManager implements IPageManager {
     // table. For each grid cell, we need to know whether the cell is booked,
     // and if it is, the names of the players who've booked it.
     logger.log("About to set up velocity context");
-    List<ArrayList<Boolean>> bookedState = new ArrayList<ArrayList<Boolean>>();
-    List<ArrayList<String>> players = new ArrayList<ArrayList<String>>();
+    List<ArrayList<Boolean>> bookedState = new ArrayList<>();
+    List<ArrayList<String>> players = new ArrayList<>();
     // First set up default arrays for case of no bookings
     for (int slot = 1; slot <= 16; slot++) {
       bookedState.add(new ArrayList<>());
@@ -264,7 +264,7 @@ public class PageManager implements IPageManager {
    * @throws JSONException 
    */
   protected String createCachedBookingData(String date, List<String> validDates,
-      List<Booking> bookings) throws IllegalArgumentException, IOException, JSONException {
+      List<Booking> bookings) throws IllegalArgumentException, JSONException {
 
     // N.B. we assume that the date is known to be a valid date
     logger.log("About to create cached booking data");
@@ -301,7 +301,7 @@ public class PageManager implements IPageManager {
    * @throws JSONException 
    */
   protected String createValidDatesData(List<String> validDates) throws IllegalArgumentException,
-      IOException, JSONException {
+      JSONException {
 
     // N.B. we assume that the date is known to be a valid date
     logger.log("About to create cached valid dates data");
