@@ -39,10 +39,10 @@ limitations under the License.-->
 // Global variables
 //////////////////////////////////////////////////////////////////////////////////////////
 
-var com_squash_numcourts = 5;
-var com_squash_identityPoolId = 'stringtobereplaced';
-var com_squash_apiGatewayBaseUrl = 'stringtobereplaced';
-var com_squash_region = 'stringtobereplaced';
+var comSquashNumcourts = 5;
+var comSquashIdentityPoolId = 'stringtobereplaced';
+var comSquashApiGatewayBaseUrl = 'stringtobereplaced';
+var comSquashRegion = 'stringtobereplaced';
 
 // Client for calling AWS ApiGateway
 var apigClient;
@@ -61,9 +61,9 @@ $(document).ready(function(){
         hideEverything();
 
         // Initialize the Amazon Cognito credentials provider for calling AWS
-        AWS.config.region = com_squash_region; // Region
+        AWS.config.region = comSquashRegion; // Region
         AWS.config.credentials = new AWS.CognitoIdentityCredentials({
-            IdentityPoolId: com_squash_identityPoolId,
+            IdentityPoolId: comSquashIdentityPoolId,
         });
         // Workaround for occasional 504 timeouts from API Gateway bc 10-second timeout.
         // N.B. Lambda can be sluggish on cold-starts. May need tweaking.
@@ -100,7 +100,7 @@ function setUpApigClient() {
                 accessKey: AWS.config.credentials.accessKeyId,
                 secretKey: AWS.config.credentials.secretAccessKey,
                 sessionToken: AWS.config.credentials.sessionToken,
-                region: com_squash_region
+                region: comSquashRegion
             });
             resolve();
         });
@@ -274,7 +274,7 @@ function addTimeSlotAndCourtNumberColumnHeaders() {
     var timeHeader = "<th class='timeHeader'>Time</th>";
     $(newRow).append(timeHeader);
 
-    for(var court = 1; court <= com_squash_numcourts; court++) {
+    for(var court = 1; court <= comSquashNumcourts; court++) {
         $(newRow).append("<th class='courtHeader'>Court " + court.toString() + "</th>");
     }
 
@@ -337,7 +337,7 @@ function addReservationButtonsToAllTimeSlots() {
 
         var rightHandTimeSlotLabel = $(tableRows).eq(timeSlot - 1).find("td").last();
 
-        for(var court = 1; court <= com_squash_numcourts; court++) {
+        for(var court = 1; court <= comSquashNumcourts; court++) {
 
             // Insert the link to initiate court reservation
             var newCellContent = $("<td class='tableCell'><button class='reservationButton' data-court=" + court.toString() + " data-time_slot=" + timeSlot.toString() + " type='reservation'" + ">Reserve</button></td>");
@@ -410,7 +410,7 @@ function saveCourtReservation(court, timeSlot) {
         "player2name": player2,
         "date": getSelectedDate(),
         "password": password,
-        "apiGatewayBaseUrl": com_squash_apiGatewayBaseUrl,
+        "apiGatewayBaseUrl": comSquashApiGatewayBaseUrl,
         "redirectUrl": "dummy"
     };
     var params = {};
@@ -517,7 +517,7 @@ function cancelCourtReservation(courtToCancel, timeSlotToCancel, players) {
         "players": players,
         "date": getSelectedDate(),
         "password": password,
-        "apiGatewayBaseUrl" : com_squash_apiGatewayBaseUrl,
+        "apiGatewayBaseUrl" : comSquashApiGatewayBaseUrl,
         "redirectUrl": "dummy"
     };
     var params = {};

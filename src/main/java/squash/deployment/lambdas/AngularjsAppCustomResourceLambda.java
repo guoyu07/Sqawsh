@@ -182,14 +182,14 @@ public class AngularjsAppCustomResourceLambda implements
             bookingsServiceContent = IOUtils.toString(inputStream);
           }
           bookingsServiceContent = bookingsServiceContent
-              .replace("var com_squash_region = 'stringtobereplaced'",
-                  "var com_squash_region = '" + region + "'")
-              .replace("var com_squash_identityPoolId = 'stringtobereplaced'",
-                  "var com_squash_identityPoolId = '" + cognitoIdentityPoolId + "'")
-              .replace("var com_squash_apiGatewayBaseUrl = 'stringtobereplaced'",
-                  "var com_squash_apiGatewayBaseUrl = '" + apiGatewayBaseUrl + "'")
-              .replace("var com_squash_websiteBucket = 'stringtobereplaced'",
-                  "var com_squash_websiteBucket = '" + websiteBucket + "'");
+              .replace("var comSquashRegion = 'stringtobereplaced'",
+                  "var comSquashRegion = '" + region + "'")
+              .replace("var comSquashIdentityPoolId = 'stringtobereplaced'",
+                  "var comSquashIdentityPoolId = '" + cognitoIdentityPoolId + "'")
+              .replace("var comSquashApiGatewayBaseUrl = 'stringtobereplaced'",
+                  "var comSquashApiGatewayBaseUrl = '" + apiGatewayBaseUrl + "'")
+              .replace("var comSquashWebsiteBucket = 'stringtobereplaced'",
+                  "var comSquashWebsiteBucket = '" + websiteBucket + "'");
           FileUtils.writeStringToFile(new File(bookingsServicePath), bookingsServiceContent);
           logger
               .log("Modified the BookingsService file to point to the correct Cognito identity pool, ApiGatewayBaseUrl, and region");

@@ -107,6 +107,23 @@ describe('squashApp.bookingView module', function () {
     }))
   })
 
+  describe('BookingViewCtrl controller buttonTitle function', function () {
+    // Controls tooltips - for players names that might be too long to fit on button,
+    // a tooltip is handy, but for unreserved courts it is just noise.
+    it('should return the players names for booked courts', inject(function ($rootScope) {
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      expect(bookingViewCtrl.buttonTitle(2, 1)).toBe('R.Ashour/J.Power')
+    }))
+    it('should return the empty string for unbooked courts', inject(function ($rootScope) {
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      expect(bookingViewCtrl.buttonTitle(3, 2)).toBe('')
+    }))
+  })
+
   describe('BookingViewCtrl controller constructor', function () {
     it('should get its valid dates from the bookings service', inject(function ($rootScope) {
       expect(bookingService.getCachedValidDates).toHaveBeenCalled()

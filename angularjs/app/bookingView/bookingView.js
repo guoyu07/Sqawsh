@@ -30,7 +30,7 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService']
     self.bookings = []
 
     // Prevent gradual booking table rendering on initial load
-    self.bookingsLoaded = false
+    self.initialLoadSucceeded = false
 
     // Boolean used to show error ui when loading of the bookings fails
     self.loadFailure = false
@@ -129,7 +129,7 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService']
         builder.setRenderFromCacheFailed(false)
 
         // Update the UI with these new bookings
-        self.bookingsLoaded = true
+        self.initialLoadSucceeded = true
         updateUi()
       }
 
@@ -155,6 +155,14 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService']
         return self.bookedPlayers[timeSlotIndex][courtNumberIndex]
       }
       return 'Reserve'
+    }
+
+    self.buttonTitle = function (timeSlotIndex, courtNumberIndex) {
+      if (self.courtIsReserved(timeSlotIndex, courtNumberIndex)) {
+        return self.bookedPlayers[timeSlotIndex][courtNumberIndex]
+      }
+      // No tooltip for unbooked courts
+      return ''
     }
 
     self.showForm = function (timeSlotIndex, courtNumberIndex) {

@@ -151,13 +151,13 @@ public class BookingsHtmlCustomResourceLambda implements
           // website bucket name.
           logger
               .log("Inserting Cognito pool id, region, ApiGatewayBaseUrl, and website bucket name into bookings.html");
-          String modifiedHtml = html.replaceAll("com_squash_identityPoolId = 'stringtobereplaced'",
-              "com_squash_identityPoolId = '" + cognitoIdentityPoolId + "'");
+          String modifiedHtml = html.replaceAll("comSquashIdentityPoolId = 'stringtobereplaced'",
+              "comSquashIdentityPoolId = '" + cognitoIdentityPoolId + "'");
           modifiedHtml = modifiedHtml.replaceAll(
-              "com_squash_apiGatewayBaseUrl = 'stringtobereplaced'",
-              "com_squash_apiGatewayBaseUrl = '" + apiGatewayBaseUrl + "'");
-          modifiedHtml = modifiedHtml.replaceAll("com_squash_region = 'stringtobereplaced'",
-              "com_squash_region = '" + region + "'");
+              "comSquashApiGatewayBaseUrl = 'stringtobereplaced'", "comSquashApiGatewayBaseUrl = '"
+                  + apiGatewayBaseUrl + "'");
+          modifiedHtml = modifiedHtml.replaceAll("comSquashRegion = 'stringtobereplaced'",
+              "comSquashRegion = '" + region + "'");
           logger.log("Modified HTML: " + modifiedHtml);
 
           try (PrintWriter htmlWriter = new PrintWriter(htmlOutputPath)) {

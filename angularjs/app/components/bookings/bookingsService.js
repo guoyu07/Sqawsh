@@ -33,13 +33,13 @@ angular.module('squashApp.bookingsService', [])
     }
 
     // Initialize the Amazon Cognito credentials provider for calling AWS ApiGateway
-    var com_squash_region = 'stringtobereplaced' // will be replaced at stack creation time
-    var com_squash_identityPoolId = 'stringtobereplaced' // will be replaced at stack creation time
-    var com_squash_apiGatewayBaseUrl = 'stringtobereplaced' // will be replaced at stack creation time
-    var com_squash_websiteBucket = 'stringtobereplaced' // will be replaced at stack creation time
-    AWS.config.region = com_squash_region // Region
+    var comSquashRegion = 'stringtobereplaced' // will be replaced at stack creation time
+    var comSquashIdentityPoolId = 'stringtobereplaced' // will be replaced at stack creation time
+    var comSquashApiGatewayBaseUrl = 'stringtobereplaced' // will be replaced at stack creation time
+    var comSquashWebsiteBucket = 'stringtobereplaced' // will be replaced at stack creation time
+    AWS.config.region = comSquashRegion // Region
     AWS.config.credentials = new AWS.CognitoIdentityCredentials({
-      IdentityPoolId: com_squash_identityPoolId
+      IdentityPoolId: comSquashIdentityPoolId
     })
     // Workaround for occasional 504 timeouts from API Gateway bc 10-second timeout.
     // N.B. Lambda can be sluggish on cold-starts. May need tweaking.
@@ -63,7 +63,7 @@ angular.module('squashApp.bookingsService', [])
             accessKey: AWS.config.credentials.accessKeyId,
             secretKey: AWS.config.credentials.secretAccessKey,
             sessionToken: AWS.config.credentials.sessionToken,
-            region: com_squash_region
+            region: comSquashRegion
           }))
         })
       })
@@ -87,7 +87,7 @@ angular.module('squashApp.bookingsService', [])
             accessKeyId: AWS.config.credentials.accessKeyId,
             secretKey: AWS.config.credentials.secretAccessKey,
             sessionToken: AWS.config.credentials.sessionToken,
-            region: com_squash_region
+            region: comSquashRegion
           }))
         })
       })
@@ -98,7 +98,7 @@ angular.module('squashApp.bookingsService', [])
     getS3Client()
       .then(function (client) {
         // Query AWS for the list of famous players
-        return client.getObject({Bucket: com_squash_websiteBucket, Key: 'famousplayers.json'}).promise()
+        return client.getObject({Bucket: comSquashWebsiteBucket, Key: 'famousplayers.json'}).promise()
       })
       .then(function (players) {
         allFamousPlayers = JSON.parse(players.Body.toString()).famousplayers
@@ -135,7 +135,7 @@ angular.module('squashApp.bookingsService', [])
         return getS3Client()
           .then(function (client) {
             // Query AWS for the currently valid dates for viewing/mutating bookings
-            return client.getObject({Bucket: com_squash_websiteBucket, Key: 'validdates.json'}).promise()
+            return client.getObject({Bucket: comSquashWebsiteBucket, Key: 'validdates.json'}).promise()
           })
           .then(function (response) {
             // Array of valid dates in YYYY-MM-DD format
@@ -168,7 +168,7 @@ angular.module('squashApp.bookingsService', [])
         // Return the bookings for the specified date
         return getS3Client()
           .then(function (client) {
-            return client.getObject({Bucket: com_squash_websiteBucket, Key: builder.getSelectedDate() + '.json'}).promise()
+            return client.getObject({Bucket: comSquashWebsiteBucket, Key: builder.getSelectedDate() + '.json'}).promise()
           })
           .then(function (response) {
             builder.setBookings(JSON.parse(response.Body.toString()).bookings)
@@ -204,7 +204,7 @@ angular.module('squashApp.bookingsService', [])
           'player2name': player2,
           'date': date,
           'password': password,
-          'apiGatewayBaseUrl': com_squash_apiGatewayBaseUrl,
+          'apiGatewayBaseUrl': comSquashApiGatewayBaseUrl,
           'redirectUrl': 'http://dummy'
         }
         var params = {}
@@ -232,7 +232,7 @@ angular.module('squashApp.bookingsService', [])
           'players': players,
           'date': date,
           'password': password,
-          'apiGatewayBaseUrl': com_squash_apiGatewayBaseUrl,
+          'apiGatewayBaseUrl': comSquashApiGatewayBaseUrl,
           'redirectUrl': 'http://dummy'
         }
         var params = {}

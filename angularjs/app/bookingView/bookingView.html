@@ -133,7 +133,7 @@ limitations under the License.-->
     background-color: #f5f5dc;
   }
 </style>
-<div class="bookingView" ng-show="ctrl.bookingsLoaded" ng-cloak>
+<div class="bookingView" ng-show="!ctrl.loadFailure && ctrl.initialLoadSucceeded" ng-cloak>
 <div align="center" class="dateSelector">
   <button class="dateButton" ng-click="ctrl.incrementOrDecrementDate(-1)" ng-disabled="ctrl.isEarliestDate()">Earlier</button>
   <select ng-options="date as (date | date:'fullDate') for date in ctrl.validDates" ng-model="ctrl.selectedDate" ng-change="ctrl.selectedDateChanged()"></select>
@@ -152,7 +152,7 @@ limitations under the License.-->
   <tr ng-class-odd="'oddRow'" ng-class-even="'evenRow'" ng-repeat="timeSlot in ctrl.timeSlots">
     <td class="lefttimeLabel">{{ctrl.timeSlots[$index] | date:'shortTime'}}</td>
     <td ng-repeat="courtNumber in ctrl.courtNumbers">
-      <Button ng-class="ctrl.buttonStyle($parent.$index, $index)" ng-click="ctrl.showForm($parent.$index, $index)">{{ctrl.buttonText($parent.$index, $index)}}</Button>
+      <Button title="{{ctrl.buttonTitle($parent.$index, $index)}}" ng-class="ctrl.buttonStyle($parent.$index, $index)" ng-click="ctrl.showForm($parent.$index, $index)">{{ctrl.buttonText($parent.$index, $index)}}</Button>
     </td>
     <td class="righttimeLabel">{{ctrl.timeSlots[$index] | date:'shortTime'}}</td>
   </tr>
