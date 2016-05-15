@@ -347,10 +347,9 @@ public class PageManager implements IPageManager {
       ObjectMetadata metadata = new ObjectMetadata();
       metadata.setContentLength(jsonAsBytes.length);
       metadata.setContentType("application/json");
-      // Direct caches not to satisfy future requests with this data and
-      // not to store it - at least for HTTP 1.1 - we want agents to get
-      // the latest data from S3 on every request.
-      metadata.setCacheControl("no-cache, no-store, must-revalidate");
+      // Direct caches not to satisfy future requests with this data without
+      // revalidation.
+      metadata.setCacheControl("no-cache, must-revalidate");
       PutObjectRequest putObjectRequest = new PutObjectRequest(websiteBucketName,
           keyName + ".json", jsonAsStream, metadata);
       // Data must be public so it can be served from the website
@@ -384,10 +383,9 @@ public class PageManager implements IPageManager {
       ObjectMetadata metadata = new ObjectMetadata();
       metadata.setContentLength(pageAsBytes.length);
       metadata.setContentType("text/html");
-      // Direct caches not to satisfy future requests with this data and
-      // not to store it - at least for HTTP 1.1 - we want agents to get
-      // the latest bookings from S3 on every request.
-      metadata.setCacheControl("no-cache, no-store, must-revalidate");
+      // Direct caches not to satisfy future requests with this data without
+      // revalidation.
+      metadata.setCacheControl("no-cache, must-revalidate");
       PutObjectRequest putObjectRequest = new PutObjectRequest(websiteBucketName, pageBaseName
           + uidSuffix + ".html", pageAsStream, metadata);
       // Page must be public so it can be served from the website
@@ -431,9 +429,9 @@ public class PageManager implements IPageManager {
     logger.log("About to upload booking page for each valid date");
 
     String currentDate = validDates.get(0);
-    logger.log("About to refresh index page for: " + currentDate);
-    refreshIndexPage(currentDate);
-    logger.log("Refreshed index page");
+    logger.log("About to refresh index pages for: " + currentDate);
+    refreshIndexPages(currentDate);
+    logger.log("Refreshed index pages");
 
     // Dates will be in time order. We want to iterate in reverse time order to
     // ensure that we refresh the most-future page first, which ensures all
@@ -448,18 +446,23 @@ public class PageManager implements IPageManager {
     logger.log("Uploaded booking page for each valid date");
   }
 
-  private void refreshIndexPage(String currentDate) throws Exception {
-    // This page will redirect to the current day's page. It is there
-    // to handle case where a client has a booking page open which
-    // has a link to an earlier page that has now expired (which means
-    // at least one midnight must have passed since they fetched the
-    // page). It also handles other generally-messed-up urls.
-    String indexPage = createIndexPage("http://" + websiteBucketName + ".s3-website-" + region
-        + ".amazonaws.com?selectedDate=" + currentDate + ".html");
-
-    logger.log("About to upload index page");
-    copyUpdatedBookingPageToS3("today", indexPage, "");
-    logger.log("Uploaded index page");
+  private void refreshIndexPages(String currentDate) throws Exception {
+    // These 2 pages will redirect to the current day's page. Today.html is
+    // there to handle case where a javascript-disabled client has a booking
+    // page open which has a link to an earlier page that has now expired (which
+    // means at least one midnight must have passed since they fetched the
+    // page). It also handles other generally-messed-up urls for
+    // javascript-disabled clients.. Noscript.html is there for the AngularApp
+    // to redirect to when javascript is disabled. It differs from Today.html
+    // only by not showing a momentary redirect message.
+    String todayIndexPage = createIndexPage("http://" + websiteBucketName + ".s3-website-" + region
+        + ".amazonaws.com?selectedDate=" + currentDate + ".html", true);
+    String noscriptIndexPage = createIndexPage("http://" + websiteBucketName + ".s3-website-"
+        + region + ".amazonaws.com?selectedDate=" + currentDate + ".html", false);
+    logger.log("About to upload index pages");
+    copyUpdatedBookingPageToS3("today", todayIndexPage, "");
+    copyUpdatedBookingPageToS3("noscript", noscriptIndexPage, "");
+    logger.log("Uploaded index pages");
   }
 
   /**
@@ -468,8 +471,9 @@ public class PageManager implements IPageManager {
    * <p>This is not private only so that it can be unit-tested.
    * 
    * @param redirectUrl the Url of the booking page for the current date.
+   * @param showRedirectMessage whether to show a redirect error message to the user
    */
-  protected String createIndexPage(String redirectUrl) {
+  protected String createIndexPage(String redirectUrl, Boolean showRedirectMessage) {
 
     logger.log("About to create the index page");
     // Create the page by merging the data with the page template
@@ -483,6 +487,7 @@ public class PageManager implements IPageManager {
 
     VelocityContext context = new VelocityContext();
     context.put("redirectUrl", redirectUrl);
+    context.put("showRedirectMessage", showRedirectMessage);
 
     // Render the page
     StringWriter writer = new StringWriter();

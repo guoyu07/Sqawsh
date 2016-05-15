@@ -128,8 +128,13 @@ angular.module('squashApp.bookingsService', [])
           // Full list not yet loaded - so return default players
           return ['A.Shabana', 'J.Power']
         }
-        // Choose 2 famous players at random
-        return [allFamousPlayers[Math.floor(Math.random() * allFamousPlayers.length)], allFamousPlayers[Math.floor(Math.random() * allFamousPlayers.length)]]
+        // Choose 2 famous players at random - ensuring they're different
+        var index1 = Math.floor(Math.random() * allFamousPlayers.length)
+        var index2
+        do {
+          index2 = Math.floor(Math.random() * allFamousPlayers.length)
+        } while (index2 === index1)
+        return [allFamousPlayers[index1], allFamousPlayers[index2]]
       },
       getCachedValidDates: function (builder) {
         return getS3Client()

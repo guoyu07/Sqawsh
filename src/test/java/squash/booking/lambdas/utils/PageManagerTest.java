@@ -308,9 +308,9 @@ public class PageManagerTest {
     final Sequence refreshSequence = mockery.sequence("refresh");
     mockery.checking(new Expectations() {
       {
-        // 2 uploads for each date + 1 upload for the index page + 1 upload for
-        // the validdates json + 1 upload for the famous players json.
-        exactly(2 * validDates.size() + 3).of(mockTransferManager).upload(
+        // 2 uploads for each date + 2 uploads for the index pages + 1 upload
+        // for the validdates json + 1 upload for the famous players json.
+        exactly(2 * validDates.size() + 4).of(mockTransferManager).upload(
             with(any(PutObjectRequest.class)));
         will(returnValue(mockTransfer));
         inSequence(refreshSequence);
@@ -369,8 +369,19 @@ public class PageManagerTest {
   }
 
   @Test
-  public void testCreateIndexPageReturnsCorrectPage() throws UnsupportedEncodingException,
+  public void testCreateTodayIndexPageReturnsCorrectPage() throws UnsupportedEncodingException,
       IOException {
+    doTestCreateTodayIndexPageReturnsCorrectPage(true);
+  }
+
+  @Test
+  public void testCreateNoscriptIndexPageReturnsCorrectPage() throws UnsupportedEncodingException,
+      IOException {
+    doTestCreateTodayIndexPageReturnsCorrectPage(false);
+  }
+
+  private void doTestCreateTodayIndexPageReturnsCorrectPage(Boolean showRedirectMessage)
+      throws UnsupportedEncodingException, IOException {
 
     // We verify against a previously-saved regression file.
 
@@ -378,29 +389,32 @@ public class PageManagerTest {
     String redirectionUrl = "http://squashwebsite42.s3-website-eu-west-1.amazonaws.com";
     // Load in the expected page
     String expectedIndexPage;
+    String indextype = showRedirectMessage ? "Today" : "Noscript";
     try (InputStream stream = PageManagerTest.class
-        .getResourceAsStream("/squash/booking/lambdas/TestCreateIndexPageReturnsCorrectPage.html")) {
+        .getResourceAsStream("/squash/booking/lambdas/TestCreate" + indextype
+            + "IndexPageReturnsCorrectPage.html")) {
       expectedIndexPage = CharStreams.toString(new InputStreamReader(stream, "UTF-8"));
     }
 
     // ACT
-    String actualIndexPage = pageManager.createIndexPage(redirectionUrl);
+    String actualIndexPage = pageManager.createIndexPage(redirectionUrl, showRedirectMessage);
 
     // ASSERT
     boolean pageIsCorrect = actualIndexPage.equals(expectedIndexPage);
     if (!pageIsCorrect) {
       // Save the generated page only in the error case
       // Get path to resource so can save attempt alongside it
-      URL regressionPage = PageManagerTest.class
-          .getResource("/squash/booking/lambdas/TestCreateIndexPageReturnsCorrectPage.html");
+      URL regressionPage = PageManagerTest.class.getResource("/squash/booking/lambdas/TestCreate"
+          + indextype + "IndexPageReturnsCorrectPage.html");
       String regressionPagePath = regressionPage.getPath();
       String pathMinusFilename = FilenameUtils.getPath(regressionPagePath);
-      File outputPage = new File("/" + pathMinusFilename, "IndexPageFailingTestResult.html");
+      File outputPage = new File("/" + pathMinusFilename, indextype + "PageFailingTestResult.html");
       try (PrintStream out = new PrintStream(new FileOutputStream(outputPage))) {
         out.print(actualIndexPage);
       }
     }
-    assertTrue("Created index page is incorrect: " + actualIndexPage, pageIsCorrect);
+    assertTrue("Created " + indextype + " index page is incorrect: Actual: " + actualIndexPage
+        + " Expected: " + expectedIndexPage, pageIsCorrect);
   }
 
   @Test

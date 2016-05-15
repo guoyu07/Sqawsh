@@ -208,7 +208,7 @@ describe('squashApp.bookingView module', function () {
 
       // Trigger the promise chain to return initial set of bookings for 2016-04-23
       $rootScope.$apply()
-      expect(bookingViewCtrl.bookingsLoaded).toBe(true)
+      expect(bookingViewCtrl.initialLoadSucceeded).toBe(true)
       expect(bookingService.getBookings).toHaveBeenCalledWith(jasmine.objectContaining({
         selectedDate: '2016-04-23'
       }))
@@ -250,12 +250,12 @@ describe('squashApp.bookingView module', function () {
       expect(bookingViewCtrl.bookedPlayers[2][1]).toEqual('R.Ashour/J.Power')
     }))
 
-    it('should set the loaded flag once bookings have been loaded at least once', inject(function ($rootScope) {
-      expect(bookingViewCtrl.bookingsLoaded).toBe(false)
+    it('should set the initialLoadSucceeded flag once bookings have been loaded', inject(function ($rootScope) {
+      expect(bookingViewCtrl.initialLoadSucceeded).toBe(false)
 
       // Trigger the promise chain
       $rootScope.$apply()
-      expect(bookingViewCtrl.bookingsLoaded).toBe(true)
+      expect(bookingViewCtrl.initialLoadSucceeded).toBe(true)
     }))
 
     it('should get its bookings from the backend if it fails to get cached valid dates', inject(function ($rootScope, $controller, $q) {

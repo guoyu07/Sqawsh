@@ -616,13 +616,16 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     Map<String, String> methodResponseModels = new HashMap<>();
     // Response parameters allows us to specify response headers
     Map<String, Boolean> methodResponseParameters = new HashMap<>();
-    // Add CORS response headers to all method responses
+    // Add CORS response headers
     methodResponseParameters.put("method.response.header.access-control-allow-headers",
         Boolean.valueOf("true"));
     methodResponseParameters.put("method.response.header.access-control-allow-methods",
         Boolean.valueOf("true"));
     methodResponseParameters.put("method.response.header.access-control-allow-origin",
         Boolean.valueOf("true"));
+    methodResponseParameters.put("method.response.header.access-control-max-age",
+        Boolean.valueOf("true"));
+
     methodResponseParameters.put("method.response.header.content-type", Boolean.valueOf("true"));
     // Add header to prevent caching of booking pages
     methodResponseParameters.put("method.response.header.cache-control", Boolean.valueOf("true"));
@@ -677,10 +680,16 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
         .put("method.response.header.access-control-allow-headers",
             "'content-type,x-amz-date,authorization,accept,x-amz-security-token,location,cache-control'");
     responseParameters.put("method.response.header.access-control-allow-origin", "'*'");
+    responseParameters.put("method.response.header.access-control-max-age", "'86400'");
+
     responseParameters.put("method.response.header.content-type", "'text/html; charset=utf-8'");
-    // Add no-cache header
-    responseParameters.put("method.response.header.cache-control",
-        "'no-store, no-cache, must-revalidate'");
+
+    // Add no-cache header except to options methods
+    if (!methodName.contains("OPTIONS")) {
+      responseParameters.put("method.response.header.cache-control", "'no-cache, must-revalidate'");
+    } else {
+      responseParameters.put("method.response.header.cache-control", "'public, max-age=86400'");
+    }
 
     // Response templates follow pattern like:
     // "responseTemplates" : {
@@ -732,6 +741,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       response500Templates.put("application/json", errorResponseMappingTemplate);
       responseParameters
           .put("method.response.header.access-control-allow-methods", "'GET,OPTIONS'");
+
       // Lambda exception message regex that we want mapped to the 500 response
       // .*The players names.*|.*password.*
       putIntegration500ResponseRequest

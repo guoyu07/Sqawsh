@@ -21,8 +21,11 @@
 <meta http-equiv="pragma" content="no-cache" />
 </head>
 <body>
+#if($showRedirectMessage)
 <p align='left'>
-<a href= '$redirectUrl'>Something has gone wrong - so redirecting to today's page. Please click here if you are not redirected automatically within a few seconds</a>
+  <a href= '$redirectUrl'>Something has gone wrong - so redirecting to today's page. Please click here if you are not redirected automatically within a few seconds</a>
 </p>
+#else
+#end
 </body>
 </html>
