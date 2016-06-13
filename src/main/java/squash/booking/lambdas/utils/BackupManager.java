@@ -48,8 +48,8 @@ public class BackupManager implements IBackupManager {
 
   private IBookingManager bookingManager;
   private Region region;
-  private String mockDatabaseBackupBucketName;
-  private String mockDatabaseBackupSnsTopicArn;
+  private String databaseBackupBucketName;
+  private String databaseBackupSnsTopicArn;
   private LambdaLogger logger;
 
   @Override
@@ -57,8 +57,8 @@ public class BackupManager implements IBackupManager {
       throws IOException {
     this.bookingManager = bookingManager;
     this.logger = logger;
-    mockDatabaseBackupBucketName = getStringProperty("databasebackupbucketname");
-    mockDatabaseBackupSnsTopicArn = getStringProperty("databasebackupsnstopicarn");
+    databaseBackupBucketName = getStringProperty("databasebackupbucketname");
+    databaseBackupSnsTopicArn = getStringProperty("databasebackupsnstopicarn");
     region = Region.getRegion(Regions.fromName(getStringProperty("region")));
   }
 
@@ -85,15 +85,14 @@ public class BackupManager implements IBackupManager {
     ByteArrayInputStream bookingAsStream = new ByteArrayInputStream(bookingAsBytes);
     ObjectMetadata metadata = new ObjectMetadata();
     metadata.setContentLength(bookingAsBytes.length);
-    PutObjectRequest putObjectRequest = new PutObjectRequest(mockDatabaseBackupBucketName,
+    PutObjectRequest putObjectRequest = new PutObjectRequest(databaseBackupBucketName,
         "LatestBooking", bookingAsStream, metadata);
     TransferUtils.waitForS3Transfer(transferManager.upload(putObjectRequest), logger);
     logger.log("Backed up single booking mutation to S3 bucket: " + backupString);
 
     // Backup to the SNS topic
-    logger.log("Backing up single booking mutation to SNS topic: " + mockDatabaseBackupSnsTopicArn);
-    getSNSClient().publish(mockDatabaseBackupSnsTopicArn, backupString,
-        "Sqawsh single booking backup");
+    logger.log("Backing up single booking mutation to SNS topic: " + databaseBackupSnsTopicArn);
+    getSNSClient().publish(databaseBackupSnsTopicArn, backupString, "Sqawsh single booking backup");
   }
 
   @Override
@@ -119,15 +118,14 @@ public class BackupManager implements IBackupManager {
     ByteArrayInputStream bookingAsStream = new ByteArrayInputStream(bookingAsBytes);
     ObjectMetadata metadata = new ObjectMetadata();
     metadata.setContentLength(bookingAsBytes.length);
-    PutObjectRequest putObjectRequest = new PutObjectRequest(mockDatabaseBackupBucketName,
+    PutObjectRequest putObjectRequest = new PutObjectRequest(databaseBackupBucketName,
         "AllBookings", bookingAsStream, metadata);
     TransferUtils.waitForS3Transfer(transferManager.upload(putObjectRequest), logger);
     logger.log("Backed up all bookings to S3 bucket: " + backupString);
 
     // Backup to the SNS topic
-    logger.log("Backing up all bookings to SNS topic: " + mockDatabaseBackupSnsTopicArn);
-    getSNSClient().publish(mockDatabaseBackupSnsTopicArn, backupString,
-        "Sqawsh all-bookings backup");
+    logger.log("Backing up all bookings to SNS topic: " + databaseBackupSnsTopicArn);
+    getSNSClient().publish(databaseBackupSnsTopicArn, backupString, "Sqawsh all-bookings backup");
 
     return bookings;
   }
