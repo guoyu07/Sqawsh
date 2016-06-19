@@ -67,18 +67,14 @@ import com.amazonaws.services.s3.model.DeleteVersionRequest;
 import com.amazonaws.services.s3.model.ListVersionsRequest;
 import com.amazonaws.services.s3.model.VersionListing;
 import com.amazonaws.services.s3.transfer.TransferManager;
-import com.amazonaws.util.json.JSONException;
-import com.amazonaws.util.json.JSONObject;
 import com.google.common.io.CharStreams;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.PrintStream;
 import java.io.StringWriter;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
@@ -201,6 +197,8 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     String apiGatewayBaseUrl = null;
 
     try {
+      cloudFormationResponder.initialise();
+
       // Create ApiGateway client
       AmazonApiGateway apiGatewayClient = new AmazonApiGatewayClient();
       apiGatewayClient.setRegion(Region.getRegion(Regions.fromName(region)));
@@ -326,22 +324,8 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       logger.log("Exception caught in ApiGateway Lambda: " + e.getMessage());
       return null;
     } finally {
-      // Send response to CloudFormation
-      // Prepare a memory stream to append error messages to
-      ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-      PrintStream printStream = new PrintStream(byteArrayOutputStream);
-      JSONObject outputs;
-      try {
-        outputs = new JSONObject().put("ApiGatewayBaseUrl", apiGatewayBaseUrl);
-      } catch (JSONException e) {
-        e.printStackTrace(printStream);
-        // Can do nothing more than log the error and return. Must rely on
-        // CloudFormation timing-out since it won't get a response from us.
-        logger.log("Exception caught whilst constructing outputs: "
-            + byteArrayOutputStream.toString() + ". Message: " + e.getMessage());
-        return null;
-      }
-      cloudFormationResponder.sendResponse(responseStatus, outputs, logger);
+      cloudFormationResponder.addKeyValueOutputsPair("ApiGatewayBaseUrl", apiGatewayBaseUrl);
+      cloudFormationResponder.sendResponse(responseStatus, logger);
     }
   }
 
@@ -456,8 +440,10 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     try {
       logger.log("Saving SDK to lambda's temporary file system");
       ByteBuffer sdkBuffer = getSdkResult.getBody().asReadOnlyBuffer();
-      try (WritableByteChannel channel = Channels.newChannel(new FileOutputStream("/tmp/sdk.zip"))) {
-        channel.write(sdkBuffer);
+      try (FileOutputStream fileOutputStream = new FileOutputStream("/tmp/sdk.zip")) {
+        try (WritableByteChannel channel = Channels.newChannel(fileOutputStream)) {
+          channel.write(sdkBuffer);
+        }
       }
       // Unzip the sdk
       logger.log("SDK saved. Now unzipping");

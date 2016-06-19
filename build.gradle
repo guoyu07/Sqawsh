@@ -21,7 +21,7 @@ repositories {
 dependencyManagement {
     imports {
         // Specify AWS SDK version here.
-        mavenBom 'com.amazonaws:aws-java-sdk-bom:1.10.54'
+        mavenBom 'com.amazonaws:aws-java-sdk-bom:1.11.8'
     }
 }
 
@@ -85,7 +85,7 @@ dependencies {
 }
 
 task gw(type: Wrapper) {
-    gradleVersion = '2.8'
+    gradleVersion = '2.14'
     scriptFile = 'gw'
 }
 

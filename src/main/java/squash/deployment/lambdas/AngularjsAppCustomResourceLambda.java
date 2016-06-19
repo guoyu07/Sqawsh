@@ -39,14 +39,10 @@ import com.amazonaws.services.s3.model.DeleteVersionRequest;
 import com.amazonaws.services.s3.model.ListVersionsRequest;
 import com.amazonaws.services.s3.model.VersionListing;
 import com.amazonaws.services.s3.transfer.TransferManager;
-import com.amazonaws.util.json.JSONException;
-import com.amazonaws.util.json.JSONObject;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.util.Map;
 import java.util.Optional;
 
@@ -142,6 +138,8 @@ public class AngularjsAppCustomResourceLambda implements
 
     String websiteURL = null;
     try {
+      cloudFormationResponder.initialise();
+
       if (requestType.equals("Create") || requestType.equals("Update")) {
 
         // On updates we clear out the app first
@@ -231,22 +229,8 @@ public class AngularjsAppCustomResourceLambda implements
       return null;
     } finally {
       // Send response to CloudFormation
-      // Prepare a memory stream to append error messages to
-      ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-      PrintStream printStream = new PrintStream(byteArrayOutputStream);
-      JSONObject outputs;
-      try {
-        outputs = new JSONObject().put("WebsiteURL", websiteURL);
-      } catch (JSONException e) {
-        e.printStackTrace(printStream);
-        // Can do nothing more than log the error and return. Must rely
-        // on CloudFormation timing-out since it won't get a response from
-        // us.
-        logger.log("Exception caught whilst constructing outputs: "
-            + byteArrayOutputStream.toString() + ". Message: " + e.getMessage());
-        return null;
-      }
-      cloudFormationResponder.sendResponse(responseStatus, outputs, logger);
+      cloudFormationResponder.addKeyValueOutputsPair("WebsiteURL", websiteURL);
+      cloudFormationResponder.sendResponse(responseStatus, logger);
     }
   }
 

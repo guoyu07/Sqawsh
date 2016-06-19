@@ -69,7 +69,7 @@ Feature: Courts can be booked
       And I have viewed bookings for today
 
       When I attempt to book court 4 at 6:15 PM today for <player1> and <player2>
-      Then I should be taken to the error page
+      Then I should receive feedback that the booking details were invalid
       And court 4 should not be booked at 6:15 PM today
 
       Examples:

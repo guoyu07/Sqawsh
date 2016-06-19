@@ -28,15 +28,11 @@ import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
-import com.amazonaws.util.json.JSONException;
-import com.amazonaws.util.json.JSONObject;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PrintStream;
 import java.util.Enumeration;
 import java.util.Map;
 import java.util.zip.ZipEntry;
@@ -128,6 +124,8 @@ public class SquashSettingsCustomResourceLambda implements
     String responseStatus = "FAILED";
 
     try {
+      cloudFormationResponder.initialise();
+
       if (requestType.equals("Create") || requestType.equals("Update")) {
 
         // Get the zip file that will be used to create the Bookings lambda
@@ -224,21 +222,9 @@ public class SquashSettingsCustomResourceLambda implements
       return null;
     } finally {
       // Send response to CloudFormation
-      // Prepare a memory stream to append error messages to
-      ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-      PrintStream printStream = new PrintStream(byteArrayOutputStream);
-      JSONObject outputs;
-      try {
-        outputs = new JSONObject().put("Result", "Hello from SquashSettings!!!");
-      } catch (JSONException e) {
-        e.printStackTrace(printStream);
-        // Can do nothing more than log the error and return. Must rely on
-        // CloudFormation timing-out since it won't get a response from us.
-        logger.log("Exception caught whilst constructing outputs: "
-            + byteArrayOutputStream.toString() + ". Message: " + e.getMessage());
-        return null;
-      }
-      cloudFormationResponder.sendResponse(responseStatus, outputs, logger);
+      cloudFormationResponder.addKeyValueOutputsPair("Result", "Hello from SquashSettings!!!");
+      cloudFormationResponder.sendResponse(responseStatus, logger);
+
     }
   }
 }

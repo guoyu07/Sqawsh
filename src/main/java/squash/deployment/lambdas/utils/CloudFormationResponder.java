@@ -17,8 +17,11 @@
 package squash.deployment.lambdas.utils;
 
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
-import com.amazonaws.util.json.JSONException;
-import com.amazonaws.util.json.JSONObject;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -26,6 +29,7 @@ import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 /**
@@ -41,6 +45,15 @@ public class CloudFormationResponder {
 
   private Map<String, String> requestParameters;
   private String physicalResourceId;
+  private JsonNodeFactory factory;
+  private JsonFactory jsonFactory;
+  private ByteArrayOutputStream cloudFormationJsonResponse;
+  private PrintStream printStream;
+  private JsonGenerator generator;
+  private ObjectMapper mapper;
+  private ObjectNode rootNode;
+  private ObjectNode dataOutputsNode;
+  private boolean initialised;
 
   /**
    *  Constructs the responder.
@@ -54,10 +67,46 @@ public class CloudFormationResponder {
   public CloudFormationResponder(Map<String, String> requestParameters, String physicalResourceId) {
     this.requestParameters = requestParameters;
     this.physicalResourceId = physicalResourceId;
+    this.initialised = false;
+  }
+
+  /**
+   *  Initialises the responder.
+   *  
+   *  <p>This must be called before adding properties to the response or sending the response
+   */
+  public void initialise() throws IOException {
+    // Create the node factory that gives us nodes.
+    this.factory = new JsonNodeFactory(false);
+    // create a json factory to write the treenode as json.
+    this.jsonFactory = new JsonFactory();
+    this.cloudFormationJsonResponse = new ByteArrayOutputStream();
+    this.printStream = new PrintStream(cloudFormationJsonResponse);
+    this.generator = jsonFactory.createGenerator(printStream);
+    this.mapper = new ObjectMapper();
+    this.rootNode = factory.objectNode();
+    this.dataOutputsNode = factory.objectNode();
+    this.rootNode.set("Data", this.dataOutputsNode);
+    this.initialised = true;
   }
 
   public void setPhysicalResourceId(String physicalResourceId) {
     this.physicalResourceId = physicalResourceId;
+  }
+
+  /**
+   *  Adds a key-value property to the CloudFormation response.
+   *  
+   *  @param key the property key.
+   *  @param value the property value.
+   *  @throws IllegalStateException when the responder is uninitialised.
+   */
+  public void addKeyValueOutputsPair(String key, String value) {
+    if (!initialised) {
+      throw new IllegalStateException("The responder has not been initialised");
+    }
+
+    dataOutputsNode.put(key, value);
   }
 
   /**
@@ -67,30 +116,24 @@ public class CloudFormationResponder {
    *     presigned Url it provided in its request.
    *  
    *  @param status whether the call succeeded - must be either SUCCESS or FAILED.
-   *  @param outputs any outputs the custom resource returns to Cloudformation
    *  @param logger a CloudwatchLogs logger.
+   *  @throws IllegalStateException when the responder is uninitialised.
    */
-  public void sendResponse(String status, JSONObject outputs, LambdaLogger logger) {
-    // Prepare a memory stream to append error messages to
-    ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-    PrintStream printStream = new PrintStream(byteArrayOutputStream);
+  public void sendResponse(String status, LambdaLogger logger) {
+    if (!initialised) {
+      throw new IllegalStateException("The responder has not been initialised");
+    }
 
-    // Construct the response body
-    JSONObject cloudFormationJsonResponse = new JSONObject();
     try {
-      cloudFormationJsonResponse.put("Status", status);
-      cloudFormationJsonResponse.put("RequestId", requestParameters.get("RequestId"));
-      cloudFormationJsonResponse.put("StackId", requestParameters.get("StackId"));
-      cloudFormationJsonResponse.put("LogicalResourceId",
-          requestParameters.get("LogicalResourceId"));
-      cloudFormationJsonResponse.put("PhysicalResourceId", physicalResourceId);
-      cloudFormationJsonResponse.put("Data", outputs);
-    } catch (JSONException e) {
-      e.printStackTrace(printStream);
+      rootNode.put("Status", status);
+      rootNode.put("RequestId", requestParameters.get("RequestId"));
+      rootNode.put("StackId", requestParameters.get("StackId"));
+      rootNode.put("LogicalResourceId", requestParameters.get("LogicalResourceId"));
+      rootNode.put("PhysicalResourceId", physicalResourceId);
+    } catch (Exception e) {
       // Can do nothing more than log the error and return. Must rely on
       // CloudFormation timing-out since it won't get a response from us.
-      logger.log("Exception caught whilst constructing response: "
-          + byteArrayOutputStream.toString());
+      logger.log("Exception caught whilst constructing response: " + e.toString());
       return;
     }
 
@@ -102,27 +145,19 @@ public class CloudFormationResponder {
       connection.setDoOutput(true);
       connection.setRequestMethod("PUT");
       OutputStreamWriter out = new OutputStreamWriter(connection.getOutputStream());
-      try {
-        cloudFormationJsonResponse.put("Status", status);
-      } catch (JSONException e) {
-        e.printStackTrace(printStream);
-        // Can do nothing more than log the error and return. Must rely on
-        // CloudFormation timing-out since it won't get a response from us.
-        logger.log("Exception caught whilst constructing response: "
-            + byteArrayOutputStream.toString());
-        return;
-      }
-      logger.log("Response about to be sent: " + cloudFormationJsonResponse.toString(2));
-      out.write(cloudFormationJsonResponse.toString());
+
+      mapper.writeTree(generator, rootNode);
+      String output = cloudFormationJsonResponse.toString(StandardCharsets.UTF_8.name());
+
+      logger.log("Response about to be sent: " + output);
+      out.write(output);
       out.close();
       logger.log("Sent response to presigned URL");
       int responseCode = connection.getResponseCode();
       logger.log("Response Code returned from presigned URL: " + responseCode);
-    } catch (IOException | JSONException e) {
-      e.printStackTrace(printStream);
+    } catch (IOException e) {
       // Can do nothing more than log the error and return.
-      logger.log("Exception caught whilst replying to presigned URL: "
-          + byteArrayOutputStream.toString());
+      logger.log("Exception caught whilst replying to presigned URL: " + e.toString());
       return;
     }
   }

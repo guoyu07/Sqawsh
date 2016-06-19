@@ -22,6 +22,7 @@ import steps.argumenttransforms.StepArgumentTransforms;
 import steps.hooks.Booking;
 import steps.hooks.BookingSet;
 import applicationdriverlayer.pageobjects.squash.booking.CourtAndTimeSlotChooserPage;
+import applicationdriverlayer.pageobjects.squash.booking.CourtReservationPage;
 import applicationdriverlayer.pageobjects.squash.booking.ErrorPage;
 
 import com.google.common.collect.Multimap;
@@ -44,6 +45,7 @@ public class BookingSteps implements En {
 
   private CourtAndTimeSlotChooserPage courtAndTimeSlotChooserPage;
   private ErrorPage errorPage;
+  private CourtReservationPage courtReservationPage;
   private BookingSet bookingsPotentiallyMadeDuringScenario;
   private Scenario scenario;
 
@@ -55,9 +57,10 @@ public class BookingSteps implements En {
   }
 
   public BookingSteps(CourtAndTimeSlotChooserPage courtAndTimeSlotChooserPage, ErrorPage errorPage,
-      BookingSet bookings) {
+      CourtReservationPage courtReservationPage, BookingSet bookings) {
     this.courtAndTimeSlotChooserPage = courtAndTimeSlotChooserPage;
     this.errorPage = errorPage;
+    this.courtReservationPage = courtReservationPage;
     bookingsPotentiallyMadeDuringScenario = bookings;
 
     Then(
@@ -210,6 +213,13 @@ public class BookingSteps implements En {
         });
 
     Then("^I should be shown bookings for today$", this::assertBookingsShownForToday);
+
+    Then(
+        "^I should receive feedback that the booking details were invalid$",
+        () -> {
+          assertTrue("Expected to have received feedback that the booking details were invalid",
+              this.courtReservationPage.hasReceivedFeedbackOnInvalidBookingDetails());
+        });
   }
 
   private void assertBookingsShownFor(Integer daysAhead) {

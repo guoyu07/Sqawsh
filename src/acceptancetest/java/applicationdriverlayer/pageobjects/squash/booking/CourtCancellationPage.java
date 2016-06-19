@@ -51,7 +51,7 @@ public class CourtCancellationPage extends SquashBasePage<CourtCancellationPage>
   @Override
   protected void waitForLoadToComplete() {
     new WebDriverWait(driver, explicitWaitTimeoutSeconds).until(ExpectedConditions
-        .visibilityOfElementLocated(By.className("cancellationForm")));
+        .visibilityOfElementLocated(By.className("cancellation-form")));
     new WebDriverWait(driver, explicitWaitTimeoutSeconds).until(ExpectedConditions
         .visibilityOf(submitCancellationButton));
   }
@@ -61,7 +61,7 @@ public class CourtCancellationPage extends SquashBasePage<CourtCancellationPage>
     super.assertIsLoaded();
 
     Assert.assertTrue("The cancellation form is not visible",
-        driver.findElement(By.className("cancellationForm")).isDisplayed());
+        driver.findElement(By.className("cancellation-form")).isDisplayed());
   }
 
   public void submitCancellationDetails(String password, boolean expectCancellationToSucceed) {

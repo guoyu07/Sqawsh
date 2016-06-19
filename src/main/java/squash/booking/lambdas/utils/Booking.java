@@ -16,6 +16,8 @@
 
 package squash.booking.lambdas.utils;
 
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+
 import java.util.Objects;
 
 /**
@@ -32,6 +34,7 @@ import java.util.Objects;
  *
  * @author robinsteel19@outlook.com (Robin Steel)
  */
+@JsonPropertyOrder({ "date", "court", "slot", "players" })
 public class Booking {
   Integer court;
   Integer slot;

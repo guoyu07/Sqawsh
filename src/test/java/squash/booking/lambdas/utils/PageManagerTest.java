@@ -38,7 +38,6 @@ import com.amazonaws.services.s3.model.CopyObjectRequest;
 import com.amazonaws.services.s3.model.DeleteObjectRequest;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.transfer.Transfer;
-import com.amazonaws.util.json.JSONException;
 import com.google.common.io.CharStreams;
 
 import java.io.File;
@@ -472,7 +471,7 @@ public class PageManagerTest {
 
   @Test
   public void testCreateCachedBookingDataCreatesCorrectData() throws IllegalArgumentException,
-      JSONException {
+      IOException {
 
     // We create two bookings, and verify resulting json directly
     // against regression data.
@@ -492,7 +491,7 @@ public class PageManagerTest {
     bookingsForDate.add(booking2);
 
     // Set up the expected cached data
-    String expectedCachedBookingData = "{\"date\":\"2015-10-06\",\"validdates\":[\"2015-10-06\",\"2015-10-07\"],\"bookings\":[{\"players\":\"A.Playera/B.Playerb\",\"slot\":3,\"court\":5},{\"players\":\"C.Playerc/D.Playerd\",\"slot\":4,\"court\":3}]}";
+    String expectedCachedBookingData = "{\"date\":\"2015-10-06\",\"validdates\":[\"2015-10-06\",\"2015-10-07\"],\"bookings\":[{\"court\":5,\"slot\":3,\"players\":\"A.Playera/B.Playerb\"},{\"court\":3,\"slot\":4,\"players\":\"C.Playerc/D.Playerd\"}]}";
 
     // ACT
     String actualCachedBookingData = pageManager.createCachedBookingData(fakeCurrentDateString,
@@ -506,7 +505,7 @@ public class PageManagerTest {
 
   @Test
   public void testCreateCachedBookingDataHasBookingsArrayWhenThereIsOneBooking()
-      throws IllegalArgumentException, JSONException {
+      throws IllegalArgumentException, IOException {
 
     // Aim here is to check that a single booking is encoded as a 1-element
     // array rather than degenerating to a non-array object.
@@ -522,7 +521,7 @@ public class PageManagerTest {
     bookingsForDate.add(booking);
 
     // Set up the expected cached data
-    String expectedCachedBookingData = "{\"date\":\"2015-10-06\",\"validdates\":[\"2015-10-06\",\"2015-10-07\"],\"bookings\":[{\"players\":\"A.Playera/B.Playerb\",\"slot\":3,\"court\":5}]}";
+    String expectedCachedBookingData = "{\"date\":\"2015-10-06\",\"validdates\":[\"2015-10-06\",\"2015-10-07\"],\"bookings\":[{\"court\":5,\"slot\":3,\"players\":\"A.Playera/B.Playerb\"}]}";
 
     // ACT
     String actualCachedBookingData = pageManager.createCachedBookingData(fakeCurrentDateString,
@@ -536,7 +535,7 @@ public class PageManagerTest {
 
   @Test
   public void testCreateCachedBookingDataHasEmptyBookingsArrayWhenThereAreNoBookings()
-      throws IllegalArgumentException, JSONException {
+      throws IllegalArgumentException, IOException {
 
     // Aim here is to check that no bookings is encoded as an empty array
     // rather than being dropped altogether from the JSON.
@@ -563,7 +562,7 @@ public class PageManagerTest {
 
   @Test
   public void testCreateCachedValidDatesDataCreatesCorrectData() throws IllegalArgumentException,
-      JSONException {
+      IOException {
 
     // ARRANGE
     // Set up the expected cached data
@@ -580,7 +579,7 @@ public class PageManagerTest {
 
   @Test
   public void testCreateCachedValidDatesDataWhenThereIsOneValidDate()
-      throws IllegalArgumentException, JSONException {
+      throws IllegalArgumentException, IOException {
 
     // Aim here is to check that a single date is encoded as a 1-element
     // array rather than degenerating to a non-array object.
@@ -605,7 +604,7 @@ public class PageManagerTest {
 
   @Test
   public void testCreateCachedValidDatesDataWhenThereAreNoValidDates()
-      throws IllegalArgumentException, JSONException {
+      throws IllegalArgumentException, IOException {
 
     // Aim here is to check that no valid dates is encoded as an empty array
     // rather than being dropped altogether from the JSON.

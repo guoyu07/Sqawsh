@@ -27,8 +27,9 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.sns.AmazonSNS;
 import com.amazonaws.services.sns.AmazonSNSClient;
-import com.amazonaws.util.json.JSONException;
-import com.amazonaws.util.json.JSONObject;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -64,20 +65,17 @@ public class BackupManager implements IBackupManager {
 
   @Override
   public final void backupSingleBooking(Booking booking, Boolean isCreation)
-      throws InterruptedException, JSONException {
+      throws InterruptedException, JsonProcessingException {
     // Backup to the S3 bucket. This method will typically be called every time
     // a booking is mutated. We upload the booking to the same key, so the
     // versions of this key should provide a timeline of all individual bookings
     // in the sequence they were made.
 
     // Encode booking as JSON
-    JSONObject bookingJson = new JSONObject();
-    bookingJson.put("date", booking.getDate());
-    bookingJson.put("court", booking.getCourt());
-    bookingJson.put("slot", booking.getSlot());
-    bookingJson.put("players", booking.getPlayers());
+    ObjectMapper mapper = new ObjectMapper();
+    mapper.setSerializationInclusion(Include.NON_EMPTY);
     String backupString = (isCreation ? "Booking created: " : "Booking deleted: ")
-        + System.getProperty("line.separator") + bookingJson.toString();
+        + System.getProperty("line.separator") + mapper.writeValueAsString(booking);
 
     logger.log("Backing up single booking mutation to S3 bucket");
     IS3TransferManager transferManager = getS3TransferManager();
@@ -100,17 +98,8 @@ public class BackupManager implements IBackupManager {
     List<Booking> bookings = bookingManager.getBookings();
 
     // Encode bookings as JSON
-    JSONObject bookingsJson = new JSONObject();
-    for (int i = 0; i < bookings.size(); i++) {
-      Booking booking = bookings.get(i);
-      JSONObject bookingJson = new JSONObject();
-      bookingJson.put("date", booking.getDate());
-      bookingJson.put("court", booking.getCourt());
-      bookingJson.put("slot", booking.getSlot());
-      bookingJson.put("players", booking.getPlayers());
-      bookingsJson.accumulate("bookings", bookingJson);
-    }
-    String backupString = bookingsJson.toString();
+    ObjectMapper mapper = new ObjectMapper();
+    String backupString = mapper.writeValueAsString(bookings);
 
     logger.log("Backing up all bookings to S3 bucket");
     IS3TransferManager transferManager = getS3TransferManager();

@@ -32,8 +32,15 @@ import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.transfer.Transfer;
 import com.amazonaws.services.sns.AmazonSNS;
-import com.amazonaws.util.json.JSONObject;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -259,13 +266,25 @@ public class BackupManagerTest {
 
     // Set up expectation to publish to our SNS topic
     // Encode booking as JSON
-    JSONObject bookingJson = new JSONObject();
-    bookingJson.put("date", booking.getDate());
-    bookingJson.put("court", booking.getCourt());
-    bookingJson.put("slot", booking.getSlot());
-    bookingJson.put("players", booking.getPlayers());
+    JsonNodeFactory factory = new JsonNodeFactory(false);
+    // Create a json factory to write the treenode as json.
+    JsonFactory jsonFactory = new JsonFactory();
+    ByteArrayOutputStream backupStringStream = new ByteArrayOutputStream();
+    PrintStream printStream = new PrintStream(backupStringStream);
+    try (JsonGenerator generator = jsonFactory.createGenerator(printStream)) {
+      ObjectMapper mapper = new ObjectMapper();
+      ObjectNode rootNode = factory.objectNode();
+      rootNode.put("date", booking.getDate());
+      rootNode.put("court", booking.getCourt());
+      rootNode.put("slot", booking.getSlot());
+      rootNode.put("players", booking.getPlayers());
+      mapper.writeTree(generator, rootNode);
+    }
+
     String backupString = (isCreation ? "Booking created: " : "Booking deleted: ")
-        + System.getProperty("line.separator") + bookingJson.toString();
+        + System.getProperty("line.separator")
+        + backupStringStream.toString(StandardCharsets.UTF_8.name());
+
     // Set up mock SNS client
     mockSNSClient = mockery.mock(AmazonSNS.class);
     mockery.checking(new Expectations() {

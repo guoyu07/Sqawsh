@@ -17,13 +17,58 @@
 <head>
 <title>Court Cancellation Form</title>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<style>
+  .cancellation-form input, button {
+    border-color: #FA787E;
+    border: 2px solid #dadada;
+    border-radius: 7px;
+    display: block;
+  }
+  .cancellation-form input:focus {
+    outline: none;
+    border-color: #9ecaed;
+    box-shadow: 0 0 10px #9ecaed;
+  }
+  .cancellation-form label {
+    display: block;
+  }
+  .cancellation-form button, #returnToBookings2 {
+    background-color: Transparent;
+    color: Black;
+    margin-top: 10px;
+  }
+  .cancellation-form button[type=submit], #cancelreservation {
+    background-color: #9ecaed;
+    color: White;
+    display: block;
+    margin-top: 5px;
+    font-family: 'Comic Sans MS', cursive, sans-serif;
+  }
+  .cancellation-form {
+      border-color: #dadada;
+      border: 2px solid #dadada;
+      border-width: 2px;
+      border-radius: 7px;
+      width: fit-content;
+      padding: 5px;
+      font-family: 'Comic Sans MS', cursive, sans-serif;
+      background-color: rgba(100, 100, 100, 0.1);
+  }
+  .cancellation-form input {
+      font-family: 'Comic Sans MS', cursive, sans-serif;
+      background-color: White;
+  }
+  input:invalid {
+    border-color: tomato;
+    border: 2px solid tomato;
+    border-radius: 7px;
+  }
+</style>
 </head>
 <body>
-<form action=https://${context.apiId}.execute-api.${region}.amazonaws.com/Squash/bookings method="POST" style="display: inline;">
-<div class="cancellationForm">
-<p>You are cancelling the <b>$util.urlDecode($input.params('players'))</b> reservation for <b>$util.urlDecode($input.params('slotLong'))</b> for <i>court $input.params('court')</i> on $util.urlDecode($input.params('dateLong'))
-<br><br>Password:<br>
-<input type="password" name="password">
+<h2>You are cancelling the $util.urlDecode($input.params('players')) booking of court $input.params('court') for $util.urlDecode($input.params('slotLong')) on $util.urlDecode($input.params('dateLong'))</h2>
+<form class="cancellation-form" action=https://${context.apiId}.execute-api.${region}.amazonaws.com/Squash/bookings method="POST" autocomplete="off">
+<label>Password:<input type="password" name="password" required placeholder="enter password"></label>
 ## Include parameters here so we can make the cancellation correctly
 <input type=hidden name=redirectUrl value="http://${squashWebsiteBucket}.s3-website-${region}.amazonaws.com?selectedDate=${util.urlDecode($input.params('date'))}.html">
 <input type=hidden name=apiGatewayBaseUrl value="https://${context.apiId}.execute-api.${region}.amazonaws.com/${context.stage}">
@@ -32,12 +77,9 @@
 <input type=hidden name=court value="$util.urlDecode($input.params('court'))">
 <input type=hidden name=slot value="$util.urlDecode($input.params('slot'))">
 <input type=hidden name=date value="$util.urlDecode($input.params('date'))">
-<p>
 <button type="submit" id="cancelreservation">Cancel squash court reservation</button>
-</p>
-</div>
 </form>
-<form class="returnToBookingsForm" action="http://${squashWebsiteBucket}.s3-website-${region}.amazonaws.com" method="GET" style="display: inline;">
+<form class="returnToBookingsForm" action="http://${squashWebsiteBucket}.s3-website-${region}.amazonaws.com" method="GET">
 <input type=hidden name="selectedDate" value="${input.params('date')}.html">
 <button type="submit" id="returnToBookings2">Return to bookings table without cancelling  the reservation</button>
 </form>

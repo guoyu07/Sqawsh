@@ -37,11 +37,7 @@ import com.amazonaws.services.cloudwatchevents.model.Target;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
-import com.amazonaws.util.json.JSONException;
-import com.amazonaws.util.json.JSONObject;
 
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -142,6 +138,8 @@ public class ScheduledCloudwatchEventCustomResourceLambda implements
     String prewarmer_target_id = "PrewarmerTarget_" + guid;
     Map<String, String> ruleArns = null;
     try {
+      cloudFormationResponder.initialise();
+
       AmazonCloudWatchEvents amazonCloudWatchEventsClient = new AmazonCloudWatchEventsClient();
       amazonCloudWatchEventsClient.setRegion(Region.getRegion(Regions.fromName(region)));
 
@@ -239,29 +237,15 @@ public class ScheduledCloudwatchEventCustomResourceLambda implements
       return null;
     } finally {
       // Send response to CloudFormation
-      // Prepare a memory stream to append error messages to
-      ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-      PrintStream printStream = new PrintStream(byteArrayOutputStream);
-      JSONObject outputs;
-      try {
-        outputs = new JSONObject();
-        outputs.put(
-            "MidnightScheduledCloudwatchEventRuleArn",
-            (requestType.equals("Delete") || (ruleArns == null)) ? "Not available" : ruleArns
-                .get("MidnightScheduledCloudwatchEventRuleArn"));
-        outputs.put(
-            "PrewarmerScheduledCloudwatchEventRuleArn",
-            (requestType.equals("Delete") || (ruleArns == null)) ? "Not available" : ruleArns
-                .get("PrewarmerScheduledCloudwatchEventRuleArn"));
-      } catch (JSONException e) {
-        e.printStackTrace(printStream);
-        // Can do nothing more than log the error and return. Must rely on
-        // CloudFormation timing-out since it won't get a response from us.
-        logger.log("Exception caught whilst constructing outputs: "
-            + byteArrayOutputStream.toString() + ". Message: " + e.getMessage());
-        return null;
-      }
-      cloudFormationResponder.sendResponse(responseStatus, outputs, logger);
+      cloudFormationResponder.addKeyValueOutputsPair(
+          "MidnightScheduledCloudwatchEventRuleArn",
+          (requestType.equals("Delete") || (ruleArns == null)) ? "Not available" : ruleArns
+              .get("MidnightScheduledCloudwatchEventRuleArn"));
+      cloudFormationResponder.addKeyValueOutputsPair(
+          "PrewarmerScheduledCloudwatchEventRuleArn",
+          (requestType.equals("Delete") || (ruleArns == null)) ? "Not available" : ruleArns
+              .get("PrewarmerScheduledCloudwatchEventRuleArn"));
+      cloudFormationResponder.sendResponse(responseStatus, logger);
     }
   }
 

@@ -28,6 +28,7 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 
 import applicationdriverlayer.pageobjects.squash.SquashBasePage;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -49,6 +50,9 @@ public class CourtReservationPage extends SquashBasePage<CourtReservationPage> {
   @FindBy(how = How.ID, id = "submitreservation")
   public WebElement submitReservationButton;
 
+  @FindBy(how = How.CSS, css = "input:invalid")
+  public List<WebElement> invalidInputElements;
+
   public CourtReservationPage(SharedDriver driver) {
     super(driver);
   }
@@ -56,7 +60,7 @@ public class CourtReservationPage extends SquashBasePage<CourtReservationPage> {
   @Override
   protected void waitForLoadToComplete() {
     new WebDriverWait(driver, explicitWaitTimeoutSeconds).until(ExpectedConditions
-        .visibilityOfElementLocated(By.className("reservationForm")));
+        .visibilityOfElementLocated(By.className("reservation-form")));
     new WebDriverWait(driver, explicitWaitTimeoutSeconds).until(ExpectedConditions
         .visibilityOfElementLocated(By.cssSelector("input[name = 'player2name']")));
   }
@@ -66,7 +70,13 @@ public class CourtReservationPage extends SquashBasePage<CourtReservationPage> {
     super.assertIsLoaded();
 
     Assert.assertTrue("The reservation form is not visible",
-        driver.findElement(By.className("reservationForm")).isDisplayed());
+        driver.findElement(By.className("reservation-form")).isDisplayed());
+  }
+
+  public boolean hasReceivedFeedbackOnInvalidBookingDetails() {
+    // We assume that input elements with :invalid pseudo-class means feedback
+    // has been received. (will work only in HTML5 browsers.)
+    return invalidInputElements.size() > 0;
   }
 
   public void submitBookingDetails(String player1, String player2, String password,
@@ -80,7 +90,14 @@ public class CourtReservationPage extends SquashBasePage<CourtReservationPage> {
     if (expectBookingToSucceed) {
       new CourtAndTimeSlotChooserPage((SharedDriver) driver).get(true, Optional.empty(),
           Optional.of(true));
+    } else if (invalidInputElements.size() > 0) {
+      // HTML5 form validation will have prevented form submission
+      return;
     } else {
+      // The form was valid as far as HTML5 validation goes, but we nevertheless
+      // expect the booking to fail - e.g. bc of an invalid password, duplicate
+      // booking, invalid date, etc.
+
       // The HtmlUnitDriver redirects immediately - so even in the error,
       // case it will go straight back to the booking page.
       String webDriverType = System.getProperty("WebDriverType");

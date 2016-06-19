@@ -31,11 +31,7 @@ import com.amazonaws.services.logs.AWSLogs;
 import com.amazonaws.services.logs.AWSLogsClient;
 import com.amazonaws.services.logs.model.CreateLogGroupRequest;
 import com.amazonaws.services.logs.model.PutRetentionPolicyRequest;
-import com.amazonaws.util.json.JSONException;
-import com.amazonaws.util.json.JSONObject;
 
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -160,6 +156,8 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
     String responseStatus = "FAILED";
 
     try {
+      cloudFormationResponder.initialise();
+
       AWSLogs client = getAWSLogsClient(region);
 
       if (requestType.equals("Create")) {
@@ -225,21 +223,8 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
       return null;
     } finally {
       // Send response to CloudFormation
-      // Prepare a memory stream to append error messages to
-      ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-      PrintStream printStream = new PrintStream(byteArrayOutputStream);
-      JSONObject outputs;
-      try {
-        outputs = new JSONObject().put("Result", "Hello from LogGroups!!!");
-      } catch (JSONException e) {
-        e.printStackTrace(printStream);
-        // Can do nothing more than log the error and return. Must rely on
-        // CloudFormation timing-out since it won't get a response from us.
-        logger.log("Exception caught whilst constructing outputs: "
-            + byteArrayOutputStream.toString() + ". Message: " + e.getMessage());
-        return null;
-      }
-      cloudFormationResponder.sendResponse(responseStatus, outputs, logger);
+      cloudFormationResponder.addKeyValueOutputsPair("Result", "Hello from LogGroups!!!");
+      cloudFormationResponder.sendResponse(responseStatus, logger);
     }
   }
 }

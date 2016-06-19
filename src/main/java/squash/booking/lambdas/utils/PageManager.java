@@ -37,13 +37,19 @@ import com.amazonaws.services.s3.model.CopyObjectRequest;
 import com.amazonaws.services.s3.model.DeleteObjectRequest;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
-import com.amazonaws.util.json.JSONException;
-import com.amazonaws.util.json.JSONObject;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.Lists;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintStream;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -261,35 +267,46 @@ public class PageManager implements IPageManager {
    * @param date the date in YYYY-MM-DD format.
    * @param validDates the dates for which bookings can be made, in YYYY-MM-DD format.
    * @param bookings the bookings for the specified date.
-   * @throws JSONException 
+   * @throws IOException
    */
   protected String createCachedBookingData(String date, List<String> validDates,
-      List<Booking> bookings) throws IllegalArgumentException, JSONException {
+      List<Booking> bookings) throws IllegalArgumentException, IOException {
 
     // N.B. we assume that the date is known to be a valid date
     logger.log("About to create cached booking data");
 
     // Encode bookings as JSON
-    JSONObject bookingsJson = new JSONObject();
-    bookingsJson.put("date", date);
-    bookingsJson.put("validdates", new ArrayList<String>());
+    // Create the node factory that gives us nodes.
+    JsonNodeFactory factory = new JsonNodeFactory(false);
+    // Create a json factory to write the treenode as json.
+    JsonFactory jsonFactory = new JsonFactory();
+    ObjectNode rootNode = factory.objectNode();
+
+    rootNode.put("date", date);
+    ArrayNode validDatesNode = rootNode.putArray("validdates");
     for (int i = 0; i < validDates.size(); i++) {
-      bookingsJson.accumulate("validdates", validDates.get(i));
+      validDatesNode.add(validDates.get(i));
     }
-    bookingsJson.put("bookings", new ArrayList<String>());
+    ArrayNode bookingsNode = rootNode.putArray("bookings");
     for (int i = 0; i < bookings.size(); i++) {
       Booking booking = bookings.get(i);
-      JSONObject bookingJson = new JSONObject();
-      bookingJson.put("court", booking.getCourt());
-      bookingJson.put("slot", booking.getSlot());
-      bookingJson.put("players", booking.getPlayers());
-      bookingsJson.accumulate("bookings", bookingJson);
+      ObjectNode bookingNode = factory.objectNode();
+      bookingNode.put("court", booking.getCourt());
+      bookingNode.put("slot", booking.getSlot());
+      bookingNode.put("players", booking.getPlayers());
+      bookingsNode.add(bookingNode);
     }
 
-    String bookingDataString = bookingsJson.toString();
-    logger.log("Created cached booking data: " + bookingDataString);
+    ByteArrayOutputStream bookingDataStream = new ByteArrayOutputStream();
+    PrintStream printStream = new PrintStream(bookingDataStream);
+    try (JsonGenerator generator = jsonFactory.createGenerator(printStream)) {
+      ObjectMapper mapper = new ObjectMapper();
+      mapper.writeTree(generator, rootNode);
+    }
+    String bookingData = bookingDataStream.toString(StandardCharsets.UTF_8.name());
+    logger.log("Created cached booking data: " + bookingData);
 
-    return bookingDataString;
+    return bookingData;
   }
 
   /**
@@ -298,24 +315,35 @@ public class PageManager implements IPageManager {
    * <p>This is not private only so that it can be unit-tested.
    * 
    * @param validDates the dates for which bookings can be made, in YYYY-MM-DD format.
-   * @throws JSONException 
+   * @throws IOException
    */
   protected String createValidDatesData(List<String> validDates) throws IllegalArgumentException,
-      JSONException {
+      IOException {
 
     // N.B. we assume that the date is known to be a valid date
     logger.log("About to create cached valid dates data");
 
     // Encode valid dates as JSON
-    JSONObject validDatesJson = new JSONObject();
-    validDatesJson.put("dates", new ArrayList<String>());
+    // Create the node factory that gives us nodes.
+    JsonNodeFactory factory = new JsonNodeFactory(false);
+    // Create a json factory to write the treenode as json.
+    JsonFactory jsonFactory = new JsonFactory();
+    ObjectNode rootNode = factory.objectNode();
+    ArrayNode validDatesNode = rootNode.putArray("dates");
     for (int i = 0; i < validDates.size(); i++) {
-      validDatesJson.accumulate("dates", validDates.get(i));
+      validDatesNode.add(validDates.get(i));
     }
-    String validDatesDataString = validDatesJson.toString();
-    logger.log("Created cached valid dates data: " + validDatesDataString);
 
-    return validDatesDataString;
+    ByteArrayOutputStream validDatesStream = new ByteArrayOutputStream();
+    PrintStream printStream = new PrintStream(validDatesStream);
+    try (JsonGenerator generator = jsonFactory.createGenerator(printStream)) {
+      ObjectMapper mapper = new ObjectMapper();
+      mapper.writeTree(generator, rootNode);
+    }
+    String validDatesString = validDatesStream.toString(StandardCharsets.UTF_8.name());
+    logger.log("Created cached valid dates data : " + validDatesString);
+
+    return validDatesString;
   }
 
   private List<String> getTimeSlotLabels() {

@@ -38,11 +38,7 @@ import com.amazonaws.services.identitymanagement.model.UpdateAssumeRolePolicyReq
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
-import com.amazonaws.util.json.JSONException;
-import com.amazonaws.util.json.JSONObject;
 
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
 import java.util.Map;
 import java.util.Optional;
 
@@ -143,6 +139,8 @@ public class CognitoCustomResourceLambda implements RequestHandler<Map<String, O
 
     String identityPoolId = null;
     try {
+      cloudFormationResponder.initialise();
+
       AmazonCognitoIdentity client = getAmazonCognitoIdentityClient(region);
       ListIdentityPoolsRequest listIdentityPoolsRequest = new ListIdentityPoolsRequest();
       // Set some reasonable maximum (must be >=1 and <= 60)
@@ -228,21 +226,8 @@ public class CognitoCustomResourceLambda implements RequestHandler<Map<String, O
       return null;
     } finally {
       // Send response to CloudFormation
-      // Prepare a memory stream to append error messages to
-      ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-      PrintStream printStream = new PrintStream(byteArrayOutputStream);
-      JSONObject outputs;
-      try {
-        outputs = new JSONObject().put("CognitoIdentityPoolId", identityPoolId);
-      } catch (JSONException e) {
-        e.printStackTrace(printStream);
-        // Can do nothing more than log the error and return. Must rely on
-        // CloudFormation timing-out since it won't get a response from us.
-        logger.log("Exception caught whilst constructing outputs: "
-            + byteArrayOutputStream.toString() + ". Message: " + e.getMessage());
-        return null;
-      }
-      cloudFormationResponder.sendResponse(responseStatus, outputs, logger);
+      cloudFormationResponder.addKeyValueOutputsPair("CognitoIdentityPoolId", identityPoolId);
+      cloudFormationResponder.sendResponse(responseStatus, logger);
     }
   }
 
