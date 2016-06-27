@@ -77,7 +77,9 @@ public class PageManagerTest {
   AmazonS3 mockS3Client;
 
   Integer court;
+  Integer courtSpan;
   Integer slot;
+  Integer slotSpan;
   String playersNames;
   Booking booking;
   List<Booking> bookings;
@@ -124,9 +126,11 @@ public class PageManagerTest {
 
     // Use a single booking for most of the tests
     court = 5;
+    courtSpan = 1;
     slot = 12;
+    slotSpan = 1;
     playersNames = "D.Playerd/F.Playerf";
-    booking = new Booking(court, slot, playersNames);
+    booking = new Booking(court, courtSpan, slot, slotSpan, playersNames);
     bookings = new ArrayList<>();
     bookings.add(booking);
 
@@ -420,8 +424,8 @@ public class PageManagerTest {
   public void testCreateBookingPageReturnsCorrectPage() throws UnsupportedEncodingException,
       IOException {
 
-    // We create two bookings, and verify resulting html directly
-    // against a previously-saved regression file.
+    // We create two single bookings, and 2 block bookings, and verify resulting
+    // html directly against a previously-saved regression file.
 
     // ARRANGE
     // Set some values that will get embedded into the booking page
@@ -431,15 +435,33 @@ public class PageManagerTest {
     // Set up 2 bookings
     Booking booking1 = new Booking();
     booking1.setSlot(3);
+    booking1.setSlotSpan(1);
     booking1.setCourt(5);
+    booking1.setCourtSpan(1);
     booking1.setPlayers("A.Playera/B.Playerb");
     Booking booking2 = new Booking();
     booking2.setSlot(4);
+    booking2.setSlotSpan(1);
     booking2.setCourt(3);
+    booking2.setCourtSpan(1);
     booking2.setPlayers("C.Playerc/D.Playerd");
+    Booking booking3 = new Booking();
+    booking3.setSlot(10);
+    booking3.setSlotSpan(3);
+    booking3.setCourt(2);
+    booking3.setCourtSpan(2);
+    booking3.setPlayers("E.Playere/F.Playerf");
+    Booking booking4 = new Booking();
+    booking4.setSlot(13);
+    booking4.setSlotSpan(4);
+    booking4.setCourt(1);
+    booking4.setCourtSpan(5);
+    booking4.setPlayers("C.Lub/N.Ight");
     List<Booking> bookingsForPage = new ArrayList<>();
     bookingsForPage.add(booking1);
     bookingsForPage.add(booking2);
+    bookingsForPage.add(booking3);
+    bookingsForPage.add(booking4);
 
     // Load in the expected page
     String expectedBookingPage;
@@ -473,8 +495,8 @@ public class PageManagerTest {
   public void testCreateCachedBookingDataCreatesCorrectData() throws IllegalArgumentException,
       IOException {
 
-    // We create two bookings, and verify resulting json directly
-    // against regression data.
+    // We create two single bookings, and 1 block booking, and verify resulting
+    // json directly against regression data.
 
     // ARRANGE
     // Set up 2 bookings
@@ -486,12 +508,19 @@ public class PageManagerTest {
     booking2.setSlot(4);
     booking2.setCourt(3);
     booking2.setPlayers("C.Playerc/D.Playerd");
+    Booking booking3 = new Booking();
+    booking3.setSlot(10);
+    booking3.setSlotSpan(3);
+    booking3.setCourt(2);
+    booking3.setCourtSpan(2);
+    booking3.setPlayers("E.Playere/F.Playerf");
     List<Booking> bookingsForDate = new ArrayList<>();
     bookingsForDate.add(booking1);
     bookingsForDate.add(booking2);
+    bookingsForDate.add(booking3);
 
     // Set up the expected cached data
-    String expectedCachedBookingData = "{\"date\":\"2015-10-06\",\"validdates\":[\"2015-10-06\",\"2015-10-07\"],\"bookings\":[{\"court\":5,\"slot\":3,\"players\":\"A.Playera/B.Playerb\"},{\"court\":3,\"slot\":4,\"players\":\"C.Playerc/D.Playerd\"}]}";
+    String expectedCachedBookingData = "{\"date\":\"2015-10-06\",\"validdates\":[\"2015-10-06\",\"2015-10-07\"],\"bookings\":[{\"court\":5,\"courtSpan\":1,\"slot\":3,\"slotSpan\":1,\"players\":\"A.Playera/B.Playerb\"},{\"court\":3,\"courtSpan\":1,\"slot\":4,\"slotSpan\":1,\"players\":\"C.Playerc/D.Playerd\"},{\"court\":2,\"courtSpan\":2,\"slot\":10,\"slotSpan\":3,\"players\":\"E.Playere/F.Playerf\"}]}";
 
     // ACT
     String actualCachedBookingData = pageManager.createCachedBookingData(fakeCurrentDateString,
@@ -521,7 +550,7 @@ public class PageManagerTest {
     bookingsForDate.add(booking);
 
     // Set up the expected cached data
-    String expectedCachedBookingData = "{\"date\":\"2015-10-06\",\"validdates\":[\"2015-10-06\",\"2015-10-07\"],\"bookings\":[{\"court\":5,\"slot\":3,\"players\":\"A.Playera/B.Playerb\"}]}";
+    String expectedCachedBookingData = "{\"date\":\"2015-10-06\",\"validdates\":[\"2015-10-06\",\"2015-10-07\"],\"bookings\":[{\"court\":5,\"courtSpan\":1,\"slot\":3,\"slotSpan\":1,\"players\":\"A.Playera/B.Playerb\"}]}";
 
     // ACT
     String actualCachedBookingData = pageManager.createCachedBookingData(fakeCurrentDateString,

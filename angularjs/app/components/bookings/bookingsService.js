@@ -204,7 +204,9 @@ angular.module('squashApp.bookingsService', [])
         var booking = {
           'putOrDelete': 'PUT',
           'court': court,
+          'courtSpan': 1,
           'slot': slot,
+          'slotSpan': 1,
           'player1name': player1,
           'player2name': player2,
           'date': date,
@@ -233,7 +235,9 @@ angular.module('squashApp.bookingsService', [])
         var booking = {
           'putOrDelete': 'DELETE',
           'court': court,
+          'courtSpan': 1,
           'slot': slot,
+          'slotSpan': 1,
           'players': players,
           'date': date,
           'password': password,

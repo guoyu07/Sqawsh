@@ -95,7 +95,7 @@ public class BackupManager implements IBackupManager {
 
   @Override
   public final List<Booking> backupAllBookings() throws Exception {
-    List<Booking> bookings = bookingManager.getBookings();
+    List<Booking> bookings = bookingManager.getAllBookings();
 
     // Encode bookings as JSON
     ObjectMapper mapper = new ObjectMapper();

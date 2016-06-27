@@ -53,7 +53,9 @@ public class PutDeleteBookingLambdaTest {
   String player2Name;
   String playersNames;
   Integer court;
+  Integer courtSpan;
   Integer slot;
+  Integer slotSpan;
   Booking booking;
   List<Booking> bookings;
   String suffix;
@@ -106,8 +108,10 @@ public class PutDeleteBookingLambdaTest {
     player2Name = "B.Playerb";
     playersNames = player1Name + "/" + player2Name;
     court = 5;
+    courtSpan = 1;
     slot = 3;
-    booking = new Booking(court, slot, playersNames);
+    slotSpan = 1;
+    booking = new Booking(court, courtSpan, slot, slotSpan, playersNames);
     bookings = new ArrayList<>();
     bookings.add(booking);
     suffix = "suffix";
@@ -185,8 +189,8 @@ public class PutDeleteBookingLambdaTest {
 
     doTestPutDeleteBookingThrowsIfParameterInvalid(
         "0", // Invalid
-        slot.toString(), playersNames, player1Name, player2Name, fakeCurrentDateString, password,
-        apiGatewayBaseUrl, redirectUrl,
+        courtSpan.toString(), slot.toString(), slotSpan.toString(), playersNames, player1Name,
+        player2Name, fakeCurrentDateString, password, apiGatewayBaseUrl, redirectUrl,
         "The booking court number is outside the valid range (1-5). Please try again.redirectUrl",
         true);
   }
@@ -196,9 +200,48 @@ public class PutDeleteBookingLambdaTest {
 
     doTestPutDeleteBookingThrowsIfParameterInvalid(
         "6", // Invalid
-        slot.toString(), playersNames, player1Name, player2Name, fakeCurrentDateString, password,
-        apiGatewayBaseUrl, redirectUrl,
+        courtSpan.toString(), slot.toString(), slotSpan.toString(), playersNames, player1Name,
+        player2Name, fakeCurrentDateString, password, apiGatewayBaseUrl, redirectUrl,
         "The booking court number is outside the valid range (1-5). Please try again.redirectUrl",
+        true);
+  }
+
+  @Test
+  public void testCreateBookingThrowsIfCourtSpanBelowValidRange() throws Exception {
+
+    doTestPutDeleteBookingThrowsIfParameterInvalid(
+        court.toString(),
+        "0", // Invalid
+        slot.toString(),
+        slotSpan.toString(),
+        playersNames,
+        player1Name,
+        player2Name,
+        fakeCurrentDateString,
+        password,
+        apiGatewayBaseUrl,
+        redirectUrl,
+        "The booking court span is outside the valid range (1-(6-court)). Please try again.redirectUrl",
+        true);
+  }
+
+  @Test
+  public void testCreateBookingThrowsIfCourtSpanAboveValidRange() throws Exception {
+
+    Integer invalidCourtSpan = 6 - court + 1;
+    doTestPutDeleteBookingThrowsIfParameterInvalid(
+        court.toString(),
+        invalidCourtSpan.toString(), // Invalid
+        slot.toString(),
+        slotSpan.toString(),
+        playersNames,
+        player1Name,
+        player2Name,
+        fakeCurrentDateString,
+        password,
+        apiGatewayBaseUrl,
+        redirectUrl,
+        "The booking court span is outside the valid range (1-(6-court)). Please try again.redirectUrl",
         true);
   }
 
@@ -207,9 +250,10 @@ public class PutDeleteBookingLambdaTest {
 
     doTestPutDeleteBookingThrowsIfParameterInvalid(
         court.toString(),
+        courtSpan.toString(),
         "0", // Invalid
-        playersNames, player1Name, player2Name, fakeCurrentDateString, password, apiGatewayBaseUrl,
-        redirectUrl,
+        slotSpan.toString(), playersNames, player1Name, player2Name, fakeCurrentDateString,
+        password, apiGatewayBaseUrl, redirectUrl,
         "The booking time slot is outside the valid range (1-16). Please try again.redirectUrl",
         true);
   }
@@ -219,10 +263,50 @@ public class PutDeleteBookingLambdaTest {
 
     doTestPutDeleteBookingThrowsIfParameterInvalid(
         court.toString(),
+        courtSpan.toString(),
         "17", // Invalid
-        playersNames, player1Name, player2Name, fakeCurrentDateString, password, apiGatewayBaseUrl,
-        redirectUrl,
+        slotSpan.toString(), playersNames, player1Name, player2Name, fakeCurrentDateString,
+        password, apiGatewayBaseUrl, redirectUrl,
         "The booking time slot is outside the valid range (1-16). Please try again.redirectUrl",
+        true);
+  }
+
+  @Test
+  public void testCreateBookingThrowsIfTimeSlotSpanBelowValidRange() throws Exception {
+
+    doTestPutDeleteBookingThrowsIfParameterInvalid(
+        court.toString(),
+        courtSpan.toString(),
+        slot.toString(),
+        "0", // Invalid
+        playersNames,
+        player1Name,
+        player2Name,
+        fakeCurrentDateString,
+        password,
+        apiGatewayBaseUrl,
+        redirectUrl,
+        "The booking time slot span is outside the valid range (1- (17 - slot)). Please try again.redirectUrl",
+        true);
+  }
+
+  @Test
+  public void testCreateBookingThrowsIfTimeSlotSpanAboveValidRange() throws Exception {
+
+    Integer invalidSlotSpan = 17 - slot + 1;
+    doTestPutDeleteBookingThrowsIfParameterInvalid(
+        court.toString(),
+        courtSpan.toString(),
+        slot.toString(),
+        invalidSlotSpan.toString(), // Invalid
+        playersNames,
+        player1Name,
+        player2Name,
+        fakeCurrentDateString,
+        password,
+        apiGatewayBaseUrl,
+        redirectUrl,
+        "The booking time slot span is outside the valid range (1- (17 - slot)). Please try again.redirectUrl",
         true);
   }
 
@@ -232,7 +316,9 @@ public class PutDeleteBookingLambdaTest {
 
     doTestPutDeleteBookingThrowsIfParameterInvalid(
         court.toString(),
+        courtSpan.toString(),
         slot.toString(),
+        slotSpan.toString(),
         "Playera/" + player2Name,
         "Playera", // Invalid - no initial for first player
         player2Name,
@@ -250,7 +336,9 @@ public class PutDeleteBookingLambdaTest {
 
     doTestPutDeleteBookingThrowsIfParameterInvalid(
         court.toString(),
+        courtSpan.toString(),
         slot.toString(),
+        slotSpan.toString(),
         player1Name + "/Playerb",
         player1Name,
         "Playerb", // Invalid - no initial for second player
@@ -265,8 +353,8 @@ public class PutDeleteBookingLambdaTest {
   @Test
   public void testCreateBookingThrowsIfPlayersNamesInWrongFormat_NoPlayer1() throws Exception {
 
-    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(), slot.toString(), "/"
-        + player2Name,
+    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(), courtSpan.toString(),
+        slot.toString(), slotSpan.toString(), "/" + player2Name,
         "", // Invalid - no first player
         player2Name, fakeCurrentDateString, password, apiGatewayBaseUrl, redirectUrl,
         "Names of both players should be given. Please try again.redirectUrl", true);
@@ -275,8 +363,8 @@ public class PutDeleteBookingLambdaTest {
   @Test
   public void testCreateBookingThrowsIfPlayersNamesInWrongFormat_NoPlayer2() throws Exception {
 
-    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(), slot.toString(), player1Name
-        + "/", player1Name,
+    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(), courtSpan.toString(),
+        slot.toString(), slotSpan.toString(), player1Name + "/", player1Name,
         "", // Invalid - no second player
         fakeCurrentDateString, password, apiGatewayBaseUrl, redirectUrl,
         "Names of both players should be given. Please try again.redirectUrl", true);
@@ -286,8 +374,8 @@ public class PutDeleteBookingLambdaTest {
   public void testCreateBookingThrowsIfDateOutsideValidRange() throws Exception {
 
     // Just have one test of this for now
-    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(), slot.toString(), playersNames,
-        player1Name, player2Name,
+    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(), courtSpan.toString(),
+        slot.toString(), slotSpan.toString(), playersNames, player1Name, player2Name,
         "2015-10-08", // Invalid - too far into the future
         password, apiGatewayBaseUrl, redirectUrl,
         "The booking date is outside the valid range. Please try again.redirectUrl", true);
@@ -296,17 +384,18 @@ public class PutDeleteBookingLambdaTest {
   @Test
   public void testCreateBookingThrowsIfPasswordIncorrect() throws Exception {
 
-    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(), slot.toString(), playersNames,
-        player1Name, player2Name, fakeCurrentDateString,
+    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(), courtSpan.toString(),
+        slot.toString(), slotSpan.toString(), playersNames, player1Name, player2Name,
+        fakeCurrentDateString,
         "pAssw0Rd", // Wrong password
         apiGatewayBaseUrl, redirectUrl, "The password is incorrect. Please try again.redirectUrl",
         true);
   }
 
-  private void doTestPutDeleteBookingThrowsIfParameterInvalid(String court, String slot,
-      String players, String player1name, String player2name, String date, String password,
-      String apiGatewayBaseUrl, String redirectUrl, String message, boolean create)
-      throws Exception {
+  private void doTestPutDeleteBookingThrowsIfParameterInvalid(String court, String courtSpan,
+      String slot, String slotSpan, String players, String player1name, String player2name,
+      String date, String password, String apiGatewayBaseUrl, String redirectUrl, String message,
+      boolean create) throws Exception {
 
     // ARRANGE
     thrown.expect(Exception.class);
@@ -316,7 +405,9 @@ public class PutDeleteBookingLambdaTest {
     PutDeleteBookingLambdaRequest request = new PutDeleteBookingLambdaRequest();
     request.setPutOrDelete(create ? "PUT" : "DELETE");
     request.setCourt(court);
+    request.setCourtSpan(courtSpan);
     request.setSlot(slot);
+    request.setSlotSpan(slotSpan);
     request.setPlayers(players);
     request.setPlayer1name(player1name);
     request.setPlayer2name(player2name);
@@ -345,12 +436,37 @@ public class PutDeleteBookingLambdaTest {
     putDeleteBookingLambda.createOrDeleteBooking(request, mockContext);
   }
 
+  // Test we call the booking manager correctly, including for boundary cases
   @Test
-  public void testCreateBookingCorrectlyCallsTheBookingManager() throws Exception {
+  public void testCreateBookingCorrectlyCallsTheBookingManagerLowerBoundary() throws Exception {
+    // Test for all values on their lower boundary
+    doTestCreateBookingCorrectlyCallsTheBookingManager(1, 1, 1, 1);
+  }
+
+  @Test
+  public void testCreateBookingCorrectlyCallsTheBookingManagerUpperBoundary() throws Exception {
+    // Test for all values on their upper boundary
+    doTestCreateBookingCorrectlyCallsTheBookingManager(5, 1, 16, 1);
+  }
+
+  @Test
+  public void testCreateBookingCorrectlyCallsTheBookingManagerBlockBooking() throws Exception {
+    // Test for genuine block booking i.e. spans > 1
+    doTestCreateBookingCorrectlyCallsTheBookingManager(3, 2, 15, 2);
+  }
+
+  public void doTestCreateBookingCorrectlyCallsTheBookingManager(Integer court, Integer courtSpan,
+      Integer slot, Integer slotSpan) throws Exception {
     // Test createBooking makes the correct calls to the Booking Manager
 
     // ARRANGE
-    // Set up a test booking
+    // Modify the test booking
+    booking.setCourt(court);
+    booking.setCourtSpan(courtSpan);
+    booking.setSlot(slot);
+    booking.setSlotSpan(slotSpan);
+    bookings.clear();
+    bookings.add(booking);
     mockery.checking(new Expectations() {
       {
         oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).createBooking(
@@ -364,16 +480,43 @@ public class PutDeleteBookingLambdaTest {
 
     // ACT and ASSERT
     doTestCreateBooking(fakeCurrentDateString, playersNames, player1Name, player2Name,
-        court.toString(), slot.toString(), password, apiGatewayBaseUrl, false);
+        court.toString(), courtSpan.toString(), slot.toString(), slotSpan.toString(), password,
+        apiGatewayBaseUrl, false);
+  }
+
+  // Test we call the page manager correctly, including for boundary cases
+  @Test
+  public void testCreateBookingCorrectlyCallsThePageManagerLowerBoundary() throws Exception {
+    // Test for all values on their lower boundary
+    doTestCreateBookingCorrectlyCallsThePageManager(1, 1, 1, 1);
   }
 
   @Test
-  public void testCreateBookingCorrectlyCallsThePageManager() throws Exception {
+  public void testCreateBookingCorrectlyCallsThePageManagerUpperBoundary() throws Exception {
+    // Test for all values on their upper boundary
+    doTestCreateBookingCorrectlyCallsThePageManager(5, 1, 16, 1);
+  }
+
+  @Test
+  public void testCreateBookingCorrectlyCallsThePageManagerBlockBooking() throws Exception {
+    // Test for genuine block booking i.e. court and slot spans > 1
+    doTestCreateBookingCorrectlyCallsThePageManager(3, 2, 15, 2);
+  }
+
+  public void doTestCreateBookingCorrectlyCallsThePageManager(Integer court, Integer courtSpan,
+      Integer slot, Integer slotSpan) throws Exception {
     // Test createBooking makes the correct calls to the page manager - it
     // should refresh the modified bookings page.
 
     // ARRANGE
     // Set up a test booking
+    // Modify the test booking
+    booking.setCourt(court);
+    booking.setCourtSpan(courtSpan);
+    booking.setSlot(slot);
+    booking.setSlotSpan(slotSpan);
+    bookings.clear();
+    bookings.add(booking);
     mockery.checking(new Expectations() {
       {
         // The BookingManager returns the bookings that are passed to
@@ -390,16 +533,42 @@ public class PutDeleteBookingLambdaTest {
 
     // ACT and ASSERT
     doTestCreateBooking(fakeCurrentDateString, playersNames, player1Name, player2Name,
-        court.toString(), slot.toString(), password, apiGatewayBaseUrl, true);
+        court.toString(), courtSpan.toString(), slot.toString(), slotSpan.toString(), password,
+        apiGatewayBaseUrl, true);
+  }
+
+  // Test we call the backup manager correctly, including for boundary cases
+  @Test
+  public void testCreateBookingCorrectlyCallsTheBackupManagerLowerBoundary() throws Exception {
+    // Test for all values on their lower boundary
+    doTestCreateBookingCorrectlyCallsTheBackupManager(1, 1, 1, 1);
   }
 
   @Test
-  public void testCreateBookingCorrectlyCallsTheBackupManager() throws Exception {
+  public void testCreateBookingCorrectlyCallsTheBackupManagerUpperBoundary() throws Exception {
+    // Test for all values on their upper boundary
+    doTestCreateBookingCorrectlyCallsTheBackupManager(5, 1, 16, 1);
+  }
+
+  @Test
+  public void testCreateBookingCorrectlyCallsTheBackupManagerBlockBooking() throws Exception {
+    // Test for genuine block booking i.e. court and slot spans > 1
+    doTestCreateBookingCorrectlyCallsTheBackupManager(3, 2, 15, 2);
+  }
+
+  public void doTestCreateBookingCorrectlyCallsTheBackupManager(Integer court, Integer courtSpan,
+      Integer slot, Integer slotSpan) throws Exception {
     // Test createBooking makes the correct calls to the backup manager - it
     // should backup each booking that is created or deleted.
 
     // ARRANGE
-    // Set up a test booking
+    // Set up a test booking// Modify the test booking
+    booking.setCourt(court);
+    booking.setCourtSpan(courtSpan);
+    booking.setSlot(slot);
+    booking.setSlotSpan(slotSpan);
+    bookings.clear();
+    bookings.add(booking);
     mockery.checking(new Expectations() {
       {
         oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).createBooking(
@@ -414,7 +583,8 @@ public class PutDeleteBookingLambdaTest {
 
     // ACT and ASSERT
     doTestCreateBooking(fakeCurrentDateString, playersNames, player1Name, player2Name,
-        court.toString(), slot.toString(), password, apiGatewayBaseUrl, false);
+        court.toString(), courtSpan.toString(), slot.toString(), slotSpan.toString(), password,
+        apiGatewayBaseUrl, false);
   }
 
   @Test
@@ -438,7 +608,8 @@ public class PutDeleteBookingLambdaTest {
 
     // ACT and ASSERT
     doTestCreateBooking(fakeCurrentDateString, playersNames, player1Name, player2Name,
-        court.toString(), slot.toString(), password, apiGatewayBaseUrl, false);
+        court.toString(), courtSpan.toString(), slot.toString(), slotSpan.toString(), password,
+        apiGatewayBaseUrl, false);
   }
 
   @Test
@@ -462,7 +633,8 @@ public class PutDeleteBookingLambdaTest {
 
     // ACT and ASSERT
     doTestCreateBooking(fakeCurrentDateString, playersNames, player1Name, player2Name,
-        court.toString(), slot.toString(), password, apiGatewayBaseUrl, false);
+        court.toString(), courtSpan.toString(), slot.toString(), slotSpan.toString(), password,
+        apiGatewayBaseUrl, false);
   }
 
   @Test
@@ -486,19 +658,22 @@ public class PutDeleteBookingLambdaTest {
 
     // ACT and ASSERT
     doTestCreateBooking(fakeCurrentDateString, playersNames, player1Name, player2Name,
-        court.toString(), slot.toString(), password, apiGatewayBaseUrl, false);
+        court.toString(), courtSpan.toString(), slot.toString(), slotSpan.toString(), password,
+        apiGatewayBaseUrl, false);
   }
 
   private void doTestCreateBooking(String date, String playersNames, String player1Name,
-      String player2Name, String court, String slot, String password, String apiGatewayBaseUrl,
-      Boolean checkRedirectUrl) throws Exception {
+      String player2Name, String court, String courtSpan, String slot, String slotSpan,
+      String password, String apiGatewayBaseUrl, Boolean checkRedirectUrl) throws Exception {
 
     // ACT
     // Call create booking with valid parameters
     PutDeleteBookingLambdaRequest request = new PutDeleteBookingLambdaRequest();
     request.setPutOrDelete("PUT");
     request.setCourt(court);
+    request.setCourtSpan(courtSpan);
     request.setSlot(slot);
+    request.setSlotSpan(slotSpan);
     request.setPlayers(playersNames);
     request.setPlayer1name(player1Name);
     request.setPlayer2name(player2Name);
@@ -516,13 +691,15 @@ public class PutDeleteBookingLambdaTest {
     }
   }
 
+  // Repeat tests for Deleting bookings:
+
   @Test
   public void testDeleteBookingThrowsIfCourtBelowValidRange() throws Exception {
 
     doTestPutDeleteBookingThrowsIfParameterInvalid(
         "0", // Invalid
-        slot.toString(), playersNames, player1Name, player2Name, fakeCurrentDateString, password,
-        apiGatewayBaseUrl, redirectUrl,
+        courtSpan.toString(), slot.toString(), slotSpan.toString(), playersNames, player1Name,
+        player2Name, fakeCurrentDateString, password, apiGatewayBaseUrl, redirectUrl,
         "The booking court number is outside the valid range (1-5)", false);
   }
 
@@ -531,27 +708,79 @@ public class PutDeleteBookingLambdaTest {
 
     doTestPutDeleteBookingThrowsIfParameterInvalid(
         "6", // Invalid
-        slot.toString(), playersNames, player1Name, player2Name, fakeCurrentDateString, password,
-        apiGatewayBaseUrl, redirectUrl,
+        courtSpan.toString(), slot.toString(), slotSpan.toString(), playersNames, player1Name,
+        player2Name, fakeCurrentDateString, password, apiGatewayBaseUrl, redirectUrl,
         "The booking court number is outside the valid range (1-5)", false);
+  }
+
+  @Test
+  public void testDeleteBookingThrowsIfCourtSpanBelowValidRange() throws Exception {
+
+    doTestPutDeleteBookingThrowsIfParameterInvalid(
+        court.toString(),
+        "0", // Invalid
+        slot.toString(), slotSpan.toString(), playersNames, player1Name, player2Name,
+        fakeCurrentDateString, password, apiGatewayBaseUrl, redirectUrl,
+        "The booking court span is outside the valid range (1-(6-court))", false);
+  }
+
+  @Test
+  public void testDeleteBookingThrowsIfCourtSpanAboveValidRange() throws Exception {
+
+    Integer invalidCourtSpan = 6 - court + 1;
+    doTestPutDeleteBookingThrowsIfParameterInvalid(
+        court.toString(),
+        invalidCourtSpan.toString(), // Invalid
+        slot.toString(), slotSpan.toString(), playersNames, player1Name, player2Name,
+        fakeCurrentDateString, password, apiGatewayBaseUrl, redirectUrl,
+        "The booking court span is outside the valid range (1-(6-court))", false);
   }
 
   @Test
   public void testDeleteBookingThrowsIfTimeSlotBelowValidRange() throws Exception {
 
     doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(),
+        courtSpan.toString(),
         "0", // Invalid
-        playersNames, player1Name, player2Name, fakeCurrentDateString, password, apiGatewayBaseUrl,
-        redirectUrl, "The booking time slot is outside the valid range (1-16)", false);
+        slotSpan.toString(), playersNames, player1Name, player2Name, fakeCurrentDateString,
+        password, apiGatewayBaseUrl, redirectUrl,
+        "The booking time slot is outside the valid range (1-16)", false);
   }
 
   @Test
   public void testDeleteBookingThrowsIfTimeSlotAboveValidRange() throws Exception {
 
     doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(),
+        courtSpan.toString(),
         "17", // Invalid
+        slotSpan.toString(), playersNames, player1Name, player2Name, fakeCurrentDateString,
+        password, apiGatewayBaseUrl, redirectUrl,
+        "The booking time slot is outside the valid range (1-16)", false);
+  }
+
+  @Test
+  public void testDeleteBookingThrowsIfTimeSlotSpanBelowValidRange() throws Exception {
+
+    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(),
+        courtSpan.toString(),
+        slot.toString(),
+        "0", // Invalid
         playersNames, player1Name, player2Name, fakeCurrentDateString, password, apiGatewayBaseUrl,
-        redirectUrl, "The booking time slot is outside the valid range (1-16)", false);
+        redirectUrl, "The booking time slot span is outside the valid range (1- (17 - slot))",
+        false);
+  }
+
+  @Test
+  public void testDeleteBookingThrowsIfTimeSlotSpanAboveValidRange() throws Exception {
+
+    Integer invalidSlotSpan = 17 - slot + 1;
+    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(),
+        courtSpan.toString(),
+        slot.toString(),
+        invalidSlotSpan.toString(), // Invalid
+        playersNames, player1Name, player2Name, fakeCurrentDateString, password, apiGatewayBaseUrl,
+        redirectUrl, "The booking time slot span is outside the valid range (1- (17 - slot))",
+        false);
   }
 
   @Test
@@ -560,7 +789,9 @@ public class PutDeleteBookingLambdaTest {
 
     doTestPutDeleteBookingThrowsIfParameterInvalid(
         court.toString(),
+        courtSpan.toString(),
         slot.toString(),
+        slotSpan.toString(),
         "Playera/B.Playerb", // Invalid - no initial for first player
         "Playera",
         player2Name,
@@ -578,7 +809,9 @@ public class PutDeleteBookingLambdaTest {
 
     doTestPutDeleteBookingThrowsIfParameterInvalid(
         court.toString(),
+        courtSpan.toString(),
         slot.toString(),
+        slotSpan.toString(),
         "A.Playera/Playerb", // Invalid - no initial for second player
         player1Name,
         "Playerb",
@@ -593,7 +826,8 @@ public class PutDeleteBookingLambdaTest {
   @Test
   public void testDeleteBookingThrowsIfPlayersNamesInWrongFormat_NoPlayer1() throws Exception {
 
-    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(), slot.toString(),
+    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(), courtSpan.toString(),
+        slot.toString(), slotSpan.toString(),
         "/B.Playerb", // Invalid - no first player
         "", "Playerb", fakeCurrentDateString, password, apiGatewayBaseUrl, redirectUrl,
         "Names of both players should be given. Please try again.redirectUrl", false);
@@ -602,7 +836,8 @@ public class PutDeleteBookingLambdaTest {
   @Test
   public void testDeleteBookingThrowsIfPlayersNamesInWrongFormat_NoPlayer2() throws Exception {
 
-    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(), slot.toString(),
+    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(), courtSpan.toString(),
+        slot.toString(), slotSpan.toString(),
         "A.Playera/", // Invalid - no second player
         player1Name, "", fakeCurrentDateString, password, apiGatewayBaseUrl, redirectUrl,
         "Names of both players should be given. Please try again.redirectUrl", false);
@@ -612,8 +847,8 @@ public class PutDeleteBookingLambdaTest {
   public void testDeleteBookingThrowsIfDateOutsideValidRange() throws Exception {
 
     // Just have one test of this for now
-    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(), slot.toString(), playersNames,
-        player1Name, player2Name,
+    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(), courtSpan.toString(),
+        slot.toString(), slotSpan.toString(), playersNames, player1Name, player2Name,
         "2015-10-08", // Invalid - too far into the future,
         password, apiGatewayBaseUrl, redirectUrl, "The booking date is outside the valid range",
         false);
@@ -622,18 +857,44 @@ public class PutDeleteBookingLambdaTest {
   @Test
   public void testDeleteBookingThrowsIfPasswordIncorrect() throws Exception {
 
-    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(), slot.toString(), playersNames,
-        player1Name, player2Name, fakeCurrentDateString, "pAssword", // Wrong
-                                                                     // password
+    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(), courtSpan.toString(),
+        slot.toString(), slotSpan.toString(), playersNames, player1Name, player2Name,
+        fakeCurrentDateString, "pAssword", // Wrong
+                                           // password
         apiGatewayBaseUrl, redirectUrl, "The password is incorrect", false);
   }
 
+  // Test we call the booking manager correctly, including for boundary cases
   @Test
-  public void testDeleteBookingCorrectlyCallsTheBookingManager() throws Exception {
+  public void testDeleteBookingCorrectlyCallsTheBookingManagerLowerBoundary() throws Exception {
+    // Test for all values on their lower boundary
+    doTestDeleteBookingCorrectlyCallsTheBookingManager(1, 1, 1, 1);
+  }
+
+  @Test
+  public void testDeleteBookingCorrectlyCallsTheBookingManagerUpperBoundary() throws Exception {
+    // Test for all values on their upper boundary
+    doTestDeleteBookingCorrectlyCallsTheBookingManager(5, 1, 16, 1);
+  }
+
+  @Test
+  public void testDeleteBookingCorrectlyCallsTheBookingManagerBlockBooking() throws Exception {
+    // Test for genuine block booking i.e. spans > 1
+    doTestDeleteBookingCorrectlyCallsTheBookingManager(3, 2, 15, 2);
+  }
+
+  public void doTestDeleteBookingCorrectlyCallsTheBookingManager(Integer court, Integer courtSpan,
+      Integer slot, Integer slotSpan) throws Exception {
     // Test deleteBooking makes the correct calls to the Booking Manager
 
     // ARRANGE
-    // Set up a test booking
+    // Modify the test booking
+    booking.setCourt(court);
+    booking.setCourtSpan(courtSpan);
+    booking.setSlot(slot);
+    booking.setSlotSpan(slotSpan);
+    bookings.clear();
+    bookings.add(booking);
     mockery.checking(new Expectations() {
       {
         oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).deleteBooking(
@@ -646,17 +907,43 @@ public class PutDeleteBookingLambdaTest {
     });
 
     // ACT and ASSERT
-    doTestDeleteBooking(fakeCurrentDateString, playersNames,
-        court.toString(), slot.toString(), password, apiGatewayBaseUrl, false);
+    doTestDeleteBooking(fakeCurrentDateString, playersNames, court.toString(),
+        courtSpan.toString(), slot.toString(), slotSpan.toString(), password, apiGatewayBaseUrl,
+        false);
+  }
+
+  // Test we call the page manager correctly, including for boundary cases
+  @Test
+  public void testDeleteBookingCorrectlyCallsThePageManagerLowerBoundary() throws Exception {
+    // Test for all values on their lower boundary
+    doTestDeleteBookingCorrectlyCallsThePageManager(1, 1, 1, 1);
   }
 
   @Test
-  public void testDeleteBookingCorrectlyCallsThePageManager() throws Exception {
+  public void testDeleteBookingCorrectlyCallsThePageManagerUpperBoundary() throws Exception {
+    // Test for all values on their upper boundary
+    doTestDeleteBookingCorrectlyCallsThePageManager(5, 1, 16, 1);
+  }
+
+  @Test
+  public void testDeleteBookingCorrectlyCallsThePageManagerBlockBooking() throws Exception {
+    // Test for genuine block booking i.e. court and slot spans > 1
+    doTestDeleteBookingCorrectlyCallsThePageManager(3, 2, 15, 2);
+  }
+
+  public void doTestDeleteBookingCorrectlyCallsThePageManager(Integer court, Integer courtSpan,
+      Integer slot, Integer slotSpan) throws Exception {
     // Test deleteBooking makes the correct calls to the page manager - it
     // should refresh the modified bookings page.
 
     // ARRANGE
-    // Set up a test booking
+    // Modify the test booking
+    booking.setCourt(court);
+    booking.setCourtSpan(courtSpan);
+    booking.setSlot(slot);
+    booking.setSlotSpan(slotSpan);
+    bookings.clear();
+    bookings.add(booking);
     mockery.checking(new Expectations() {
       {
         // The BookingManager returns the bookings that are passed to
@@ -672,17 +959,43 @@ public class PutDeleteBookingLambdaTest {
     });
 
     // ACT and ASSERT
-    doTestDeleteBooking(fakeCurrentDateString, playersNames,
-        court.toString(), slot.toString(), password, apiGatewayBaseUrl, true);
+    doTestDeleteBooking(fakeCurrentDateString, playersNames, court.toString(),
+        courtSpan.toString(), slot.toString(), slotSpan.toString(), password, apiGatewayBaseUrl,
+        true);
+  }
+
+  // Test we call the backup manager correctly, including for boundary cases
+  @Test
+  public void testDeleteBookingCorrectlyCallsTheBackupManagerLowerBoundary() throws Exception {
+    // Test for all values on their lower boundary
+    doTestDeleteBookingCorrectlyCallsTheBackupManager(1, 1, 1, 1);
   }
 
   @Test
-  public void testDeleteBookingCorrectlyCallsTheBackupManager() throws Exception {
+  public void testDeleteBookingCorrectlyCallsTheBackupManagerUpperBoundary() throws Exception {
+    // Test for all values on their upper boundary
+    doTestDeleteBookingCorrectlyCallsTheBackupManager(5, 1, 16, 1);
+  }
+
+  @Test
+  public void testDeleteBookingCorrectlyCallsTheBackupManagerBlockBooking() throws Exception {
+    // Test for genuine block booking i.e. court and slot spans > 1
+    doTestDeleteBookingCorrectlyCallsTheBackupManager(3, 2, 15, 2);
+  }
+
+  public void doTestDeleteBookingCorrectlyCallsTheBackupManager(Integer court, Integer courtSpan,
+      Integer slot, Integer slotSpan) throws Exception {
     // Test deleteBooking makes the correct calls to the backup manager - it
     // should backup the booking just deleted.
 
     // ARRANGE
-    // Set up a test booking
+    // Set up a test booking// Modify the test booking
+    booking.setCourt(court);
+    booking.setCourtSpan(courtSpan);
+    booking.setSlot(slot);
+    booking.setSlotSpan(slotSpan);
+    bookings.clear();
+    bookings.add(booking);
     mockery.checking(new Expectations() {
       {
         // The BookingManager returns the bookings that are passed to
@@ -697,8 +1010,9 @@ public class PutDeleteBookingLambdaTest {
     });
 
     // ACT and ASSERT
-    doTestDeleteBooking(fakeCurrentDateString, playersNames,
-        court.toString(), slot.toString(), password, apiGatewayBaseUrl, false);
+    doTestDeleteBooking(fakeCurrentDateString, playersNames, court.toString(),
+        courtSpan.toString(), slot.toString(), slotSpan.toString(), password, apiGatewayBaseUrl,
+        false);
   }
 
   @Test
@@ -721,8 +1035,9 @@ public class PutDeleteBookingLambdaTest {
     thrown.expectMessage("Booking cancellation failed. Please try again." + redirectUrl);
 
     // ACT and ASSERT
-    doTestDeleteBooking(fakeCurrentDateString, playersNames,
-        court.toString(), slot.toString(), password, apiGatewayBaseUrl, false);
+    doTestDeleteBooking(fakeCurrentDateString, playersNames, court.toString(),
+        courtSpan.toString(), slot.toString(), slotSpan.toString(), password, apiGatewayBaseUrl,
+        false);
   }
 
   @Test
@@ -745,8 +1060,9 @@ public class PutDeleteBookingLambdaTest {
     thrown.expectMessage("Booking cancellation failed. Please try again." + redirectUrl);
 
     // ACT and ASSERT
-    doTestDeleteBooking(fakeCurrentDateString, playersNames,
-        court.toString(), slot.toString(), password, apiGatewayBaseUrl, false);
+    doTestDeleteBooking(fakeCurrentDateString, playersNames, court.toString(),
+        courtSpan.toString(), slot.toString(), slotSpan.toString(), password, apiGatewayBaseUrl,
+        false);
   }
 
   @Test
@@ -769,19 +1085,23 @@ public class PutDeleteBookingLambdaTest {
     thrown.expectMessage(genericExceptionMessage);
 
     // ACT and ASSERT
-    doTestDeleteBooking(fakeCurrentDateString, playersNames,
-        court.toString(), slot.toString(), password, apiGatewayBaseUrl, false);
+    doTestDeleteBooking(fakeCurrentDateString, playersNames, court.toString(),
+        courtSpan.toString(), slot.toString(), slotSpan.toString(), password, apiGatewayBaseUrl,
+        false);
   }
 
   private void doTestDeleteBooking(String date, String playersNames, String court,
-      String slot, String password, String apiGatewayBaseUrl, Boolean checkRedirectUrl) throws Exception {
+      String courtSpan, String slot, String slotSpan, String password, String apiGatewayBaseUrl,
+      Boolean checkRedirectUrl) throws Exception {
 
     // ACT
     // Call create booking with valid parameters
     PutDeleteBookingLambdaRequest request = new PutDeleteBookingLambdaRequest();
     request.setPutOrDelete("DELETE");
     request.setCourt(court);
+    request.setCourtSpan(courtSpan);
     request.setSlot(slot);
+    request.setSlotSpan(slotSpan);
     request.setPlayers(playersNames);
     // Deletion requests pass the players' names only in concatenated form
     request.setPlayer1name(null);

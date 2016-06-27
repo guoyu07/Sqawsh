@@ -20,6 +20,7 @@ import static org.junit.Assert.assertTrue;
 
 import org.jmock.Expectations;
 import org.jmock.Mockery;
+import org.jmock.States;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -59,20 +60,27 @@ public class BookingManagerTest {
 
   // Mocks
   Mockery mockery = new Mockery();
+  final States database = mockery.states("database");
   Context mockContext;
   LambdaLogger mockLogger;
   AmazonSimpleDB mockSimpleDbClient;
 
-  Integer courtBookedInDatabase;
-  Integer courtNotBookedInDatabase;
-  Integer slotBookedInDatabase;
-  String playersNamesBookedInDatabase;
+  // Create some example bookings to test with
+  Booking existingSingleBooking;
+  Booking singleBookingOfFreeCourt;
+  Booking singleBookingWithinExistingBlockBooking;
+  Booking existingBlockBooking;
+  Booking blockBookingOfFreeCourts;
+  Booking blockBookingOverlappingExistingSingleBooking;
+  Booking blockBookingOverlappingExistingBlockBooking;
 
-  Booking bookingThatShouldCreateOk;
-  Booking bookingThatShouldFailToCreate;
-  Booking bookingThatShouldDeleteOk;
-  Booking bookingThatShouldFailToDelete;
-  List<Booking> expectedBookings;
+  String existingPlayersNames;
+  String newPlayersNames;
+
+  // Bookings before and after we attempt to change them by calling a booking
+  // manager method
+  List<Booking> bookingsBeforeCall;
+  List<Booking> expectedBookingsAfterCall;
 
   @Rule
   public ExpectedException thrown = ExpectedException.none();
@@ -86,6 +94,28 @@ public class BookingManagerTest {
     bookingManager = new squash.booking.lambdas.utils.BookingManagerTest.TestBookingManager();
     bookingManager.setSimpleDBDomainName(simpleDBDomainName);
     bookingManager.setCurrentLocalDate(fakeCurrentDate);
+
+    // Set up the test bookings
+    existingPlayersNames = "A.Shabana/J.Power";
+    newPlayersNames = "J.Willstrop/N.Matthew";
+    existingSingleBooking = new Booking(2, 1, 3, 1, existingPlayersNames);
+    existingSingleBooking.setDate(fakeCurrentDateString);
+    blockBookingOverlappingExistingSingleBooking = new Booking(1, 3, 3, 2, newPlayersNames);
+    blockBookingOverlappingExistingSingleBooking.setDate(fakeCurrentDateString);
+    blockBookingOverlappingExistingBlockBooking = new Booking(2, 2, 9, 2, newPlayersNames);
+    blockBookingOverlappingExistingBlockBooking.setDate(fakeCurrentDateString);
+    singleBookingOfFreeCourt = new Booking(4, 1, 12, 1, newPlayersNames);
+    singleBookingOfFreeCourt.setDate(fakeCurrentDateString);
+    existingBlockBooking = new Booking(3, 3, 10, 2, existingPlayersNames);
+    existingBlockBooking.setDate(fakeCurrentDateString);
+    singleBookingWithinExistingBlockBooking = new Booking(4, 1, 11, 1, newPlayersNames);
+    singleBookingWithinExistingBlockBooking.setDate(fakeCurrentDateString);
+    blockBookingOfFreeCourts = new Booking(1, 5, 13, 3, newPlayersNames);
+    blockBookingOfFreeCourts.setDate(fakeCurrentDateString);
+    bookingsBeforeCall = new ArrayList<>();
+    bookingsBeforeCall.add(existingSingleBooking);
+    bookingsBeforeCall.add(existingBlockBooking);
+    expectedBookingsAfterCall = new ArrayList<>();
 
     mockery = new Mockery();
     // Set up mock context
@@ -104,61 +134,68 @@ public class BookingManagerTest {
     });
     mockSimpleDbClient = mockery.mock(AmazonSimpleDB.class);
 
-    // Set up some arbitrary values for the booking in the mock database
-    courtBookedInDatabase = 3;
-    slotBookedInDatabase = 2;
-    playersNamesBookedInDatabase = "A.Playera/B.Playerb";
-
-    // Set up some bookings that are either the same as or different from the
-    // booking in the mock database. Booking for this court will appear to
-    // fail as it is not in the mock database.
-
-    // Different court to the booking in the mock database
-    courtNotBookedInDatabase = 2;
-
-    bookingThatShouldCreateOk = new Booking(courtBookedInDatabase, slotBookedInDatabase,
-        playersNamesBookedInDatabase);
-    bookingThatShouldCreateOk.setDate(fakeCurrentDateString);
-    bookingThatShouldFailToCreate = new Booking(courtNotBookedInDatabase, slotBookedInDatabase,
-        playersNamesBookedInDatabase);
-    bookingThatShouldFailToCreate.setDate(fakeCurrentDateString);
-    bookingThatShouldDeleteOk = bookingThatShouldFailToCreate;
-    bookingThatShouldFailToDelete = bookingThatShouldCreateOk;
-
     bookingManager.initialise(mockLogger);
+
+    // Database uses a Read-Modify-Write pattern. This requires an initial call
+    // to getBookings(i.e. the 'Read'). Not part of the pattern, but we follow
+    // this by a final call after making the booking to verify it created ok. We
+    // thus need the mock getBookings to return different bookings for these two
+    // calls. This state is used to allow that.
+    database.startsAs("BeforeBookingAttempted");
   }
 
-  private void expectCreateBookingToReturnBookingsOrThrow(Optional<Exception> exceptionToThrow,
-      Boolean expectCreateToSucceed) {
-    String attributeName;
-    // Use a booking that does (does not) correspond to what our mock
-    // getBookings returns so we can mimic a successful (not
-    // successful) creation
-    if (!expectCreateToSucceed) {
-      attributeName = courtNotBookedInDatabase.toString() + "-" + slotBookedInDatabase;
-    } else {
-      attributeName = courtBookedInDatabase.toString() + "-" + slotBookedInDatabase.toString();
-    }
-    UpdateCondition updateCondition = new UpdateCondition();
-    updateCondition.setName(attributeName);
-    updateCondition.setExists(false);
+  private void expectCreateBookingToReturnBookingsOrThrow(List<Booking> initialBookings,
+      Booking bookingToCreate, List<Booking> expectedFinalBookings,
+      Optional<Exception> exceptionToThrow) {
 
-    ReplaceableAttribute replaceableAttribute = new ReplaceableAttribute();
-    replaceableAttribute.setName(attributeName);
-    replaceableAttribute.setValue(playersNamesBookedInDatabase);
+    String valueForUpdateCondition;
+    String versionForPutAttributes;
+    UpdateCondition updateCondition = new UpdateCondition();
+    updateCondition.setName("VersionNumber");
+    ReplaceableAttribute versionAttribute = new ReplaceableAttribute();
+    versionAttribute.setName("VersionNumber");
+    versionAttribute.setReplace(true);
+    if (initialBookings.size() == 0) {
+      updateCondition.setExists(false);
+      valueForUpdateCondition = "0";
+      versionForPutAttributes = "1";
+    } else {
+      // The value we use here should not matter - what matters is that the call
+      // to create uses a value 1 higher (e.g. 5 versus 4)
+      updateCondition.setValue("4");
+      valueForUpdateCondition = "4";
+      versionForPutAttributes = "5";
+    }
+    versionAttribute.setValue(versionForPutAttributes);
+    // Add the version number attribute
     List<ReplaceableAttribute> replaceableAttributes = new ArrayList<>();
-    replaceableAttributes.add(replaceableAttribute);
+    replaceableAttributes.add(versionAttribute);
+    // Add booking attribute for the booking being created
+    String attributeName = bookingToCreate.getCourt().toString() + "-"
+        + bookingToCreate.getCourtSpan().toString() + "-" + bookingToCreate.getSlot() + "-"
+        + bookingToCreate.getSlotSpan().toString();
+    ReplaceableAttribute bookingAttribute = new ReplaceableAttribute();
+    bookingAttribute.setName(attributeName);
+    bookingAttribute.setValue(newPlayersNames);
+    replaceableAttributes.add(bookingAttribute);
+
     PutAttributesRequest simpleDbPutRequest = new PutAttributesRequest(simpleDBDomainName,
         fakeCurrentDateString, replaceableAttributes, updateCondition);
 
     if (!exceptionToThrow.isPresent()) {
-      List<Booking> expectedBooking = new ArrayList<>();
-      expectedBooking.add(bookingThatShouldCreateOk);
       mockery.checking(new Expectations() {
         {
           oneOf(mockSimpleDbClient).putAttributes(with(simpleDbPutRequest));
         }
       });
+      // Booking creation calls getBookings before trying to make the booking...
+      expectGetBookingsToReturnBookingsOrThrow(Optional.of(valueForUpdateCondition),
+          Optional.of("BeforeBookingAttempted"), Optional.of("AfterBookingAttempted"),
+          initialBookings, Optional.empty());
+      // ...and after trying to make the booking
+      expectGetBookingsToReturnBookingsOrThrow(Optional.of(versionForPutAttributes),
+          Optional.of("AfterBookingAttempted"), Optional.empty(), expectedFinalBookings,
+          Optional.empty());
     } else {
       mockery.checking(new Expectations() {
         {
@@ -166,25 +203,43 @@ public class BookingManagerTest {
           will(throwException(exceptionToThrow.get()));
         }
       });
+      // Booking creation calls getBookings before trying to make the booking
+      expectGetBookingsToReturnBookingsOrThrow(Optional.of(valueForUpdateCondition),
+          Optional.of("BeforeBookingAttempted"), Optional.empty(), initialBookings,
+          Optional.empty());
     }
+
     bookingManager.setSimpleDBClient(mockSimpleDbClient);
   }
 
-  private void expectGetBookingsToReturnBookingsOrThrow(Optional<Exception> exceptionToThrow) {
+  private void expectGetBookingsToReturnBookingsOrThrow(Optional<String> versionNumber,
+      Optional<String> databaseWhenState, Optional<String> databaseThenState,
+      List<Booking> expectedBookings, Optional<Exception> exceptionToThrow) {
     GetAttributesRequest requestForCurrentDaysBookings = new GetAttributesRequest(
         simpleDBDomainName, fakeCurrentDateString);
     requestForCurrentDaysBookings.setConsistentRead(true);
     List<Attribute> attributes = new ArrayList<>();
-    attributes.add(new Attribute(courtBookedInDatabase.toString() + "-"
-        + slotBookedInDatabase.toString(), playersNamesBookedInDatabase));
+    if (versionNumber.isPresent()) {
+      attributes.add(new Attribute("VersionNumber", versionNumber.get()));
+    }
+    expectedBookings.stream().forEach(
+        booking -> {
+          attributes.add(new Attribute(booking.getCourt().toString() + "-"
+              + booking.getCourtSpan().toString() + "-" + booking.getSlot().toString() + "-"
+              + booking.getSlotSpan().toString(), booking.getPlayers()));
+        });
     GetAttributesResult currentDaysAttributes = new GetAttributesResult();
     currentDaysAttributes.setAttributes(attributes);
 
-    // Set up mock simpleDB client to return this booking - or to throw
+    // Set up mock simpleDB client to return these bookings - or to throw
     if (!exceptionToThrow.isPresent()) {
       mockery.checking(new Expectations() {
         {
           oneOf(mockSimpleDbClient).getAttributes(with(requestForCurrentDaysBookings));
+          when(database.is(databaseWhenState.get()));
+          if (databaseThenState.isPresent()) {
+            then(database.is(databaseThenState.get()));
+          }
           will(returnValue(currentDaysAttributes));
         }
       });
@@ -197,31 +252,23 @@ public class BookingManagerTest {
       });
     }
     bookingManager.setSimpleDBClient(mockSimpleDbClient);
-
-    // Set up the expected bookings - this is the booking in our mock database
-    expectedBookings = new ArrayList<>();
-    expectedBookings.add(bookingThatShouldCreateOk);
   }
 
-  private void expectDeleteBookingToReturnBookingsOrThrow(Optional<Exception> exceptionToThrow,
-      Boolean expectDeleteToSucceed) {
+  private void expectDeleteBookingToReturnBookingsOrThrow(Booking bookingToDelete,
+      Optional<List<Booking>> expectedBookingsAfterDelete, Optional<Exception> exceptionToThrow) {
+
     String attributeName;
+    attributeName = bookingToDelete.getCourt().toString() + "-"
+        + bookingToDelete.getCourtSpan().toString() + "-" + bookingToDelete.getSlot().toString()
+        + "-" + bookingToDelete.getSlotSpan().toString();
+
     UpdateCondition updateCondition = new UpdateCondition();
-    // Use a booking that does not (does) correspond to what our mock
-    // getBookings returns so we can mimic a successful (not
-    // successful) deletion
-    if (expectDeleteToSucceed) {
-      // Different to getBookings booking
-      attributeName = courtNotBookedInDatabase + "-" + slotBookedInDatabase.toString();
-    } else {
-      attributeName = courtBookedInDatabase.toString() + "-" + slotBookedInDatabase.toString();
-    }
     updateCondition.setName(attributeName);
-    updateCondition.setValue(playersNamesBookedInDatabase);
+    updateCondition.setValue(bookingToDelete.getPlayers());
     updateCondition.setExists(true);
     Attribute attribute = new Attribute();
     attribute.setName(attributeName);
-    attribute.setValue(playersNamesBookedInDatabase);
+    attribute.setValue(bookingToDelete.getPlayers());
     List<Attribute> attributes = new ArrayList<>();
     attributes.add(attribute);
 
@@ -233,6 +280,13 @@ public class BookingManagerTest {
           oneOf(mockSimpleDbClient).deleteAttributes(with(simpleDbDeleteRequest));
         }
       });
+
+      // We expect call to getBookings after the delete to verify delete
+      // succeeded.
+      expectGetBookingsToReturnBookingsOrThrow(Optional.of("42"),
+          Optional.of("AfterBookingAttempted"), Optional.empty(),
+          expectedBookingsAfterDelete.get(), Optional.empty());
+      database.become("AfterBookingAttempted");
     } else {
       mockery.checking(new Expectations() {
         {
@@ -240,6 +294,12 @@ public class BookingManagerTest {
           will(throwException(exceptionToThrow.get()));
         }
       });
+      if (expectedBookingsAfterDelete.isPresent()) {
+        expectGetBookingsToReturnBookingsOrThrow(Optional.of("42"),
+            Optional.of("AfterBookingAttempted"), Optional.empty(),
+            expectedBookingsAfterDelete.get(), Optional.empty());
+        database.become("AfterBookingAttempted");
+      }
     }
     bookingManager.setSimpleDBClient(mockSimpleDbClient);
   }
@@ -295,8 +355,10 @@ public class BookingManagerTest {
     // ARRANGE
     thrown.expect(Exception.class);
     thrown.expectMessage("Test SimpleDB exception");
-    expectGetBookingsToReturnBookingsOrThrow(Optional.of(new AmazonServiceException(
-        "Test SimpleDB exception")));
+
+    expectGetBookingsToReturnBookingsOrThrow(Optional.empty(),
+        Optional.of("BeforeBookingAttempted"), Optional.empty(), bookingsBeforeCall,
+        Optional.of(new AmazonServiceException("Test SimpleDB exception")));
 
     // ACT
     // Ask for the bookings - which should throw
@@ -308,7 +370,11 @@ public class BookingManagerTest {
 
     // ARRANGE
     // Set up mock simpleDB client to expect the database call
-    expectGetBookingsToReturnBookingsOrThrow(Optional.empty());
+    // (the version number must be set here but its value is irrelevant, as
+    // we're not testing what getBookings returns in this test)
+    expectGetBookingsToReturnBookingsOrThrow(Optional.of("1"),
+        Optional.of("BeforeBookingAttempted"), Optional.empty(), bookingsBeforeCall,
+        Optional.empty());
 
     // ACT
     bookingManager.getBookings(fakeCurrentDateString);
@@ -318,17 +384,20 @@ public class BookingManagerTest {
   public void testGetBookingsReturnsCorrectBookings() throws Exception {
 
     // Test happy path for getBookings: we query for a valid date and verify
-    // that we get back the booking we expect
+    // that we get back the bookings we expect
 
     // ARRANGE
-    expectGetBookingsToReturnBookingsOrThrow(Optional.empty());
+    // (the version number must be set here but its value is irrelevant)
+    expectGetBookingsToReturnBookingsOrThrow(Optional.of("42"),
+        Optional.of("BeforeBookingAttempted"), Optional.empty(), bookingsBeforeCall,
+        Optional.empty());
 
     // ACT
     // Ask for the bookings for a valid date
     List<Booking> actualBookings = bookingManager.getBookings(fakeCurrentDateString);
 
     // ASSERT
-    for (Booking expectedBooking : expectedBookings) {
+    for (Booking expectedBooking : bookingsBeforeCall) {
       assertTrue("Expected " + expectedBooking.toString(), actualBookings.contains(expectedBooking));
       actualBookings.removeIf(booking -> booking.equals(expectedBooking));
     }
@@ -347,11 +416,12 @@ public class BookingManagerTest {
     AmazonServiceException ase = new AmazonServiceException("Test SimpleDB exception");
     // Mark this as not being a ConditionalCheckFailed error
     ase.setErrorCode("SomeOtherError");
-    expectCreateBookingToReturnBookingsOrThrow(Optional.of(ase), true);
+    expectCreateBookingToReturnBookingsOrThrow(bookingsBeforeCall, singleBookingOfFreeCourt,
+        bookingsBeforeCall, Optional.of(ase));
 
     // ACT
     // Try to create a booking - which should throw
-    bookingManager.createBooking(bookingThatShouldCreateOk);
+    bookingManager.createBooking(singleBookingOfFreeCourt);
   }
 
   @Test
@@ -368,27 +438,46 @@ public class BookingManagerTest {
     AmazonServiceException ase = new AmazonServiceException("Test SimpleDB exception");
     // Set the error code that identifies this particular case
     ase.setErrorCode("ConditionalCheckFailed");
-    expectCreateBookingToReturnBookingsOrThrow(Optional.of(ase), true);
+    expectCreateBookingToReturnBookingsOrThrow(bookingsBeforeCall, singleBookingOfFreeCourt,
+        bookingsBeforeCall, Optional.of(ase));
 
     // ACT
     // Try to create a booking - which should throw
-    bookingManager.createBooking(bookingThatShouldCreateOk);
+    bookingManager.createBooking(singleBookingOfFreeCourt);
   }
 
   @Test
-  public void testCreateBookingCorrectlyCallsTheDatabase() throws Exception {
-    // Test createBooking makes the correct calls to SimpleDB
+  public void testCreateBookingCorrectlyCallsTheDatabaseForSingleBooking() throws Exception {
+    // Test createBooking makes the correct calls to SimpleDB when booking a
+    // single court
 
     // ARRANGE
 
-    // Set up mock simpledb to expect a booking to be created
-    expectCreateBookingToReturnBookingsOrThrow(Optional.empty(), true);
-
-    // Set up mock simpledb to expect a call to query the bookings
-    expectGetBookingsToReturnBookingsOrThrow(Optional.empty());
+    // Set up mock simpledb to expect a single booking to be created
+    expectedBookingsAfterCall.addAll(bookingsBeforeCall);
+    expectedBookingsAfterCall.add(singleBookingOfFreeCourt);
+    expectCreateBookingToReturnBookingsOrThrow(bookingsBeforeCall, singleBookingOfFreeCourt,
+        expectedBookingsAfterCall, Optional.empty());
 
     // Act
-    bookingManager.createBooking(bookingThatShouldCreateOk);
+    bookingManager.createBooking(singleBookingOfFreeCourt);
+  }
+
+  @Test
+  public void testCreateBookingCorrectlyCallsTheDatabaseForBlockBooking() throws Exception {
+    // Test createBooking makes the correct calls to SimpleDB when creating a
+    // block booking.
+
+    // ARRANGE
+
+    // Set up mock simpledb to expect a block booking to be created
+    expectedBookingsAfterCall.addAll(bookingsBeforeCall);
+    expectedBookingsAfterCall.add(blockBookingOfFreeCourts);
+    expectCreateBookingToReturnBookingsOrThrow(bookingsBeforeCall, blockBookingOfFreeCourts,
+        expectedBookingsAfterCall, Optional.empty());
+
+    // Act
+    bookingManager.createBooking(blockBookingOfFreeCourts);
   }
 
   @Test
@@ -396,18 +485,18 @@ public class BookingManagerTest {
     // ARRANGE
 
     // Set up mock simpledb to expect a booking to be created
-    expectCreateBookingToReturnBookingsOrThrow(Optional.empty(), true);
-
-    // Set up mock simpledb to expect a call to query the bookings
-    expectGetBookingsToReturnBookingsOrThrow(Optional.empty());
+    expectedBookingsAfterCall.addAll(bookingsBeforeCall);
+    expectedBookingsAfterCall.add(singleBookingOfFreeCourt);
+    expectCreateBookingToReturnBookingsOrThrow(bookingsBeforeCall, singleBookingOfFreeCourt,
+        expectedBookingsAfterCall, Optional.empty());
 
     // Act
-    List<Booking> actualBookings = bookingManager.createBooking(bookingThatShouldCreateOk);
+    List<Booking> actualBookings = bookingManager.createBooking(singleBookingOfFreeCourt);
 
     // ASSERT
     // Verify the returned list of bookings is same as that returned from the
     // database
-    for (Booking expectedBooking : expectedBookings) {
+    for (Booking expectedBooking : expectedBookingsAfterCall) {
       assertTrue("Expected " + expectedBooking.toString(), actualBookings.contains(expectedBooking));
       actualBookings.removeIf(booking -> booking.equals(expectedBooking));
     }
@@ -417,22 +506,73 @@ public class BookingManagerTest {
   @Test
   public void testCreateBookingThrowsIfDatabaseWriteFails() throws Exception {
     // Test createBooking throws when SimpleDB reports it has not
-    // made the booking in the database. We try to create a booking
-    // that differs to what our mock simpleDB client::getAttributes
-    // returns. This booking creation should thus fail.
+    // made the booking in the database.
 
     // ARRANGE
     // Set up mock simpledb to expect a booking to be created
-    expectCreateBookingToReturnBookingsOrThrow(Optional.empty(), false);
-
-    // Set up mock simpledb to expect a call to query the bookings
-    expectGetBookingsToReturnBookingsOrThrow(Optional.empty());
+    // Don't add the booking we're creating to the after-call list
+    expectedBookingsAfterCall.addAll(bookingsBeforeCall);
+    expectCreateBookingToReturnBookingsOrThrow(bookingsBeforeCall, singleBookingOfFreeCourt,
+        expectedBookingsAfterCall, Optional.empty());
 
     thrown.expect(Exception.class);
     thrown.expectMessage("Booking creation failed");
 
     // ACT and ASSERT
-    bookingManager.createBooking(bookingThatShouldFailToCreate);
+    bookingManager.createBooking(singleBookingOfFreeCourt);
+  }
+
+  @Test
+  public void testCreateBookingThrowsIfSingleBookingClashesWithExistingSingleBooking()
+      throws Exception {
+    // Test createBooking throws when we try to book a single court that is
+    // already booked.
+
+    doTestCreateBookingThrowsIfBookingClashesWithExistingBooking(existingSingleBooking);
+  }
+
+  @Test
+  public void testCreateBookingThrowsIfSingleBookingClashesWithExistingBlockBooking()
+      throws Exception {
+    // Test createBooking throws when we try to book a single court that is
+    // part of an existing block booking.
+
+    doTestCreateBookingThrowsIfBookingClashesWithExistingBooking(singleBookingWithinExistingBlockBooking);
+  }
+
+  @Test
+  public void testCreateBookingThrowsIfBlockBookingClashesWithExistingBlockBooking()
+      throws Exception {
+    // Test createBooking throws when we try to create a block booking that
+    // overlaps an existing block booking.
+
+    doTestCreateBookingThrowsIfBookingClashesWithExistingBooking(blockBookingOverlappingExistingBlockBooking);
+  }
+
+  @Test
+  public void testCreateBookingThrowsIfBlockBookingClashesWithExistingSingleBooking()
+      throws Exception {
+    // Test createBooking throws when we try to create a block booking that
+    // overlaps an existing single booking.
+
+    doTestCreateBookingThrowsIfBookingClashesWithExistingBooking(blockBookingOverlappingExistingSingleBooking);
+  }
+
+  private void doTestCreateBookingThrowsIfBookingClashesWithExistingBooking(Booking bookingToCreate)
+      throws Exception {
+    // Test createBooking throws when we try to create a booking that
+    // overlaps an existing booking.
+
+    // ARRANGE
+    // Set up mock simpledb to expect a booking to be created
+    expectCreateBookingToReturnBookingsOrThrow(bookingsBeforeCall, bookingToCreate,
+        bookingsBeforeCall, Optional.empty());
+
+    thrown.expect(Exception.class);
+    thrown.expectMessage("Booking creation failed");
+
+    // ACT and ASSERT
+    bookingManager.createBooking(bookingToCreate);
   }
 
   @Test
@@ -445,11 +585,12 @@ public class BookingManagerTest {
     AmazonServiceException ase = new AmazonServiceException("Test SimpleDB exception");
     // Mark this as not being an AttributeDoesNotExist error
     ase.setErrorCode("SomeOtherError");
-    expectDeleteBookingToReturnBookingsOrThrow(Optional.of(ase), true);
+    expectDeleteBookingToReturnBookingsOrThrow(existingSingleBooking, Optional.empty(),
+        Optional.of(ase));
 
     // ACT
     // Try to delete a booking - which should throw
-    bookingManager.deleteBooking(bookingThatShouldDeleteOk);
+    bookingManager.deleteBooking(existingSingleBooking);
   }
 
   @Test
@@ -462,14 +603,14 @@ public class BookingManagerTest {
     AmazonServiceException ase = new AmazonServiceException("Test SimpleDB exception");
     // Set the error code that identifies this particular case
     ase.setErrorCode("AttributeDoesNotExist");
-    expectDeleteBookingToReturnBookingsOrThrow(Optional.of(ase), true);
-
-    // Set up mock simpledb to expect a call to query the bookings
-    expectGetBookingsToReturnBookingsOrThrow(Optional.empty());
+    expectedBookingsAfterCall.addAll(bookingsBeforeCall);
+    expectedBookingsAfterCall.removeIf(booking -> booking.equals(existingSingleBooking));
+    expectDeleteBookingToReturnBookingsOrThrow(existingSingleBooking,
+        Optional.of(expectedBookingsAfterCall), Optional.of(ase));
 
     // ACT
     // Try to delete a booking - which should not throw
-    bookingManager.deleteBooking(bookingThatShouldDeleteOk);
+    bookingManager.deleteBooking(existingSingleBooking);
   }
 
   @Test
@@ -479,34 +620,35 @@ public class BookingManagerTest {
     // ARRANGE
 
     // Set up mock simpledb to expect a booking to be deleted
-    // Use a booking that does not correspond to what our mock
-    // simpleDB client::getAttributes returns. This deletion should
-    // thus succeed - as it will seem like the booking is absent.
-    expectDeleteBookingToReturnBookingsOrThrow(Optional.empty(), true);
-
-    // Set up mock simpledb to expect a call to query the bookings
-    expectGetBookingsToReturnBookingsOrThrow(Optional.empty());
+    expectedBookingsAfterCall.addAll(bookingsBeforeCall);
+    // Remove the booking we're deleting - so the manager thinks the delete is
+    // successful
+    expectedBookingsAfterCall.removeIf(booking -> booking.equals(existingSingleBooking));
+    expectDeleteBookingToReturnBookingsOrThrow(existingSingleBooking,
+        Optional.of(expectedBookingsAfterCall), Optional.empty());
 
     // Act
-    bookingManager.deleteBooking(bookingThatShouldDeleteOk);
+    bookingManager.deleteBooking(existingSingleBooking);
   }
 
   @Test
   public void testDeleteBookingReturnsCorrectBookings() throws Exception {
     // ARRANGE
 
-    expectDeleteBookingToReturnBookingsOrThrow(Optional.empty(), true);
-
-    // Set up mock simpledb to expect a call to query the bookings
-    expectGetBookingsToReturnBookingsOrThrow(Optional.empty());
+    expectedBookingsAfterCall.addAll(bookingsBeforeCall);
+    // Remove the booking we're deleting - so the manager thinks the delete is
+    // successful
+    expectedBookingsAfterCall.removeIf(booking -> booking.equals(existingSingleBooking));
+    expectDeleteBookingToReturnBookingsOrThrow(existingSingleBooking,
+        Optional.of(expectedBookingsAfterCall), Optional.empty());
 
     // Act
-    List<Booking> actualBookings = bookingManager.deleteBooking(bookingThatShouldDeleteOk);
+    List<Booking> actualBookings = bookingManager.deleteBooking(existingSingleBooking);
 
     // ASSERT
     // Verify the returned list of bookings is same as that returned from
     // the database
-    for (Booking expectedBooking : expectedBookings) {
+    for (Booking expectedBooking : expectedBookingsAfterCall) {
       assertTrue("Expected " + expectedBooking.toString(), actualBookings.contains(expectedBooking));
       actualBookings.removeIf(booking -> booking.equals(expectedBooking));
     }
@@ -514,23 +656,39 @@ public class BookingManagerTest {
   }
 
   @Test
-  public void testDeleteBookingThrowsIfDatabaseWriteFails() throws Exception {
+  public void testDeleteBookingThrowsIfDatabaseWriteFailsSingleBooking() throws Exception {
+    // Test deleteBooking throws when SimpleDB reports it has not
+    // deleted the single booking in the database.
+
+    // ARRANGE
+    doTestDeleteBookingThrowsIfDatabaseWriteFails(existingSingleBooking);
+  }
+
+  @Test
+  public void testDeleteBookingThrowsIfDatabaseWriteFailsBlockBooking() throws Exception {
+    // Test deleteBooking throws when SimpleDB reports it has not
+    // deleted the block booking in the database.
+
+    doTestDeleteBookingThrowsIfDatabaseWriteFails(existingBlockBooking);
+  }
+
+  private void doTestDeleteBookingThrowsIfDatabaseWriteFails(Booking bookingToDelete)
+      throws Exception {
     // Test deleteBooking throws when SimpleDB reports it has not
     // deleted the booking in the database.
 
     // ARRANGE
-    // Try to delete a booking that does not differ from what our mock
-    // simpleDB client::getAttributes returns. This deletion should
-    // thus appear to fail.
-    expectDeleteBookingToReturnBookingsOrThrow(Optional.empty(), false);
-    // Set up mock simpledb to expect a call to query the bookings
-    expectGetBookingsToReturnBookingsOrThrow(Optional.empty());
-
     thrown.expect(Exception.class);
     thrown.expectMessage("Booking deletion failed");
 
+    expectedBookingsAfterCall.addAll(bookingsBeforeCall);
+    // Do not remove the booking we're deleting - so the manager thinks the
+    // delete has failed.
+    expectDeleteBookingToReturnBookingsOrThrow(bookingToDelete,
+        Optional.of(expectedBookingsAfterCall), Optional.empty());
+
     // ACT and ASSERT
-    bookingManager.deleteBooking(bookingThatShouldFailToDelete);
+    bookingManager.deleteBooking(bookingToDelete);
   }
 
   @Test

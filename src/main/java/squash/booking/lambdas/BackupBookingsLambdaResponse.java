@@ -31,7 +31,7 @@ public class BackupBookingsLambdaResponse {
   /**
    *  Returns the list of all bookings from the database.
    */
-  public List<Booking> getBookings() {
+  public List<Booking> getAllBookings() {
     return bookings;
   }
 

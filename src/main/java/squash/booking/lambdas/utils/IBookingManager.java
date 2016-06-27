@@ -54,7 +54,7 @@ public interface IBookingManager {
    * Returns all court bookings for all dates.
    * 
    */
-  List<Booking> getBookings();
+  List<Booking> getAllBookings();
 
   /**
    * Deletes a court booking.

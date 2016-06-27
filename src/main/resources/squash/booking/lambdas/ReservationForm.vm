@@ -76,7 +76,9 @@
 <input type=hidden name=apiGatewayBaseUrl value="https://${context.apiId}.execute-api.${region}.amazonaws.com/${context.stage}">
 <input type=hidden name=putOrDelete value="PUT">
 <input type=hidden name=court value="$util.urlDecode($input.params('court'))">
+<input type=hidden name=courtSpan value="1">
 <input type=hidden name=slot value="$util.urlDecode($input.params('slot'))">
+<input type=hidden name=slotSpan value="1">
 <input type=hidden name=date value="$util.urlDecode($input.params('date'))">
 <button type="submit" id="submitreservation">Submit squash court reservation</button>
 </form>

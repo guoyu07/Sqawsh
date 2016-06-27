@@ -206,23 +206,42 @@ public class PageManager implements IPageManager {
     // In order to merge the day's bookings with our velocity template, we need
     // to create an object with bookings on a grid corresponding to the html
     // table. For each grid cell, we need to know whether the cell is booked,
-    // and if it is, the names of the players who've booked it.
+    // and if it is, the names of the players who've booked it, and, if it's a
+    // block booking, the span of the block and whether this cell is interior to
+    // the block.
     logger.log("About to set up velocity context");
     List<ArrayList<Boolean>> bookedState = new ArrayList<>();
+    List<ArrayList<Integer>> rowSpan = new ArrayList<>();
+    List<ArrayList<Integer>> colSpan = new ArrayList<>();
+    List<ArrayList<Boolean>> isBlockInterior = new ArrayList<>();
     List<ArrayList<String>> players = new ArrayList<>();
     // First set up default arrays for case of no bookings
     for (int slot = 1; slot <= 16; slot++) {
       bookedState.add(new ArrayList<>());
+      rowSpan.add(new ArrayList<>());
+      colSpan.add(new ArrayList<>());
+      isBlockInterior.add(new ArrayList<>());
       players.add(new ArrayList<>());
       for (int court = 1; court <= numCourts; court++) {
         bookedState.get(slot - 1).add(false);
+        rowSpan.get(slot - 1).add(1);
+        colSpan.get(slot - 1).add(1);
+        isBlockInterior.get(slot - 1).add(true);
         players.get(slot - 1).add("");
       }
     }
     // Mutate cells which are in fact booked
     for (Booking booking : bookings) {
-      bookedState.get(booking.slot - 1).set(booking.court - 1, true);
-      players.get(booking.slot - 1).set(booking.court - 1, booking.players);
+      for (int court = booking.getCourt(); court < booking.getCourt() + booking.getCourtSpan(); court++) {
+        for (int slot = booking.getSlot(); slot < booking.getSlot() + booking.getSlotSpan(); slot++) {
+          bookedState.get(slot - 1).set(court - 1, true);
+          rowSpan.get(slot - 1).set(court - 1, booking.getSlotSpan());
+          colSpan.get(slot - 1).set(court - 1, booking.getCourtSpan());
+          isBlockInterior.get(slot - 1).set(court - 1,
+              ((court == booking.getCourt()) && (slot == booking.getSlot())) ? false : true);
+          players.get(slot - 1).set(court - 1, booking.getPlayers());
+        }
+      }
     }
 
     // Create the page by merging the data with the page template
@@ -245,6 +264,9 @@ public class PageManager implements IPageManager {
     context.put("numCourts", numCourts);
     context.put("timeSlots", getTimeSlotLabels());
     context.put("bookedState", bookedState);
+    context.put("rowSpan", rowSpan);
+    context.put("colSpan", colSpan);
+    context.put("isBlockInterior", isBlockInterior);
     context.put("players", players);
     logger.log("Set up velocity context");
 
@@ -292,7 +314,9 @@ public class PageManager implements IPageManager {
       Booking booking = bookings.get(i);
       ObjectNode bookingNode = factory.objectNode();
       bookingNode.put("court", booking.getCourt());
+      bookingNode.put("courtSpan", booking.getCourtSpan());
       bookingNode.put("slot", booking.getSlot());
+      bookingNode.put("slotSpan", booking.getSlotSpan());
       bookingNode.put("players", booking.getPlayers());
       bookingsNode.add(bookingNode);
     }
@@ -480,7 +504,7 @@ public class PageManager implements IPageManager {
     // page open which has a link to an earlier page that has now expired (which
     // means at least one midnight must have passed since they fetched the
     // page). It also handles other generally-messed-up urls for
-    // javascript-disabled clients.. Noscript.html is there for the AngularApp
+    // javascript-disabled clients. Noscript.html is there for the AngularApp
     // to redirect to when javascript is disabled. It differs from Today.html
     // only by not showing a momentary redirect message.
     String todayIndexPage = createIndexPage("http://" + websiteBucketName + ".s3-website-" + region

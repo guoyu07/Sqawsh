@@ -75,7 +75,9 @@
 <input type=hidden name=putOrDelete value="DELETE">
 <input type=hidden name=players value="$util.urlDecode($input.params('players'))">
 <input type=hidden name=court value="$util.urlDecode($input.params('court'))">
+<input type=hidden name=courtSpan value="1">
 <input type=hidden name=slot value="$util.urlDecode($input.params('slot'))">
+<input type=hidden name=slotSpan value="1">
 <input type=hidden name=date value="$util.urlDecode($input.params('date'))">
 <button type="submit" id="cancelreservation">Cancel squash court reservation</button>
 </form>

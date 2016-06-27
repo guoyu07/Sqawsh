@@ -49,7 +49,7 @@ public class RunChromeAcceptanceTests {
   public static void setupSquashWebsiteUrl() {
     Properties p = new Properties(System.getProperties());
     p.setProperty("SquashWebsiteBaseUrl",
-        "http://squashwebsitesun.s3-website-eu-west-1.amazonaws.com?selectedDate=2016-02-14.html");
+        "http://squashwebsite.s3-website-eu-west-1.amazonaws.com/?selectedDate=2016-07-03.html");
     // This will be read before each scenario to set up the webdriver
     p.setProperty("WebDriverType", "Chrome");
     p.setProperty("WebDriverJavascriptEnabled", "true");

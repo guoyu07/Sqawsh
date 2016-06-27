@@ -914,7 +914,7 @@
             "AllowedOrigins" : [ {"Fn::Join" : ["", ["http://", {"Ref" : "WebsiteBucketName"}, ".s3-website-", { "Ref" : "AWS::Region" }, ".amazonaws.com"]]}],
             "AllowedMethods" : ["GET"],
             "AllowedHeaders" : ["*"],
-            "ExposeHeader" : [ "ETag", "cache-control"],
+            "ExposedHeaders" : [ "ETag", "cache-control"],
             "MaxAge" : 3000
           }]
         }

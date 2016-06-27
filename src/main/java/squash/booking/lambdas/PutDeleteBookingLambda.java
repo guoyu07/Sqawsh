@@ -172,9 +172,17 @@ public class PutDeleteBookingLambda {
         throw new Exception(
             "The booking court number is outside the valid range (1-5). Please try again."
                 + redirectUrl, e);
+      case "The booking court span is outside the valid range (1-(6-court))":
+        throw new Exception(
+            "The booking court span is outside the valid range (1-(6-court)). Please try again."
+                + redirectUrl, e);
       case "The booking time slot is outside the valid range (1-16)":
         throw new Exception(
             "The booking time slot is outside the valid range (1-16). Please try again."
+                + redirectUrl, e);
+      case "The booking time slot span is outside the valid range (1- (17 - slot))":
+        throw new Exception(
+            "The booking time slot span is outside the valid range (1- (17 - slot)). Please try again."
                 + redirectUrl, e);
       case "The players names should have a format like J.Power i.e. Initial.Surname":
         throw new Exception(
@@ -258,7 +266,9 @@ public class PutDeleteBookingLambda {
   private Booking convertBookingRequest(PutDeleteBookingLambdaRequest request) throws Exception {
     Booking booking = new Booking();
     booking.setCourt(Integer.parseInt(request.getCourt()));
+    booking.setCourtSpan(Integer.parseInt(request.getCourtSpan()));
     booking.setSlot(Integer.parseInt(request.getSlot()));
+    booking.setSlotSpan(Integer.parseInt(request.getSlotSpan()));
     booking.setDate(request.getDate());
     booking.setPlayer1Name(request.getPlayer1name());
     booking.setPlayer2Name(request.getPlayer2name());
@@ -272,14 +282,24 @@ public class PutDeleteBookingLambda {
 
     logger.log("Validating booking parameters");
 
-    if ((booking.getCourt() < 1) || (booking.getCourt() > 5)) {
+    int court = booking.getCourt();
+    if ((court < 1) || (court > 5)) {
       logger.log("The booking court number is outside the valid range (1-5)");
       throw new Exception("The booking court number is outside the valid range (1-5)");
     }
+    if ((booking.getCourtSpan() < 1) || (booking.getCourtSpan() > (6 - court))) {
+      logger.log("The booking court span is outside the valid range (1-(6-court))");
+      throw new Exception("The booking court span is outside the valid range (1-(6-court))");
+    }
 
-    if ((booking.getSlot() < 1) || (booking.getSlot() > 16)) {
+    int slot = booking.getSlot();
+    if ((slot < 1) || (slot > 16)) {
       logger.log("The booking time slot is outside the valid range (1-16)");
       throw new Exception("The booking time slot is outside the valid range (1-16)");
+    }
+    if ((booking.getSlotSpan() < 1) || (booking.getSlotSpan() > (17 - slot))) {
+      logger.log("The booking time slot span is outside the valid range (1- (17 - slot))");
+      throw new Exception("The booking time slot span is outside the valid range (1- (17 - slot))");
     }
 
     // Validate the format of the players' names. Delete requests will have only

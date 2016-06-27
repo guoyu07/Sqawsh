@@ -44,6 +44,10 @@
 .tableCell {
     text-align: center;
 }
+.tableCellBlock {
+    text-align: center;
+    background-color: yellow;
+}
 .cancellationButtonForm {
     display: inline;
 }
@@ -95,9 +99,19 @@
   </form>
 </div>
 
-#macro(tablerow $timeSlotIndex $slotBookedStates $playersNames)
+#macro(tablerow $timeSlotIndex $slotBookedStates $slotIsBlockInterior $slotRowSpan $slotColSpan $playersNames)
 #foreach( $slotBookedState in $slotBookedStates )
   #set($court = $foreach.index + 1)
+  #if(($slotRowSpan.get($foreach.index) > 1) || ($slotColSpan.get($foreach.index) > 1))
+  ## This is a block booking
+  #if(!$slotIsBlockInterior.get($foreach.index))
+  ## For block bookings, add content only to the top-left cell of the block
+  <td class="tableCellBlock" rowspan="$slotRowSpan.get($foreach.index)" colspan="$slotColSpan.get($foreach.index)">
+    $playersNames.get($foreach.index)
+  </td>
+  #end
+  #else
+  ## Not a block booking - so add reservation or cancellation buttons to the cell
   <td class="tableCell">
   #if($slotBookedState)
     <form action=$cancellationFormGetUrl method="GET" class="cancellationButtonForm">
@@ -121,6 +135,7 @@
   #end
     </form>
   </td>
+  #end
 #end
 #end
 
@@ -146,11 +161,14 @@
 
     <tr class="$rowClass">
       <td class="timeLabel">$slot</td>
-        ## Add buttons for all courts for this time slot
+        ## For all courts for this time slot, add either buttons or a block booking
         #set($slotBookedStates = $bookedState.get($foreach.index))
+        #set($slotIsBlockInterior = $isBlockInterior.get($foreach.index))
+        #set($slotRowSpan = $rowSpan.get($foreach.index))
+        #set($slotColSpan = $colSpan.get($foreach.index))
         #set($playersNames = $players.get($foreach.index))
         #set($slotIndex = $foreach.index + 1)
-        #tablerow($slotIndex $slotBookedStates $playersNames)
+        #tablerow($slotIndex $slotBookedStates $slotIsBlockInterior $slotRowSpan $slotColSpan $playersNames)
      <td class="timeLabel">$slot</td>
     </tr>
     #end

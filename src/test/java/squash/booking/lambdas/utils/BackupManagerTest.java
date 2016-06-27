@@ -65,7 +65,9 @@ public class BackupManagerTest {
   AmazonSNS mockSNSClient;
 
   Integer court;
+  Integer courtSpan;
   Integer slot;
+  Integer slotSpan;
   String playersNames;
   Booking booking;
   String date = "2016-01-12";
@@ -98,10 +100,12 @@ public class BackupManagerTest {
     backupManager.setDatabaseBackupSnsTopicArn(databaseBackupSnsTopicArn);
 
     // Use a single booking for most of the tests
-    court = 5;
+    court = 2;
+    courtSpan = 4;
     slot = 12;
+    slotSpan = 3;
     playersNames = "D.Playerd/F.Playerf";
-    booking = new Booking(court, slot, playersNames);
+    booking = new Booking(court, courtSpan, slot, slotSpan, playersNames);
     booking.setDate(date);
     bookings = new ArrayList<>();
     bookings.add(booking);
@@ -181,7 +185,7 @@ public class BackupManagerTest {
         if (!backupAllBookings) {
           ignoring(mockBookingManager);
         } else {
-          oneOf(mockBookingManager).getBookings();
+          oneOf(mockBookingManager).getAllBookings();
           will(returnValue(bookings));
         }
       }
@@ -276,7 +280,9 @@ public class BackupManagerTest {
       ObjectNode rootNode = factory.objectNode();
       rootNode.put("date", booking.getDate());
       rootNode.put("court", booking.getCourt());
+      rootNode.put("courtSpan", booking.getCourtSpan());
       rootNode.put("slot", booking.getSlot());
+      rootNode.put("slotSpan", booking.getSlotSpan());
       rootNode.put("players", booking.getPlayers());
       mapper.writeTree(generator, rootNode);
     }
@@ -306,7 +312,7 @@ public class BackupManagerTest {
     mockBookingManager = mockery.mock(IBookingManager.class);
     mockery.checking(new Expectations() {
       {
-        allowing(mockBookingManager).getBookings();
+        allowing(mockBookingManager).getAllBookings();
         will(returnValue(bookings));
       }
     });
@@ -358,7 +364,7 @@ public class BackupManagerTest {
     mockBookingManager = mockery.mock(IBookingManager.class);
     mockery.checking(new Expectations() {
       {
-        allowing(mockBookingManager).getBookings();
+        allowing(mockBookingManager).getAllBookings();
         will(returnValue(bookings));
       }
     });

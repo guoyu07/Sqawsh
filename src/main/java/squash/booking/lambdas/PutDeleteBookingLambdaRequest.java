@@ -24,7 +24,9 @@ package squash.booking.lambdas;
 public class PutDeleteBookingLambdaRequest {
   String putOrDelete;
   String court;
+  String courtSpan;
   String slot;
+  String slotSpan;
   String players;
   String player1name;
   String player2name;
@@ -59,6 +61,19 @@ public class PutDeleteBookingLambdaRequest {
     this.court = court;
   }
 
+  public String getCourtSpan() {
+    return courtSpan;
+  }
+
+  /**
+   *  Sets the number of courts per time slot in a block booking.
+   *  
+   *  @see squash.booking.lambdas.utils.Booking#setCourt Booking.
+   */
+  public void setCourtSpan(String courtSpan) {
+    this.courtSpan = courtSpan;
+  }
+
   public String getSlot() {
     return slot;
   }
@@ -70,6 +85,19 @@ public class PutDeleteBookingLambdaRequest {
    */
   public void setSlot(String slot) {
     this.slot = slot;
+  }
+
+  public String getSlotSpan() {
+    return slotSpan;
+  }
+
+  /**
+   *  Sets the number of time slots per court in a block booking.
+   *  
+   *  @see squash.booking.lambdas.utils.Booking#setSlot Booking.
+   */
+  public void setSlotSpan(String slotSpan) {
+    this.slotSpan = slotSpan;
   }
 
   public String getPlayers() {
@@ -162,8 +190,8 @@ public class PutDeleteBookingLambdaRequest {
   @Override
   public String toString() {
     return com.google.common.base.MoreObjects.toStringHelper(this).addValue(this.putOrDelete)
-        .addValue(this.court).addValue(this.slot).addValue(this.players).addValue(this.player1name)
-        .addValue(this.player2name).addValue(this.date).addValue(this.apiGatewayBaseUrl)
-        .addValue(this.redirectUrl).toString();
+        .addValue(this.court).addValue(this.courtSpan).addValue(this.slot).addValue(this.slotSpan)
+        .addValue(this.players).addValue(this.player1name).addValue(this.player2name)
+        .addValue(this.date).addValue(this.apiGatewayBaseUrl).addValue(this.redirectUrl).toString();
   }
 }
