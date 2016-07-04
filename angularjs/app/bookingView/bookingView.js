@@ -78,19 +78,41 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService']
       })
 
     // Helper functions
-    function updateBookedPlayersArray (builder) {
+    function updateBookingArrays (builder) {
       // Initialise array holding who, if anyone, has a court/time booked
       var bookedPlayers = new Array(self.timeSlots.length)
-      for (var slotIndex = 0; slotIndex < bookedPlayers.length; slotIndex++) {
-        bookedPlayers[slotIndex] = new Array(self.courtNumbers.length)
+      // Initialise arrays holding size of bookings
+      var rowspans = new Array(self.timeSlots.length)
+      var colspans = new Array(self.timeSlots.length)
+      // Initialise array holding whether a table cell is within a block booking
+      var cellIsBlockBookingInterior = new Array(self.timeSlots.length)
+      for (var timeSlotIndex = 0; timeSlotIndex < bookedPlayers.length; timeSlotIndex++) {
+        bookedPlayers[timeSlotIndex] = new Array(self.courtNumbers.length)
+        rowspans[timeSlotIndex] = new Array(self.courtNumbers.length)
+        colspans[timeSlotIndex] = new Array(self.courtNumbers.length)
+        cellIsBlockBookingInterior[timeSlotIndex] = new Array(self.courtNumbers.length)
       }
 
-      // Iterate over bookings, updating corresponding bookedPlayers entry
+      // Iterate over bookings, updating corresponding array entries
       var bookings = builder.getBookings()
       for (var i = 0; i < bookings.length; i++) {
-        bookedPlayers[bookings[i].slot - 1][bookings[i].court - 1] = bookings[i].players
+        var slotIndex = bookings[i].slot - 1
+        var courtIndex = bookings[i].court - 1
+        bookedPlayers[slotIndex][courtIndex] = bookings[i].players
+        rowspans[slotIndex][courtIndex] = bookings[i].slotSpan
+        colspans[slotIndex][courtIndex] = bookings[i].courtSpan
+        for (var courtOffset = 0; courtOffset < bookings[i].courtSpan; courtOffset++) {
+          for (var slotOffset = 0; slotOffset < bookings[i].slotSpan; slotOffset++) {
+            cellIsBlockBookingInterior[slotIndex + slotOffset][courtIndex + courtOffset] = true
+          }
+        }
+        // Reset the cell at the top left of each booking
+        cellIsBlockBookingInterior[slotIndex][courtIndex] = undefined
       }
       builder.setBookedPlayers(bookedPlayers)
+      builder.setRowspans(rowspans)
+      builder.setColspans(colspans)
+      builder.setCellIsBlockBookingInterior(cellIsBlockBookingInterior)
     }
 
     function getBookingsForSelectedDate (builder, useCache) {
@@ -119,13 +141,16 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService']
       // first call to this function.
       var selectedDate = builder.getSelectedDate()
       if ((typeof self.selectedDate === 'undefined') || (selectedDate === self.selectedDate)) {
-        updateBookedPlayersArray(builder)
+        updateBookingArrays(builder)
 
         // Update variables on self now that the transaction has succeeded
         self.validDates = angular.copy(builder.getValidDates())
         self.selectedDate = angular.copy(builder.getSelectedDate())
         self.bookings = angular.copy(builder.getBookings())
         self.bookedPlayers = angular.copy(builder.getBookedPlayers())
+        self.rowspans = angular.copy(builder.getRowspans())
+        self.colspans = angular.copy(builder.getColspans())
+        self.cellIsBlockBookingInterior = angular.copy(builder.getCellIsBlockBookingInterior())
         builder.setRenderFromCacheFailed(false)
 
         // Update the UI with these new bookings
@@ -136,29 +161,68 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService']
       return builder
     }
 
-    self.courtIsReserved = function (timeSlotIndex, courtNumberIndex) {
+    self.cellIsAtBookingTopLeft = function (timeSlotIndex, courtNumberIndex) {
       return (
-      (typeof self.bookedPlayers !== 'undefined') &&
-      (typeof self.bookedPlayers[timeSlotIndex][courtNumberIndex] !== 'undefined')
+      (((typeof self.rowspans !== 'undefined') &&
+      (typeof self.rowspans[timeSlotIndex][courtNumberIndex] !== 'undefined')) &&
+      ((typeof self.colspans !== 'undefined') &&
+      (typeof self.colspans[timeSlotIndex][courtNumberIndex] !== 'undefined')))
       )
     }
 
+    self.isBlockBooking = function (timeSlotIndex, courtNumberIndex) {
+      return (
+      (self.cellIsAtBookingTopLeft(timeSlotIndex, courtNumberIndex)) &&
+      ((self.rowspans[timeSlotIndex][courtNumberIndex] !== 1) ||
+      (self.colspans[timeSlotIndex][courtNumberIndex] !== 1))
+      )
+    }
+
+    self.isNotBlockBookingInterior = function (timeSlotIndex) {
+      return function (courtNumber, courtNumberIndex, allCourtNumbers) {
+        if ((typeof self.cellIsBlockBookingInterior !== 'undefined') &&
+          (typeof self.cellIsBlockBookingInterior[timeSlotIndex][courtNumberIndex] !== 'undefined')
+        ) {
+          return false
+        }
+        return true
+      }
+    }
+
+    self.rowSpan = function (timeSlotIndex, courtNumberIndex) {
+      if (self.cellIsAtBookingTopLeft(timeSlotIndex, courtNumberIndex)) {
+        return self.rowspans[timeSlotIndex][courtNumberIndex]
+      }
+      return '1'
+    }
+
+    self.colSpan = function (timeSlotIndex, courtNumberIndex) {
+      if (self.cellIsAtBookingTopLeft(timeSlotIndex, courtNumberIndex)) {
+        return self.colspans[timeSlotIndex][courtNumberIndex]
+      }
+      return '1'
+    }
+
     self.buttonStyle = function (timeSlotIndex, courtNumberIndex) {
-      if (self.courtIsReserved(timeSlotIndex, courtNumberIndex)) {
+      if (self.cellIsAtBookingTopLeft(timeSlotIndex, courtNumberIndex)) {
         return 'cancellationButton'
       }
       return 'reservationButton'
     }
 
-    self.buttonText = function (timeSlotIndex, courtNumberIndex) {
-      if (self.courtIsReserved(timeSlotIndex, courtNumberIndex)) {
+    self.cellClass = function (timeSlotIndex, courtNumberIndex) {
+      return self.isBlockBooking(timeSlotIndex, courtNumberIndex) ? 'blockBookingCell' : 'nonBlockBookingCell'
+    }
+
+    self.bookingText = function (timeSlotIndex, courtNumberIndex) {
+      if (self.cellIsAtBookingTopLeft(timeSlotIndex, courtNumberIndex)) {
         return self.bookedPlayers[timeSlotIndex][courtNumberIndex]
       }
       return 'Reserve'
     }
 
-    self.buttonTitle = function (timeSlotIndex, courtNumberIndex) {
-      if (self.courtIsReserved(timeSlotIndex, courtNumberIndex)) {
+    self.tooltip = function (timeSlotIndex, courtNumberIndex) {
+      if (self.cellIsAtBookingTopLeft(timeSlotIndex, courtNumberIndex)) {
         return self.bookedPlayers[timeSlotIndex][courtNumberIndex]
       }
       // No tooltip for unbooked courts
@@ -176,12 +240,12 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService']
       BookingService.activeDate = self.selectedDate
       BookingService.player1 = ''
       BookingService.player2 = ''
-      BookingService.players = self.buttonText(timeSlotIndex, courtNumberIndex)
+      BookingService.players = self.bookingText(timeSlotIndex, courtNumberIndex)
       BookingService.famousPlayer1 = famousPlayers[0]
       BookingService.famousPlayer2 = famousPlayers[1]
 
       // Show either the reservation or cancellation form
-      if (self.courtIsReserved(timeSlotIndex, courtNumberIndex)) {
+      if (self.cellIsAtBookingTopLeft(timeSlotIndex, courtNumberIndex)) {
         $location.url('/cancellations')
       } else {
         $location.url('/reservations')
@@ -299,6 +363,9 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService']
       this.selectedDate = undefined
       this.bookings = undefined
       this.bookedPlayers = undefined
+      this.rowspans = undefined
+      this.colspans = undefined
+      this.cellIsBlockBookingInterior = undefined
       this.renderFromCacheFailed = true // Will be set to false on success
 
       this.setValidDates = function (validDates) {
@@ -324,6 +391,24 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService']
       }
       this.getBookedPlayers = function () {
         return this.bookedPlayers
+      }
+      this.setRowspans = function (rowspans) {
+        this.rowspans = angular.copy(rowspans)
+      }
+      this.getRowspans = function () {
+        return this.rowspans
+      }
+      this.setColspans = function (colspans) {
+        this.colspans = angular.copy(colspans)
+      }
+      this.getColspans = function () {
+        return this.colspans
+      }
+      this.setCellIsBlockBookingInterior = function (cellIsBlockBookingInterior) {
+        this.cellIsBlockBookingInterior = angular.copy(cellIsBlockBookingInterior)
+      }
+      this.getCellIsBlockBookingInterior = function () {
+        return this.cellIsBlockBookingInterior
       }
       this.setRenderFromCacheFailed = function (renderFromCacheFailed) {
         this.renderFromCacheFailed = angular.copy(renderFromCacheFailed)

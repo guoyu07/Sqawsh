@@ -74,6 +74,7 @@ public class BackupManager implements IBackupManager {
     // Encode booking as JSON
     ObjectMapper mapper = new ObjectMapper();
     mapper.setSerializationInclusion(Include.NON_EMPTY);
+    mapper.setSerializationInclusion(Include.NON_NULL);
     String backupString = (isCreation ? "Booking created: " : "Booking deleted: ")
         + System.getProperty("line.separator") + mapper.writeValueAsString(booking);
 
@@ -99,6 +100,8 @@ public class BackupManager implements IBackupManager {
 
     // Encode bookings as JSON
     ObjectMapper mapper = new ObjectMapper();
+    mapper.setSerializationInclusion(Include.NON_EMPTY);
+    mapper.setSerializationInclusion(Include.NON_NULL);
     String backupString = mapper.writeValueAsString(bookings);
 
     logger.log("Backing up all bookings to S3 bucket");

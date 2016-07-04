@@ -235,9 +235,9 @@ public class BookingManager implements IBookingManager {
                 .forEach(
                     attribute -> {
                       Booking booking = getBookingFromAttribute(attribute);
-                      booking.setDate(attribute.getName());
+                      booking.setDate(item.getName());
 
-                      logger.log("Adding booking to returned list: Date: " + attribute.getName()
+                      logger.log("Adding booking to returned list: Date: " + item.getName()
                           + ", Details: " + booking.toString());
                       bookings.add(booking);
                     });

@@ -46,6 +46,8 @@
 }
 .tableCellBlock {
     text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
     background-color: yellow;
 }
 .cancellationButtonForm {
@@ -59,6 +61,8 @@
     display: inline-block;
     font-family: 'Comic Sans MS', cursive, sans-serif;
     font-size: large;
+    overflow: hidden;
+    text-overflow: ellipsis;
     background-color: tomato;
 }
 .reservationButtonForm {
@@ -72,6 +76,8 @@
     display: inline-block;
     font-family: 'Comic Sans MS', cursive, sans-serif;
     font-size: large;
+    overflow: hidden;
+    text-overflow: ellipsis;
     background-color: chartreuse;
 }
 .oddRow {

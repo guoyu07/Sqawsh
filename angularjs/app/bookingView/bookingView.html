@@ -84,6 +84,25 @@ limitations under the License.-->
   .tableCell {
     text-align: center;
   }
+  .blockBookingCell {
+    padding: 3px;
+    border: 2px solid;
+    border-color: white;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background-color: yellow;
+    color: black;
+  }
+  .nonBlockBookingCell {
+    background-color: white;
+  }
+  .blockBooking {
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background-color: yellow;
+  }
   .cancellationButton {
     width: 100%;
     border: 2px solid;
@@ -92,6 +111,8 @@ limitations under the License.-->
     display: inline-block;
     font-family: 'Comic Sans MS', cursive, sans-serif;
     font-size: large;
+    overflow: hidden;
+    text-overflow: ellipsis;
     background-color: white;
     color: #9ecaed;
   }
@@ -103,6 +124,8 @@ limitations under the License.-->
     display: inline-block;
     font-family: 'Comic Sans MS', cursive, sans-serif;
     font-size: large;
+    overflow: hidden;
+    text-overflow: ellipsis;
     background-color: #9ecaed;
     color: white;
   }
@@ -149,12 +172,19 @@ limitations under the License.-->
 </thead>
 <tbody>
 <div>
-  <tr ng-class-odd="'oddRow'" ng-class-even="'evenRow'" ng-repeat="timeSlot in ctrl.timeSlots">
+  <tr ng-class-odd="'oddRow'" ng-class-even="'evenRow'" ng-repeat="(timeSlotIndex, timeSlot) in ctrl.timeSlots">
     <td class="lefttimeLabel">{{ctrl.timeSlots[$index] | date:'shortTime'}}</td>
-    <td ng-repeat="courtNumber in ctrl.courtNumbers">
-      <Button title="{{ctrl.buttonTitle($parent.$index, $index)}}" ng-class="ctrl.buttonStyle($parent.$index, $index)" ng-click="ctrl.showForm($parent.$index, $index)">{{ctrl.buttonText($parent.$index, $index)}}</Button>
+    <td ng-class="ctrl.cellClass(timeSlotIndex, courtNumber - 1)" ng-repeat="courtNumber in ctrl.courtNumbers | filter: ctrl.isNotBlockBookingInterior(timeSlotIndex)" rowspan="{{ctrl.rowSpan(timeSlotIndex, courtNumber - 1)}}" colspan="{{ctrl.colSpan(timeSlotIndex, courtNumber - 1)}}">
+      <div ng-switch on="ctrl.isBlockBooking(timeSlotIndex, courtNumber - 1)">
+        <div ng-switch-when="false">
+          <Button title="{{ctrl.tooltip(timeSlotIndex, courtNumber - 1)}}" ng-class="ctrl.buttonStyle(timeSlotIndex, courtNumber - 1)" ng-click="ctrl.showForm(timeSlotIndex, courtNumber - 1)">{{ctrl.bookingText(timeSlotIndex, courtNumber - 1)}}</Button>
+        </div>
+        <div ng-switch-when="true" class="blockBooking" title="{{ctrl.tooltip(timeSlotIndex, courtNumber - 1)}}">
+          {{ctrl.bookingText(timeSlotIndex, courtNumber - 1)}}
+        </div>
+      </div>
     </td>
-    <td class="righttimeLabel">{{ctrl.timeSlots[$index] | date:'shortTime'}}</td>
+    <td class="righttimeLabel">{{ctrl.timeSlots[timeSlotIndex] | date:'shortTime'}}</td>
   </tr>
 </div>
 </tbody>
