@@ -14,28 +14,26 @@
  * limitations under the License.
  */
 
-package squash.booking.lambdas;
+package squash.booking.lambdas.core;
 
-import squash.booking.lambdas.utils.Booking;
-
-import java.util.List;
+import java.time.LocalDate;
+import java.util.Calendar;
+import java.util.TimeZone;
 
 /**
- * Response for the {@link BackupBookingsLambda BackupBookings} lambda function.
- * 
+ * Sundry utilities.
+ *
  * @author robinsteel19@outlook.com (Robin Steel)
  */
-public class BackupBookingsLambdaResponse {
-  List<Booking> bookings;
+public class BookingsUtilities {
 
   /**
-   *  Returns the list of all bookings from the database.
+   * Returns the current London local date.
    */
-  public List<Booking> getAllBookings() {
-    return bookings;
-  }
-
-  public void setBookings(List<Booking> bookings) {
-    this.bookings = bookings;
+  public static LocalDate getCurrentLocalDate() {
+    // This gets the correct local date no matter what the user's device
+    // system time may say it is, and no matter where in AWS we run.
+    return Calendar.getInstance().getTime().toInstant()
+        .atZone(TimeZone.getTimeZone("Europe/London").toZoneId()).toLocalDate();
   }
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2016 Robin Steel
+ * Copyright 2016 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,26 +14,28 @@
  * limitations under the License.
  */
 
-package squash.booking.lambdas.utils;
+package squash.booking.lambdas;
 
-import java.time.LocalDate;
-import java.util.Calendar;
-import java.util.TimeZone;
+import squash.booking.lambdas.core.BookingRule;
+
+import java.util.List;
 
 /**
- * Sundry utilities.
- *
+ * Response for the {@link GetBookingRulesLambda GetBookingRules} lambda function.
+ * 
  * @author robinsteel19@outlook.com (Robin Steel)
  */
-public class BookingsUtilities {
+public class GetBookingRulesLambdaResponse {
+  List<BookingRule> bookingRules;
 
   /**
-   * Returns the current London local date.
+   *  Returns the {@link squash.booking.lambdas.core.BookingRule booking rules}.
    */
-  public static LocalDate getCurrentLocalDate() {
-    // This gets the correct local date no matter what the user's device
-    // system time may say it is, and no matter where in AWS we run.
-    return Calendar.getInstance().getTime().toInstant()
-        .atZone(TimeZone.getTimeZone("Europe/London").toZoneId()).toLocalDate();
+  public List<BookingRule> getBookingRules() {
+    return bookingRules;
+  }
+
+  public void setBookingRules(List<BookingRule> bookingRules) {
+    this.bookingRules = bookingRules;
   }
 }

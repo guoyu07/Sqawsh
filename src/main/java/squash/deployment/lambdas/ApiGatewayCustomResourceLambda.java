@@ -130,7 +130,9 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
    * <ul>
    *    <li>ValidDatesGETLambdaURI</li>
    *    <li>BookingsGETLambdaURI</li>
+   *    <li>BookingRulesGETLambdaURI</li>
    *    <li>BookingsPUTDELETELambdaURI</li>
+   *    <li>BookingRuleOrExclusionPUTDELETELambdaURI</li>
    * </ul>
    * 
    * <p>Other keys:
@@ -171,8 +173,12 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
         region);
     String bookingsGETLambdaURI = wrapURI(((String) resourceProps.get("BookingsGETLambdaURI")),
         region);
+    String bookingRulesGETLambdaURI = wrapURI(
+        ((String) resourceProps.get("BookingRulesGETLambdaURI")), region);
     String bookingsPUTDELETELambdaURI = wrapURI(
         ((String) resourceProps.get("BookingsPUTDELETELambdaURI")), region);
+    String bookingRuleOrExclusionPUTDELETELambdaURI = wrapURI(
+        ((String) resourceProps.get("BookingRuleOrExclusionPUTDELETELambdaURI")), region);
     String bookingsApiGatewayInvocationRole = (String) resourceProps
         .get("BookingsApiGatewayInvocationRole");
     squashWebsiteBucket = (String) resourceProps.get("WebsiteBucket");
@@ -182,7 +188,10 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     logger.log("Logging custom parameters to ApiGateway custom resource request:");
     logger.log("ValidDatesGETLambdaURI: " + validDatesGETLambdaURI);
     logger.log("BookingsGETLambdaURI: " + bookingsGETLambdaURI);
+    logger.log("BookingRulesGETLambdaURI: " + bookingRulesGETLambdaURI);
     logger.log("BookingsPUTDELETELambdaURI: " + bookingsPUTDELETELambdaURI);
+    logger.log("BookingRuleOrExclusionPUTDELETELambdaURI: "
+        + bookingRuleOrExclusionPUTDELETELambdaURI);
     logger.log("BookingsApiGatewayInvocationRole: " + bookingsApiGatewayInvocationRole);
     logger.log("Squash website bucket: " + squashWebsiteBucket);
     logger.log("Stage Name: " + stageName);

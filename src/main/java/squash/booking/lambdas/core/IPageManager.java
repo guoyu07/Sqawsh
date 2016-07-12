@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package squash.booking.lambdas.utils;
+package squash.booking.lambdas.core;
 
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 
@@ -35,7 +35,7 @@ public interface IPageManager {
    * 
    * @throws Exception when initialisation fails.
    */
-  void Initialise(IBookingManager bookingsManager, LambdaLogger logger) throws Exception;
+  void initialise(IBookingManager bookingsManager, LambdaLogger logger) throws Exception;
 
   /**
    * Refreshes a bookings web page and cached JSON data for a specified date.

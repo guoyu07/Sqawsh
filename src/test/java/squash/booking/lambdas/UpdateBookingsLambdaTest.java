@@ -16,8 +16,8 @@
 
 package squash.booking.lambdas;
 
-import squash.booking.lambdas.utils.IBookingManager;
-import squash.booking.lambdas.utils.IPageManager;
+import squash.booking.lambdas.core.IBookingManager;
+import squash.booking.lambdas.core.IPageManager;
 
 import org.jmock.Expectations;
 import org.jmock.Mockery;

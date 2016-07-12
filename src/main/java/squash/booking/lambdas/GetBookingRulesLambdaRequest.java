@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2016 Robin Steel
+ * Copyright 2016 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,31 +17,19 @@
 package squash.booking.lambdas;
 
 /**
- * Request parameter for the {@link GetBookingsLambda GetBookings} lambda function.
+ * Request parameter for the {@link GetBookingRulesLambda GetBookingRules} lambda function.
  * 
  * @author robinsteel19@outlook.com (Robin Steel)
  */
-public class GetBookingsLambdaRequest {
-  String date;
+public class GetBookingRulesLambdaRequest {
   String redirectUrl;
-
-  public String getDate() {
-    return date;
-  }
-
-  /**
-   *  Sets the date for which {@link squash.booking.lambdas.core.Booking bookings} are requested, in YYYY-MM-DD format.
-   */
-  public void setDate(String date) {
-    this.date = date;
-  }
 
   public String getRedirectUrl() {
     return redirectUrl;
   }
 
   /**
-   *  Sets the Url to redirect client to if the GetBookings call fails.
+   *  Sets the Url to redirect client to if the GetBookingRules call fails.
    *
    * @param redirectUrl the Url to which the client will be redirected.
    */

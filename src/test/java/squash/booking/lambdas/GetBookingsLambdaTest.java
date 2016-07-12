@@ -18,8 +18,8 @@ package squash.booking.lambdas;
 
 import static org.junit.Assert.assertTrue;
 
-import squash.booking.lambdas.utils.Booking;
-import squash.booking.lambdas.utils.IBookingManager;
+import squash.booking.lambdas.core.Booking;
+import squash.booking.lambdas.core.IBookingManager;
 
 import org.jmock.Expectations;
 import org.jmock.Mockery;

@@ -16,38 +16,10 @@
 
 package squash.booking.lambdas;
 
-import squash.booking.lambdas.core.Booking;
-
-import java.util.List;
-
 /**
- * Response for the {@link GetBookingsLambda GetBookings} lambda function.
+ * Request parameter for the {@link BackupBookingsAndBookingRulesLambda BackupBookingsAndBookingRules} lambda function.
  * 
  * @author robinsteel19@outlook.com (Robin Steel)
  */
-public class GetBookingsLambdaResponse {
-  String date;
-  List<Booking> bookings;
-
-  /**
-   *  Returns the date to which the bookings correspond, in YYYY-MM-DD format.
-   */
-  public String getDate() {
-    return date;
-  }
-
-  public void setDate(String date) {
-    this.date = date;
-  }
-
-  /**
-   *  Returns the {@link squash.booking.lambdas.core.Booking bookings} for the specified date.
-   */
-  public List<Booking> getBookings() {
-    return bookings;
-  }
-
-  public void setBookings(List<Booking> bookings) {
-    this.bookings = bookings;
-  }
+public class BackupBookingsAndBookingRulesLambdaRequest {
 }

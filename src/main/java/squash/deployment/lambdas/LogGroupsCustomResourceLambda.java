@@ -74,7 +74,9 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
    *    <li>AngularjsAppCustomResourceLambdaName.</li>
    *    <li>ValidDatesLambdaName.</li>
    *    <li>BookingsGETLambdaName.</li>
+   *    <li>BookingRulesGETLambdaName.</li>
    *    <li>BookingsPUTDELETELambdaName.</li>
+   *    <li>BookingRuleOrExclusionPUTDELETELambdaName.</li>
    *    <li>SquashApiGatewayCustomResourceLambdaName.</li>
    *    <li>SquashSettingsCustomResourceLambdaName.</li>
    *    <li>SquashBookingsHtmlCustomResourceLambdaName.</li>
@@ -111,9 +113,13 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
     Map<String, Object> resourceProps = (Map<String, Object>) request.get("ResourceProperties");
     String angularjsAppCustomResourceLambdaName = (String) resourceProps
         .get("AngularjsAppCustomResourceLambdaName");
+    String applyBookingRulesLambdaName = (String) resourceProps.get("ApplyBookingRulesLambdaName");
     String validDatesLambdaName = (String) resourceProps.get("ValidDatesLambdaName");
     String bookingsGETLambdaName = (String) resourceProps.get("BookingsGETLambdaName");
+    String bookingRulesGETLambdaName = (String) resourceProps.get("BookingRulesGETLambdaName");
     String bookingsPUTDELETELambdaName = (String) resourceProps.get("BookingsPUTDELETELambdaName");
+    String bookingRuleOrExclusionPUTDELETELambdaName = (String) resourceProps
+        .get("BookingRuleOrExclusionPUTDELETELambdaName");
     String squashApiGatewayCustomResourceLambdaName = (String) resourceProps
         .get("SquashApiGatewayCustomResourceLambdaName");
     String squashSettingsCustomResourceLambdaName = (String) resourceProps
@@ -132,9 +138,13 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
 
     // Log out our custom request parameters
     logger.log("AngularjsAppCustomResourceLambdaName: " + angularjsAppCustomResourceLambdaName);
+    logger.log("ApplyBookingRulesLambdaName: " + applyBookingRulesLambdaName);
     logger.log("ValidDatesLambdaName: " + validDatesLambdaName);
     logger.log("BookingsGETLambdaName: " + bookingsGETLambdaName);
+    logger.log("BookingRulesGETLambdaName: " + bookingRulesGETLambdaName);
     logger.log("BookingsPUTDELETELambdaName: " + bookingsPUTDELETELambdaName);
+    logger.log("BookingRuleOrExclusionPUTDELETELambdaName: "
+        + bookingRuleOrExclusionPUTDELETELambdaName);
     logger.log("SquashApiGatewayCustomResourceLambdaName: "
         + squashApiGatewayCustomResourceLambdaName);
     logger.log("SquashSettingsCustomResourceLambdaName: " + squashSettingsCustomResourceLambdaName);
@@ -165,9 +175,10 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
         // Create and set the specified retention period on other lambdas' log
         // groups (these lambdas will not have run and created their log groups
         // yet)
-        List<String> lambdaNames = new ArrayList<>(Arrays.asList(validDatesLambdaName,
-            bookingsGETLambdaName, bookingsPUTDELETELambdaName, updateBookingsLambdaName,
-            databaseBackupLambdaName, databaseRestoreLambdaName));
+        List<String> lambdaNames = new ArrayList<>(Arrays.asList(applyBookingRulesLambdaName,
+            validDatesLambdaName, bookingsGETLambdaName, bookingRulesGETLambdaName,
+            bookingsPUTDELETELambdaName, bookingRuleOrExclusionPUTDELETELambdaName,
+            updateBookingsLambdaName, databaseBackupLambdaName, databaseRestoreLambdaName));
 
         for (String lambdaName : lambdaNames) {
           logger.log("Creating log group: " + lambdaName);

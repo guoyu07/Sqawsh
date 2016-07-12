@@ -14,10 +14,13 @@
  * limitations under the License.
  */
 
-package squash.booking.lambdas.utils;
+package squash.booking.lambdas.core;
 
 import static org.junit.Assert.assertTrue;
 
+import squash.booking.lambdas.core.Booking;
+import squash.booking.lambdas.core.IBookingManager;
+import squash.booking.lambdas.core.PageManager;
 import squash.deployment.lambdas.utils.IS3TransferManager;
 
 import org.apache.commons.io.FilenameUtils;
@@ -42,11 +45,9 @@ import com.google.common.io.CharStreams;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
-import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -63,7 +64,7 @@ public class PageManagerTest {
   LocalDate fakeCurrentDate;
   String fakeCurrentDateString;
   List<String> validDates;
-  squash.booking.lambdas.utils.PageManagerTest.TestPageManager pageManager;
+  squash.booking.lambdas.core.PageManagerTest.TestPageManager pageManager;
 
   String apiGatewayBaseUrl;
   String websiteBucketName;
@@ -95,7 +96,7 @@ public class PageManagerTest {
     validDates.add(fakeCurrentDateString);
     validDates.add(fakeCurrentDate.plusDays(1).format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
 
-    pageManager = new squash.booking.lambdas.utils.PageManagerTest.TestPageManager();
+    pageManager = new squash.booking.lambdas.core.PageManagerTest.TestPageManager();
     pageManager.setCurrentLocalDate(fakeCurrentDate);
 
     mockery = new Mockery();
@@ -135,8 +136,13 @@ public class PageManagerTest {
     bookings.add(booking);
 
     apiGatewayBaseUrl = "apiGatewayBaseUrl";
+  }
 
-    pageManager.Initialise(mockBookingManager, mockLogger);
+  private void initialisePageManager() throws Exception {
+    // Call this to initialise the page manager in tests where this
+    // initialisation is not the subject of the test.
+
+    pageManager.initialise(mockBookingManager, mockLogger);
   }
 
   @After
@@ -185,6 +191,30 @@ public class PageManagerTest {
   }
 
   @Test
+  public void testRefreshPageThrowsWhenPageManagerUninitialised() throws Exception {
+
+    // ARRANGE
+    thrown.expect(Exception.class);
+    thrown.expectMessage("The page manager has not been initialised");
+
+    // ACT
+    // Do not initialise the page manager first - so we should throw
+    pageManager.refreshPage(fakeCurrentDateString, validDates, apiGatewayBaseUrl, true, bookings);
+  }
+
+  @Test
+  public void testUploadFamousPlayersThrowsWhenPageManagerUninitialised() throws Exception {
+
+    // ARRANGE
+    thrown.expect(Exception.class);
+    thrown.expectMessage("The page manager has not been initialised");
+
+    // ACT
+    // Do not initialise the page manager first - so we should throw
+    pageManager.uploadFamousPlayers();
+  }
+
+  @Test
   public void testRefreshPageWithDuplicateCorrectlyCallsS3() throws Exception {
 
     // Refresh page when Cloudformation creates the stack should just
@@ -192,6 +222,8 @@ public class PageManagerTest {
     // bookings are later mutated - and is a workaround to ensure
     // ReadAfterWrite consistency. This tests that this duplication
     // does happen when we ask for it.
+
+    initialisePageManager();
 
     // Set up S3 expectations for copy:
     // Transfer interface is implemented by Uploads, Downloads, and Copies
@@ -232,6 +264,8 @@ public class PageManagerTest {
     // ReadAfterWrite consistency. This tests that this duplication
     // does not happen when we do not ask for it (i.e. on stack creation).
 
+    initialisePageManager();
+
     // Set up S3 expectations for no copy:
     // Transfer interface is implemented by Uploads, Downloads, and Copies
     Transfer mockTransfer = mockery.mock(Transfer.class);
@@ -267,6 +301,8 @@ public class PageManagerTest {
     thrown.expect(Exception.class);
     thrown.expectMessage("Exception caught while copying booking page to S3");
 
+    initialisePageManager();
+
     // Make S3 throw:
     // Transfer interface is implemented by Uploads, Downloads, and Copies
     Transfer mockTransfer = mockery.mock(Transfer.class);
@@ -294,6 +330,8 @@ public class PageManagerTest {
 
   @Test
   public void testRefreshAllPagesCorrectlyCallsS3() throws Exception {
+
+    initialisePageManager();
 
     // Set up S3 expectations for upload (without copy) for each valid date:
     // Transfer interface is implemented by Uploads, Downloads, and Copies
@@ -341,10 +379,24 @@ public class PageManagerTest {
   }
 
   @Test
+  public void testRefreshAllPagesThrowsWhenPageManagerUninitialised() throws Exception {
+
+    // ARRANGE
+    thrown.expect(Exception.class);
+    thrown.expectMessage("The page manager has not been initialised");
+
+    // ACT
+    // Do not initialise the page manager first - so we should throw
+    pageManager.refreshAllPages(validDates, apiGatewayBaseUrl);
+  }
+
+  @Test
   public void testRefreshAllPagesThrowsWhenS3Throws() throws Exception {
     // ARRANGE
     thrown.expect(Exception.class);
     thrown.expectMessage("Exception caught while copying booking page to S3");
+
+    initialisePageManager();
 
     // Make S3 throw:
     // Transfer interface is implemented by Uploads, Downloads, and Copies
@@ -372,23 +424,23 @@ public class PageManagerTest {
   }
 
   @Test
-  public void testCreateTodayIndexPageReturnsCorrectPage() throws UnsupportedEncodingException,
-      IOException {
+  public void testCreateTodayIndexPageReturnsCorrectPage() throws Exception {
     doTestCreateTodayIndexPageReturnsCorrectPage(true);
   }
 
   @Test
-  public void testCreateNoscriptIndexPageReturnsCorrectPage() throws UnsupportedEncodingException,
-      IOException {
+  public void testCreateNoscriptIndexPageReturnsCorrectPage() throws Exception {
     doTestCreateTodayIndexPageReturnsCorrectPage(false);
   }
 
   private void doTestCreateTodayIndexPageReturnsCorrectPage(Boolean showRedirectMessage)
-      throws UnsupportedEncodingException, IOException {
+      throws Exception {
 
     // We verify against a previously-saved regression file.
 
     // ARRANGE
+    initialisePageManager();
+
     String redirectionUrl = "http://squashwebsite42.s3-website-eu-west-1.amazonaws.com";
     // Load in the expected page
     String expectedIndexPage;
@@ -421,13 +473,14 @@ public class PageManagerTest {
   }
 
   @Test
-  public void testCreateBookingPageReturnsCorrectPage() throws UnsupportedEncodingException,
-      IOException {
+  public void testCreateBookingPageReturnsCorrectPage() throws Exception {
 
     // We create two single bookings, and 2 block bookings, and verify resulting
     // html directly against a previously-saved regression file.
 
     // ARRANGE
+    initialisePageManager();
+
     // Set some values that will get embedded into the booking page
     String s3WebsiteUrl = "http://squashwebsite.s3-website-eu-west-1.amazonaws.com";
     String reservationFormGetUrl = "reserveUrl";
@@ -492,13 +545,14 @@ public class PageManagerTest {
   }
 
   @Test
-  public void testCreateCachedBookingDataCreatesCorrectData() throws IllegalArgumentException,
-      IOException {
+  public void testCreateCachedBookingDataCreatesCorrectData() throws Exception {
 
     // We create two single bookings, and 1 block booking, and verify resulting
     // json directly against regression data.
 
     // ARRANGE
+    initialisePageManager();
+
     // Set up 2 bookings
     Booking booking1 = new Booking();
     booking1.setSlot(3);
@@ -533,13 +587,14 @@ public class PageManagerTest {
   }
 
   @Test
-  public void testCreateCachedBookingDataHasBookingsArrayWhenThereIsOneBooking()
-      throws IllegalArgumentException, IOException {
+  public void testCreateCachedBookingDataHasBookingsArrayWhenThereIsOneBooking() throws Exception {
 
     // Aim here is to check that a single booking is encoded as a 1-element
     // array rather than degenerating to a non-array object.
 
     // ARRANGE
+    initialisePageManager();
+
     // We create 1 bookings, and verify resulting json directly
     // against regression data.
     Booking booking = new Booking();
@@ -564,7 +619,7 @@ public class PageManagerTest {
 
   @Test
   public void testCreateCachedBookingDataHasEmptyBookingsArrayWhenThereAreNoBookings()
-      throws IllegalArgumentException, IOException {
+      throws Exception {
 
     // Aim here is to check that no bookings is encoded as an empty array
     // rather than being dropped altogether from the JSON.
@@ -573,6 +628,8 @@ public class PageManagerTest {
     // against regression data.
 
     // ARRANGE
+    initialisePageManager();
+
     // Create empty bookings array
     List<Booking> bookingsForDate = new ArrayList<>();
 
@@ -590,10 +647,11 @@ public class PageManagerTest {
   }
 
   @Test
-  public void testCreateCachedValidDatesDataCreatesCorrectData() throws IllegalArgumentException,
-      IOException {
+  public void testCreateCachedValidDatesDataCreatesCorrectData() throws Exception {
 
     // ARRANGE
+    initialisePageManager();
+
     // Set up the expected cached data
     String expectedCachedValidDatesData = "{\"dates\":[\"2015-10-06\",\"2015-10-07\"]}";
 
@@ -607,13 +665,14 @@ public class PageManagerTest {
   }
 
   @Test
-  public void testCreateCachedValidDatesDataWhenThereIsOneValidDate()
-      throws IllegalArgumentException, IOException {
+  public void testCreateCachedValidDatesDataWhenThereIsOneValidDate() throws Exception {
 
     // Aim here is to check that a single date is encoded as a 1-element
     // array rather than degenerating to a non-array object.
 
     // ARRANGE
+    initialisePageManager();
+
     // We create a single valid date, and verify resulting json directly
     // against regression data.
     validDates = new ArrayList<>();
@@ -632,13 +691,14 @@ public class PageManagerTest {
   }
 
   @Test
-  public void testCreateCachedValidDatesDataWhenThereAreNoValidDates()
-      throws IllegalArgumentException, IOException {
+  public void testCreateCachedValidDatesDataWhenThereAreNoValidDates() throws Exception {
 
     // Aim here is to check that no valid dates is encoded as an empty array
     // rather than being dropped altogether from the JSON.
 
     // ARRANGE
+    initialisePageManager();
+
     // We create no valid dates, and verify resulting json directly
     // against regression data.
     validDates = new ArrayList<>();

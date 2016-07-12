@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package squash.booking.lambdas.utils;
+package squash.booking.lambdas.core;
 
 import squash.deployment.lambdas.utils.ExceptionUtils;
 import squash.deployment.lambdas.utils.IS3TransferManager;
@@ -76,18 +76,25 @@ public class PageManager implements IPageManager {
   private Region region;
   private IBookingManager bookingManager;
   private LambdaLogger logger;
+  private Boolean initialised = false;
 
   @Override
-  public void Initialise(IBookingManager bookingManager, LambdaLogger logger) throws Exception {
+  public void initialise(IBookingManager bookingManager, LambdaLogger logger) throws Exception {
     this.logger = logger;
     websiteBucketName = getStringProperty("s3websitebucketname");
     region = Region.getRegion(Regions.fromName(getStringProperty("region")));
     this.bookingManager = bookingManager;
+    initialised = true;
   }
 
   @Override
   public String refreshPage(String date, List<String> validDates, String apiGatewayBaseUrl,
       Boolean createDuplicate, List<Booking> bookings) throws Exception {
+
+    if (!initialised) {
+      throw new IllegalStateException("The page manager has not been initialised");
+    }
+
     // To workaround S3 ReadAfterUpdate and ReadAfterDelete being only
     // eventually-consistent, we save new booking page and also a duplicate
     // with a unique name - and we redirect to this duplicate - which _will_
@@ -114,6 +121,11 @@ public class PageManager implements IPageManager {
 
   @Override
   public void refreshAllPages(List<String> validDates, String apiGatewayBaseUrl) throws Exception {
+
+    if (!initialised) {
+      throw new IllegalStateException("The page manager has not been initialised");
+    }
+
     // Upload all bookings pages, cached booking data, famous players data, and
     // the index page to the S3 bucket. N.B. This should upload for the
     // most-future date first to ensure all links are valid during the several
@@ -159,10 +171,15 @@ public class PageManager implements IPageManager {
 
   @Override
   public void uploadFamousPlayers() throws Exception {
+
+    if (!initialised) {
+      throw new IllegalStateException("The page manager has not been initialised");
+    }
+
     String famousPlayers;
     try {
       famousPlayers = IOUtils.toString(PageManager.class
-          .getResourceAsStream("/squash/booking/lambdas/utils/FamousPlayers.json"));
+          .getResourceAsStream("/squash/booking/lambdas/core/FamousPlayers.json"));
     } catch (IOException e) {
       logger.log("Exception caught reading FamousPlayers.json file: " + e.getMessage());
       throw new Exception("Exception caught reading FamousPlayers.json file");

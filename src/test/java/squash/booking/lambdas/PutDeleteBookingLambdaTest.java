@@ -16,10 +16,10 @@
 
 package squash.booking.lambdas;
 
-import squash.booking.lambdas.utils.Booking;
-import squash.booking.lambdas.utils.IBackupManager;
-import squash.booking.lambdas.utils.IBookingManager;
-import squash.booking.lambdas.utils.IPageManager;
+import squash.booking.lambdas.core.Booking;
+import squash.booking.lambdas.core.IBackupManager;
+import squash.booking.lambdas.core.IBookingManager;
+import squash.booking.lambdas.core.IPageManager;
 
 import org.hamcrest.CoreMatchers;
 import org.jmock.Expectations;
@@ -112,6 +112,7 @@ public class PutDeleteBookingLambdaTest {
     slot = 3;
     slotSpan = 1;
     booking = new Booking(court, courtSpan, slot, slotSpan, playersNames);
+    booking.setDate(fakeCurrentDateString);
     bookings = new ArrayList<>();
     bookings.add(booking);
     suffix = "suffix";
@@ -428,7 +429,10 @@ public class PutDeleteBookingLambdaTest {
       {
         never(putDeleteBookingLambda.getBackupManager(mockLogger)).backupSingleBooking(
             with(anything()), with(anything()));
-        never(putDeleteBookingLambda.getBackupManager(mockLogger)).backupAllBookings();
+        never(putDeleteBookingLambda.getBackupManager(mockLogger)).backupSingleBookingRule(
+            with(anything()), with(anything()));
+        never(putDeleteBookingLambda.getBackupManager(mockLogger))
+            .backupAllBookingsAndBookingRules();
       }
     });
 

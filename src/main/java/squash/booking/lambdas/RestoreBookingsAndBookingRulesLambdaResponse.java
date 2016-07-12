@@ -17,9 +17,9 @@
 package squash.booking.lambdas;
 
 /**
- * Response parameter for the {@link RestoreBookingsLambda RestoreBookings} lambda function.
+ * Response parameter for the {@link RestoreBookingsAndBookingRulesLambda RestoreBookingsAndBookingRules} lambda function.
  * 
  * @author robinsteel19@outlook.com (Robin Steel)
  */
-public class RestoreBookingsLambdaResponse {
+public class RestoreBookingsAndBookingRulesLambdaResponse {
 }

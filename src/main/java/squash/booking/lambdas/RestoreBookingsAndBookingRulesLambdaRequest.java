@@ -16,17 +16,19 @@
 
 package squash.booking.lambdas;
 
-import squash.booking.lambdas.utils.Booking;
+import squash.booking.lambdas.core.Booking;
+import squash.booking.lambdas.core.BookingRule;
 
 import java.util.List;
 
 /**
- * Request parameter for the {@link RestoreBookingsLambda RestoreBookings} lambda function.
+ * Request parameter for the {@link RestoreBookingsAndBookingRulesLambda RestoreBookingsAndBookingRules} lambda function.
  * 
  * @author robinsteel19@outlook.com (Robin Steel)
  */
-public class RestoreBookingsLambdaRequest {
+public class RestoreBookingsAndBookingRulesLambdaRequest {
   List<Booking> bookings;
+  List<BookingRule> bookingRules;
   Boolean clearBeforeRestore;
 
   /**
@@ -41,7 +43,18 @@ public class RestoreBookingsLambdaRequest {
   }
 
   /**
-   *  Returns whether to clear existing bookings before restoring with the supplied bookings.
+   *  Returns the booking rules to be restored.
+   */
+  public List<BookingRule> getBookingRules() {
+    return bookingRules;
+  }
+
+  public void setBookingRules(List<BookingRule> bookingRules) {
+    this.bookingRules = bookingRules;
+  }
+
+  /**
+   *  Returns whether to clear existing bookings and booking rules before restoring with the supplied ones.
    */
   public Boolean getClearBeforeRestore() {
     return clearBeforeRestore;

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package squash.booking.lambdas.utils;
+package squash.booking.lambdas.core;
 
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 
@@ -22,9 +22,9 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Interface for all classes managing interactions with the bookings database.
+ * Interface for all classes managing bookings.
  * 
- * <p>All database interactions should be performed by a class implementing this interface.
+ * <p>All bookings management should be performed by a class implementing this interface.
  *
  * @author robinsteel19@outlook.com (Robin Steel)
  */
@@ -47,14 +47,16 @@ public interface IBookingManager {
    * Returns all court bookings for a given date.
    * 
    * @param date the date in YYYY-MM-DD format.
+   * @throws Exception when the booking retrieval fails.
    */
-  List<Booking> getBookings(String date);
+  List<Booking> getBookings(String date) throws Exception;
 
   /**
    * Returns all court bookings for all dates.
    * 
+   * @throws IOException when the booking retrieval fails.
    */
-  List<Booking> getAllBookings();
+  List<Booking> getAllBookings() throws IOException;
 
   /**
    * Deletes a court booking.
@@ -66,11 +68,12 @@ public interface IBookingManager {
 
   /**
    * Deletes all bookings for the previous day.
+   * @throws IOException when the deletion fails.
    */
-  void deleteYesterdaysBookings();
+  void deleteYesterdaysBookings() throws IOException;
 
   /**
-   * Deletes all bookings.
+   * Deletes all bookings for all dates.
    * @throws Exception 
    */
   void deleteAllBookings() throws Exception;

@@ -16,7 +16,7 @@
 
 package squash.tools;
 
-import squash.booking.lambdas.utils.Booking;
+import squash.booking.lambdas.core.Booking;
 
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;

@@ -16,7 +16,7 @@
 
 package squash.booking.lambdas;
 
-import squash.booking.lambdas.utils.BookingsUtilities;
+import squash.booking.lambdas.core.BookingsUtilities;
 
 import com.amazonaws.services.lambda.runtime.Context;
 

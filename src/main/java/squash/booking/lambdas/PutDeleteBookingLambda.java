@@ -16,14 +16,16 @@
 
 package squash.booking.lambdas;
 
-import squash.booking.lambdas.utils.BackupManager;
-import squash.booking.lambdas.utils.Booking;
-import squash.booking.lambdas.utils.BookingManager;
-import squash.booking.lambdas.utils.BookingsUtilities;
-import squash.booking.lambdas.utils.IBackupManager;
-import squash.booking.lambdas.utils.IBookingManager;
-import squash.booking.lambdas.utils.IPageManager;
-import squash.booking.lambdas.utils.PageManager;
+import squash.booking.lambdas.core.BackupManager;
+import squash.booking.lambdas.core.Booking;
+import squash.booking.lambdas.core.BookingManager;
+import squash.booking.lambdas.core.BookingsUtilities;
+import squash.booking.lambdas.core.IBackupManager;
+import squash.booking.lambdas.core.IBookingManager;
+import squash.booking.lambdas.core.IPageManager;
+import squash.booking.lambdas.core.IRuleManager;
+import squash.booking.lambdas.core.PageManager;
+import squash.booking.lambdas.core.RuleManager;
 import squash.deployment.lambdas.utils.ExceptionUtils;
 
 import com.amazonaws.AmazonClientException;
@@ -46,17 +48,31 @@ import java.util.regex.Pattern;
 public class PutDeleteBookingLambda {
 
   private Optional<IBackupManager> backupManager;
+  private Optional<IRuleManager> ruleManager;
   private Optional<IBookingManager> bookingManager;
   private Optional<IPageManager> pageManager;
 
   public PutDeleteBookingLambda() {
     backupManager = Optional.empty();
+    ruleManager = Optional.empty();
     bookingManager = Optional.empty();
     pageManager = Optional.empty();
   }
 
   /**
-   * Returns the {@link squash.booking.lambdas.utils.IBookingManager}.
+   * Returns the {@link squash.booking.lambdas.core.IRuleManager}.
+   */
+  protected IRuleManager getRuleManager(LambdaLogger logger) throws Exception {
+    // Use a getter here so unit tests can substitute a mock manager
+    if (!ruleManager.isPresent()) {
+      ruleManager = Optional.of(new RuleManager());
+      ruleManager.get().initialise(getBookingManager(logger), logger);
+    }
+    return ruleManager.get();
+  }
+
+  /**
+   * Returns the {@link squash.booking.lambdas.core.IBookingManager}.
    */
   protected IBookingManager getBookingManager(LambdaLogger logger) throws Exception {
     // Use a getter here so unit tests can substitute a mock manager
@@ -68,25 +84,25 @@ public class PutDeleteBookingLambda {
   }
 
   /**
-   * Returns the {@link squash.booking.lambdas.utils.IBackupManager}.
+   * Returns the {@link squash.booking.lambdas.core.IBackupManager}.
    */
   protected IBackupManager getBackupManager(LambdaLogger logger) throws Exception {
     // Use a getter here so unit tests can substitute a mock manager
     if (!backupManager.isPresent()) {
       backupManager = Optional.of(new BackupManager());
-      backupManager.get().initialise(getBookingManager(logger), logger);
+      backupManager.get().initialise(getBookingManager(logger), getRuleManager(logger), logger);
     }
     return backupManager.get();
   }
 
   /**
-   * Returns the {@link squash.booking.lambdas.utils.IPageManager}.
+   * Returns the {@link squash.booking.lambdas.core.IPageManager}.
    */
   protected IPageManager getPageManager(LambdaLogger logger) throws Exception {
     // Use a getter here so unit tests can substitute a mock manager
     if (!pageManager.isPresent()) {
       pageManager = Optional.of(new PageManager());
-      pageManager.get().Initialise(getBookingManager(logger), logger);
+      pageManager.get().initialise(getBookingManager(logger), logger);
     }
     return pageManager.get();
   }

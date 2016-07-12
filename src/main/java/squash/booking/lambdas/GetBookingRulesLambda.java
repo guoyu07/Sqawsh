@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2016 Robin Steel
+ * Copyright 2016 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ package squash.booking.lambdas;
 
 import squash.booking.lambdas.core.BookingManager;
 import squash.booking.lambdas.core.IBookingManager;
+import squash.booking.lambdas.core.IRuleManager;
+import squash.booking.lambdas.core.RuleManager;
 import squash.deployment.lambdas.utils.ExceptionUtils;
 
 import com.amazonaws.AmazonClientException;
@@ -25,36 +27,37 @@ import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 
-import java.security.InvalidParameterException;
-import java.util.List;
 import java.util.Optional;
 
 /**
- * AWS Lambda function returning all bookings for a specified date.
+ * AWS Lambda function returning all booking rules.
  * 
  * <p>This is usually invoked by AWS Lambda.
  * 
  * @author robinsteel19@outlook.com (Robin Steel)
  */
-public class GetBookingsLambda {
+public class GetBookingRulesLambda {
+  private Optional<IRuleManager> ruleManager;
   private Optional<IBookingManager> bookingManager;
 
   /**
    *  Constructor.
    */
-  public GetBookingsLambda() {
+  public GetBookingRulesLambda() {
+    ruleManager = Optional.empty();
     bookingManager = Optional.empty();
   }
 
   /**
-   *  Returns all dates for which bookings can currently be made.
-   *  
-   *  @return all dates on which bookings can be made, in YYYY-MM-DD format.
+   *  Returns the {@link squash.booking.lambdas.core.RuleManager}.
    */
-  protected List<String> getValidDates() {
-    // Use a getter here so unit tests can substitute a different method.
-
-    return new GetValidDatesLambda().getValidDates(new GetValidDatesLambdaRequest()).getDates();
+  protected IRuleManager getRuleManager(LambdaLogger logger) throws Exception {
+    // Use a getter here so unit tests can substitute a mock manager
+    if (!ruleManager.isPresent()) {
+      ruleManager = Optional.of(new RuleManager());
+      ruleManager.get().initialise(getBookingManager(logger), logger);
+    }
+    return ruleManager.get();
   }
 
   /**
@@ -70,38 +73,29 @@ public class GetBookingsLambda {
   }
 
   /**
-   * Returns all bookings for the specified date.
+   * Returns all booking rules.
    * 
-   * @param request specifying, e.g., the date for which to return bookings.
+   * @param request.
    * @param context provided by AWS Lambda.
-   * @return response containing the bookings.
+   * @return response containing the booking rules.
    * @throws AmazonServiceException when the method fails owing to an error in an AWS service.
    * @throws AmazonClientException when the method fails owing to a client error.
    * @throws Exception when the method fails for some other reason.
    */
-  public GetBookingsLambdaResponse getBookings(GetBookingsLambdaRequest request, Context context)
-      throws Exception {
+  public GetBookingRulesLambdaResponse getBookingRules(GetBookingRulesLambdaRequest request,
+      Context context) throws Exception {
 
     LambdaLogger logger = context.getLogger();
     String redirectUrl = request.getRedirectUrl();
     try {
-      // Validate the date that bookings are being requested for
-      String requestedDate = request.getDate();
-      logger.log("About to get bookings for date: " + requestedDate
-          + ". Checking if date is valid...");
-      if (!getValidDates().contains(requestedDate)) {
-        logger.log("Date is not valid");
-        throw new InvalidParameterException("The booking date is outside the valid range");
-      }
-      logger.log("Date is valid");
+      logger.log("About to get booking rules");
 
-      // Query for bookings (if any) for the requested day
-      logger.log("About to call booking manager to get bookings");
-      GetBookingsLambdaResponse response = new GetBookingsLambdaResponse();
-      IBookingManager bookingManager = getBookingManager(logger);
-      response.setBookings(bookingManager.getBookings(requestedDate));
-      response.setDate(request.getDate());
-      logger.log("Called booking manager to get bookings");
+      // Query for booking rules (if any)
+      logger.log("About to call rule manager to get booking rules");
+      GetBookingRulesLambdaResponse response = new GetBookingRulesLambdaResponse();
+      IRuleManager ruleManager = getRuleManager(logger);
+      response.setBookingRules(ruleManager.getRules());
+      logger.log("Called rule manager to get booking rules");
       return response;
     } catch (AmazonServiceException ase) {
       ExceptionUtils.logAmazonServiceException(ase, logger);
@@ -112,16 +106,11 @@ public class GetBookingsLambda {
       throw new Exception("Apologies - something has gone wrong. Please try again." + redirectUrl,
           ace);
     } catch (Exception e) {
-      switch (e.getMessage()) {
-      // For now, we add the request.redirectUrl to the message. ApiGateway will
-      // parse this out.
-      case "The booking date is outside the valid range":
-        throw new Exception("The booking date is outside the valid range. Please try again."
-            + redirectUrl, e);
-      default:
-        throw new Exception(
-            "Apologies - something has gone wrong. Please try again." + redirectUrl, e);
-      }
+      // FIXME: This will need revisiting once the Angular client supports
+      // booking rules, when we'll know which exceptional cases it needs to
+      // discriminate.
+      throw new Exception("Apologies - something has gone wrong. Please try again." + redirectUrl,
+          e);
     }
   }
 }

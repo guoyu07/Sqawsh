@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package squash.booking.lambdas.utils;
+package squash.booking.lambdas.core;
 
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
@@ -151,6 +151,20 @@ public class Booking {
   }
 
   /**
+   * Copy constructor.
+   */
+  public Booking(Booking booking) {
+    this.date = booking.getDate();
+    this.court = booking.getCourt();
+    this.courtSpan = booking.getCourtSpan();
+    this.slot = booking.getSlot();
+    this.slotSpan = booking.getSlotSpan();
+    this.players = booking.getPlayers();
+    this.player1Name = booking.getPlayer1Name();
+    this.player2Name = booking.getPlayer2Name();
+  }
+
+  /**
    * Constructs booking for the specified court and time for the specified players.
    *
    * @param court the 1-based number of the booked court.
@@ -192,7 +206,7 @@ public class Booking {
     }
     final Booking other = (Booking) obj;
 
-    return Objects.equals(this.court, other.court)
+    return Objects.equals(this.date, other.date) && Objects.equals(this.court, other.court)
         && Objects.equals(this.courtSpan, other.courtSpan) && Objects.equals(this.slot, other.slot)
         && Objects.equals(this.slotSpan, other.slotSpan)
         && Objects.equals(this.players, other.players);
@@ -200,7 +214,8 @@ public class Booking {
 
   @Override
   public int hashCode() {
-    return Objects.hash(this.court, this.courtSpan, this.slot, this.slotSpan, this.players);
+    return Objects.hash(this.date, this.court, this.courtSpan, this.slot, this.slotSpan,
+        this.players);
   }
 
   @Override

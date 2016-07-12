@@ -55,7 +55,7 @@ public class PutDeleteBookingLambdaRequest {
   /**
    *  Sets the court for the booking.
    *  
-   *  @see squash.booking.lambdas.utils.Booking#setCourt Booking.
+   *  @see squash.booking.lambdas.core.Booking#setCourt Booking.
    */
   public void setCourt(String court) {
     this.court = court;
@@ -68,7 +68,7 @@ public class PutDeleteBookingLambdaRequest {
   /**
    *  Sets the number of courts per time slot in a block booking.
    *  
-   *  @see squash.booking.lambdas.utils.Booking#setCourt Booking.
+   *  @see squash.booking.lambdas.core.Booking#setCourt Booking.
    */
   public void setCourtSpan(String courtSpan) {
     this.courtSpan = courtSpan;
@@ -81,7 +81,7 @@ public class PutDeleteBookingLambdaRequest {
   /**
    *  Sets the time slot for the booking.
    *  
-   *  @see squash.booking.lambdas.utils.Booking#setSlot Booking.
+   *  @see squash.booking.lambdas.core.Booking#setSlot Booking.
    */
   public void setSlot(String slot) {
     this.slot = slot;
@@ -94,7 +94,7 @@ public class PutDeleteBookingLambdaRequest {
   /**
    *  Sets the number of time slots per court in a block booking.
    *  
-   *  @see squash.booking.lambdas.utils.Booking#setSlot Booking.
+   *  @see squash.booking.lambdas.core.Booking#setSlot Booking.
    */
   public void setSlotSpan(String slotSpan) {
     this.slotSpan = slotSpan;
@@ -107,7 +107,7 @@ public class PutDeleteBookingLambdaRequest {
   /**
    *  Sets the names of the players for the booking.
    *  
-   *  @see squash.booking.lambdas.utils.Booking#setPlayers Booking.
+   *  @see squash.booking.lambdas.core.Booking#setPlayers Booking.
    */
   public void setPlayers(String players) {
     this.players = players;
@@ -120,7 +120,7 @@ public class PutDeleteBookingLambdaRequest {
   /**
    *  Sets the name of the first player for the booking.
    *  
-   *  @see squash.booking.lambdas.utils.Booking#setPlayer1Name Booking.
+   *  @see squash.booking.lambdas.core.Booking#setPlayer1Name Booking.
    */
   public void setPlayer1name(String player1name) {
     this.player1name = player1name;
@@ -133,7 +133,7 @@ public class PutDeleteBookingLambdaRequest {
   /**
    *  Sets the name of the second player for the booking.
    *  
-   *  @see squash.booking.lambdas.utils.Booking#setPlayer2Name Booking.
+   *  @see squash.booking.lambdas.core.Booking#setPlayer2Name Booking.
    */
   public void setPlayer2name(String player2name) {
     this.player2name = player2name;
@@ -146,7 +146,7 @@ public class PutDeleteBookingLambdaRequest {
   /**
    *  Sets the date of the booking.
    *  
-   *  @see squash.booking.lambdas.utils.Booking#setDate Booking.
+   *  @see squash.booking.lambdas.core.Booking#setDate Booking.
    */
   public void setDate(String date) {
     this.date = date;

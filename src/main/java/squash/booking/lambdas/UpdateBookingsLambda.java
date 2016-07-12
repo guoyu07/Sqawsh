@@ -16,11 +16,11 @@
 
 package squash.booking.lambdas;
 
-import squash.booking.lambdas.utils.BookingManager;
-import squash.booking.lambdas.utils.BookingsUtilities;
-import squash.booking.lambdas.utils.IBookingManager;
-import squash.booking.lambdas.utils.IPageManager;
-import squash.booking.lambdas.utils.PageManager;
+import squash.booking.lambdas.core.BookingManager;
+import squash.booking.lambdas.core.BookingsUtilities;
+import squash.booking.lambdas.core.IBookingManager;
+import squash.booking.lambdas.core.IPageManager;
+import squash.booking.lambdas.core.PageManager;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
@@ -49,7 +49,7 @@ public class UpdateBookingsLambda {
   }
 
   /**
-   * Returns the {@link squash.booking.lambdas.utils.IBookingManager}.
+   * Returns the {@link squash.booking.lambdas.core.IBookingManager}.
    */
   protected IBookingManager getBookingManager(LambdaLogger logger) throws Exception {
     // Use a getter here so unit tests can substitute a mock manager
@@ -61,13 +61,13 @@ public class UpdateBookingsLambda {
   }
 
   /**
-   * Returns the {@link squash.booking.lambdas.utils.IPageManager}.
+   * Returns the {@link squash.booking.lambdas.core.IPageManager}.
    */
   protected IPageManager getPageManager(LambdaLogger logger) throws Exception {
     // Use a getter here so unit tests can substitute a mock manager
     if (!pageManager.isPresent()) {
       pageManager = Optional.of(new PageManager());
-      pageManager.get().Initialise(getBookingManager(logger), logger);
+      pageManager.get().initialise(getBookingManager(logger), logger);
     }
     return pageManager.get();
   }
