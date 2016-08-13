@@ -129,6 +129,15 @@ limitations under the License.-->
     background-color: #9ecaed;
     color: white;
   }
+  .adminButton {
+    color: black;
+    background-color: white;
+    border-color: #FA787E;
+    border: 2px solid #dadada;
+    border-radius: 7px;
+    font-size: 80%;
+    float: right
+  }
   #goButton {
 	padding:1px 1px; 
 	background:#0099FF; 
@@ -160,7 +169,7 @@ limitations under the License.-->
 <div align="center" class="dateSelector">
   <button class="dateButton" ng-click="ctrl.incrementOrDecrementDate(-1)" ng-disabled="ctrl.isEarliestDate()">Earlier</button>
   <select ng-options="date as (date | date:'fullDate') for date in ctrl.validDates" ng-model="ctrl.selectedDate" ng-change="ctrl.selectedDateChanged()"></select>
-  <button class="dateButton" ng-click="ctrl.incrementOrDecrementDate(1)" ng-disabled="ctrl.isLatestDate()">Later</button>
+  <button class="dateButton" ng-click="ctrl.incrementOrDecrementDate(1)" ng-disabled="ctrl.isLatestDate()">Later</button><Button class="adminButton" ng-click="ctrl.login()">{{ctrl.loginButtonText()}}</Button>
 </div>
 <table class="bookingTable">
 <thead>

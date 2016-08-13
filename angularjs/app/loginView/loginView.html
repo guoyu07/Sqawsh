@@ -1,0 +1,78 @@
+<!--
+Copyright 2016 Robin Steel
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.-->
+
+<style>
+   .login-form input, button {
+    border-color: #FA787E;
+    border: 2px solid #dadada;
+    border-radius: 7px;
+  }
+  .login-form input:focus {
+    outline: none;
+    border-color: #9ecaed;
+    box-shadow: 0 0 10px #9ecaed;
+  }
+  .login-form button {
+    background-color: Transparent;
+  }
+  .login-form button[type=submit] {
+    background-color: #9ecaed;
+    color: White;
+  }
+  .form-box{
+      border-color: #dadada;
+      border: 2px solid #dadada;
+      border-width: 2px;
+      border-radius: 7px;
+      width: fit-content;
+      padding: 5px;
+      font-family: 'Comic Sans MS', cursive, sans-serif;
+      background-color: rgba(100, 100, 100, 0.1);
+  }
+  form.ng-submitted input.ng-invalid {
+    border-color: tomato;
+    border: 2px solid tomato;
+    border-radius: 7px;
+  }
+  .error {
+    color: tomato;
+  }
+</style>
+<form novalidate class="login-form" ng-submit="ctrl.authenticate(loginForm)" name="loginForm" ng-cloak>
+<div class="form-box">
+Your username:<br>
+<input type="text" ng-model="ctrl.username" ng-model-options="{ updateOn: 'blur' }" placeholder="enter username" name="username" required>
+<span class="error" ng-show="loginForm.username.$error.required && loginForm.$submitted">
+  Required
+</span>
+<br>
+Your password:<br>
+<input type="password" ng-model="ctrl.password" placeholder="enter password" name="password" required>
+<span class="error" ng-show="loginForm.password.$error.required && loginForm.$submitted">
+  Required
+</span>
+<p>
+<button type="submit">Login</button>
+</p>
+<p>
+<span class="error" ng-show="ctrl.authenticationFailed">
+  Login failed.
+</span>
+</p>
+</div>
+<p>
+<button type="button" ng-click="ctrl.returnToBookings()">Return to bookings table without logging in</button>
+</p>
+</form>

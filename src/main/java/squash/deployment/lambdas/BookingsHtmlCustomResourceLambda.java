@@ -122,6 +122,15 @@ public class BookingsHtmlCustomResourceLambda implements
     logger.log("Region: " + region);
     logger.log("Revision: " + revision);
 
+    // API calls below can sometimes give access denied errors during stack
+    // creation which I think is bc required new roles have not yet propagated
+    // across AWS. We sleep here to allow time for this propagation.
+    try {
+      Thread.sleep(10000);
+    } catch (InterruptedException e) {
+      logger.log("Sleep to allow new roles to propagate has been interrupted.");
+    }
+
     // Prepare our response to be sent in the finally block
     CloudFormationResponder cloudFormationResponder = new CloudFormationResponder(
         standardRequestParameters, "DummyPhysicalResourceId");

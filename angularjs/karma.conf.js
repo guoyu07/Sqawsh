@@ -7,6 +7,7 @@ module.exports = function (config) {
       'app/bower_components/angular-route/angular-route.js',
       'app/bower_components/angular-mocks/angular-mocks.js',
 
+      'app/components/identity/mockIdentityService.js',
       'app/components/bookings/mockBookingsService.js',
       'app/reservationView/**/*.js',
       'app/cancellationView/**/*.js',

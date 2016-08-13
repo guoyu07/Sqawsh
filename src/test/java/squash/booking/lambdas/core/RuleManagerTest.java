@@ -19,12 +19,6 @@ package squash.booking.lambdas.core;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import squash.booking.lambdas.core.Booking;
-import squash.booking.lambdas.core.BookingRule;
-import squash.booking.lambdas.core.IBookingManager;
-import squash.booking.lambdas.core.IOptimisticPersister;
-import squash.booking.lambdas.core.RuleManager;
-
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.jmock.Expectations;
@@ -568,9 +562,6 @@ public class RuleManagerTest {
     // ACT
     doTestCreateRuleClashesOrNotWithExistingRule(clashingThursdayRule, true);
   }
-
-  // Case of >1 exclusion active
-  // Java coverage tool?
 
   @Test
   public void testCreateRuleDoesNotThrowWhenNewRuleDoesNotClashWithExistingRules_ExistingNonRecurringNewRecurringSameDayOfWeekNonOverlappingCourt()

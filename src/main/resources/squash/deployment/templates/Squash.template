@@ -95,6 +95,21 @@
       "Type": "Number",
       "Default" : "1",
       "ConstraintDescription" : "Can be any positive integer."
+    },
+    "AdminEmail": {
+      "Description" : "Initial email address of admin user",
+      "Type": "String",
+      "MinLength": "1",
+      "MaxLength": "255",
+      "Default" : "robinsteel19@outlook.com",
+      "ConstraintDescription" : "Must be a valid email address."
+    },
+    "AdminPassword": {
+      "Description" : "Initial password of admin user",
+      "Type": "String",
+      "MinLength": "1",
+      "MaxLength": "255",
+      "Default" : "pAssw0rd"
     }
   },
 
@@ -425,7 +440,7 @@
 
     "SquashCognitoCustomResourceLambdaExecutionRole": {
       "Metadata" : { "Comment1" : "Role assumed by AWS Lambda service to execute",
-                     "Comment2" : "the lambda that manages our Cognito identity pool"},
+                     "Comment2" : "the lambda that manages our Cognito identity and user pools"},
       "Type": "AWS::IAM::Role",
       "Properties": {
         "AssumeRolePolicyDocument": {
@@ -460,6 +475,7 @@
                 "Effect": "Allow",
                 "Action": [
                   "cognito-identity:SetIdentityPoolRoles",
+                  "cognito-identity:UpdateIdentityPool",
                   "cognito-identity:DeleteIdentityPool"
                 ],
                 "Resource": {"Fn::Join" : ["", [
@@ -485,8 +501,20 @@
                   { "Ref" : "AWS::AccountId" },
                   ":identitypool/"
                 ]]}
-              },
-              {
+                },
+                {
+                "Effect": "Allow",
+                "Action": [
+                  "cognito-idp:ListUserPools",
+                  "cognito-idp:CreateUserPool",
+                  "cognito-idp:CreateUserPoolClient",
+                  "cognito-idp:SignUp",
+                  "cognito-idp:AdminConfirmSignUp",
+                  "cognito-idp:DeleteUserPool"
+                ],
+                "Resource": "*"
+                },
+                {
                 "Effect": "Allow",
                 "Action": [
                   "iam:UpdateAssumeRolePolicy"
@@ -1166,6 +1194,9 @@
         "WebsiteBucket" : {"Ref" : "WebsiteBucketName"},
         "AngularjsZipBucket" : {"Ref" : "LambdaZipsBucketName"},
         "CognitoIdentityPoolId": { "Fn::GetAtt" : ["SquashCognitoCustomResource", "CognitoIdentityPoolId"] },
+        "CognitoUserPoolId": { "Fn::GetAtt" : ["SquashCognitoCustomResource", "CognitoUserPoolId"] },
+        "CognitoUserPoolIdentityProviderName": { "Fn::GetAtt" : ["SquashCognitoCustomResource", "CognitoUserPoolIdentityProviderName"] },
+        "JavascriptClientAppId": { "Fn::GetAtt" : ["SquashCognitoCustomResource", "JavascriptClientAppId"] },
         "ApiGatewayBaseUrl" : { "Fn::GetAtt" : ["SquashApiGatewayCustomResource", "ApiGatewayBaseUrl"] }, 
         "Region" : { "Ref" : "AWS::Region" },
         "Revision" : {"Ref" : "LambdaZipsRevision"}
@@ -1384,6 +1415,8 @@
       "Properties" : {
         "ServiceToken": { "Fn::GetAtt" : ["SquashCognitoCustomResourceLambda", "Arn"] },
         "StackName" : { "Ref" : "AWS::StackName" },
+        "AdminEmail" : {"Ref" : "AdminEmail"},
+        "AdminPassword" : {"Ref" : "AdminPassword"},
         "AuthenticatedRole" : { "Fn::GetAtt" : ["SquashCognitoAuthenticatedRole", "Arn"] },
         "AuthenticatedRoleName" : {"Ref" : "SquashCognitoAuthenticatedRole"},
         "UnauthenticatedRole" : { "Fn::GetAtt" : ["SquashCognitoUnauthenticatedRole", "Arn"] },

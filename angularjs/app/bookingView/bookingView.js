@@ -16,7 +16,7 @@
 
 'use strict'
 
-angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService'])
+angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService', 'squashApp.identityService'])
 
   .config(['$routeProvider', function ($routeProvider) {
     $routeProvider.when('/bookings', {
@@ -25,7 +25,7 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService']
     })
   }])
 
-  .controller('BookingViewCtrl', ['$scope', '$location', '$timeout', '$route', 'BookingService', function ($scope, $location, $timeout, $route, BookingService) {
+  .controller('BookingViewCtrl', ['$scope', '$location', '$timeout', '$route', 'BookingService', 'IdentityService', function ($scope, $location, $timeout, $route, BookingService, IdentityService) {
     var self = this
     self.bookings = []
 
@@ -250,6 +250,18 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService']
       } else {
         $location.url('/reservations')
       }
+    }
+
+    self.login = function () {
+      if (IdentityService.isAuthenticated()) {
+        IdentityService.logout()
+      } else {
+        $location.url('/login')
+      }
+    }
+
+    self.loginButtonText = function () {
+      return IdentityService.isAuthenticated() ? 'Logout' : 'Admin'
     }
 
     function reset () {

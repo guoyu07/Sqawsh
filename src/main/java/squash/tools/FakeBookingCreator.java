@@ -144,6 +144,8 @@ public class FakeBookingCreator {
       bookingNode.put("date", booking.getDate());
       bookingsNode.add(bookingNode);
     }
+    // Add empty booking rules array - just so restore works
+    rootNode.putArray("bookingRules");
     rootNode.put("clearBeforeRestore", true);
 
     try (JsonGenerator generator = jsonFactory.createGenerator(new File("FakeBookings.json"),

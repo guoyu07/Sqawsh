@@ -28,6 +28,7 @@ import net.lingala.zip4j.exception.ZipException;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.tuple.ImmutableTriple;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
@@ -37,12 +38,19 @@ import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.DeleteVersionRequest;
 import com.amazonaws.services.s3.model.ListVersionsRequest;
+import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.VersionListing;
 import com.amazonaws.services.s3.transfer.TransferManager;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.net.URL;
+import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -81,6 +89,9 @@ public class AngularjsAppCustomResourceLambda implements
    * <li>WebsiteBucket - name of S3 bucket serving the booking website.</li>
    * <li>AngularjsZipBucket - S3 bucket holding the Angularjs app zip file.</li>
    * <li>CognitoIdentityPoolId - id of the Cognito Identity Pool.</li>
+   * <li>CognitoUserPoolId - id of the Cognito User Pool.</li>
+   * <li>CognitoUserPoolIdentityProviderName - Name of user pool identity provider.</li>
+   * <li>JavascriptClientAppId - id of the Cognito User Pool app to use from javascript.</li>
    * <li>ApiGatewayBaseUrl - base Url of the ApiGateway Api.</li>
    * <li>Region - the AWS region in which the Cloudformation stack is created.
    * </li>
@@ -118,6 +129,10 @@ public class AngularjsAppCustomResourceLambda implements
     String websiteBucket = (String) resourceProps.get("WebsiteBucket");
     String angularjsZipBucket = (String) resourceProps.get("AngularjsZipBucket");
     String cognitoIdentityPoolId = (String) resourceProps.get("CognitoIdentityPoolId");
+    String cognitoUserPoolId = (String) resourceProps.get("CognitoUserPoolId");
+    String cognitoUserPoolIdentityProviderName = (String) resourceProps
+        .get("CognitoUserPoolIdentityProviderName");
+    String javascriptClientAppId = (String) resourceProps.get("JavascriptClientAppId");
     String apiGatewayBaseUrl = (String) resourceProps.get("ApiGatewayBaseUrl");
     String region = (String) resourceProps.get("Region");
     String revision = (String) resourceProps.get("Revision");
@@ -126,9 +141,21 @@ public class AngularjsAppCustomResourceLambda implements
     logger.log("WebsiteBucket: " + websiteBucket);
     logger.log("AngularjsZipBucket: " + angularjsZipBucket);
     logger.log("CognitoIdentityPoolId: " + cognitoIdentityPoolId);
+    logger.log("CognitoUserPoolId: " + cognitoUserPoolId);
+    logger.log("CognitoUserPoolIdentityProviderName: " + cognitoUserPoolIdentityProviderName);
+    logger.log("JavascriptClientAppId: " + javascriptClientAppId);
     logger.log("ApiGatewayBaseUrl: " + apiGatewayBaseUrl);
     logger.log("Region: " + region);
     logger.log("Revision: " + revision);
+
+    // API calls below can sometimes give access denied errors during stack
+    // creation which I think is bc required new roles have not yet propagated
+    // across AWS. We sleep here to allow time for this propagation.
+    try {
+      Thread.sleep(10000);
+    } catch (InterruptedException e) {
+      logger.log("Sleep to allow new roles to propagate has been interrupted.");
+    }
 
     // Prepare our response to be sent in the finally block
     CloudFormationResponder cloudFormationResponder = new CloudFormationResponder(
@@ -159,7 +186,7 @@ public class AngularjsAppCustomResourceLambda implements
           logger.log("Downloaded Angularjs zip successfully from S3");
 
           // Modify the BookingsService file to point to the correct
-          // Cognito identity pool, ApiGateway base url, and region.
+          // Cognito data, ApiGateway base url, and region.
           logger.log("Extracting Angularjs zip");
           String extractPath = "/tmp";
           try {
@@ -173,7 +200,7 @@ public class AngularjsAppCustomResourceLambda implements
           logger.log("Extracted Angularjs zip");
 
           logger
-              .log("Modifying the BookingsService file to point to the correct Cognito identity pool, ApiGatewayBaseUrl, and region");
+              .log("Modifying the BookingsService file to point to the correct ApiGatewayBaseUrl, and region");
           String bookingsServiceContent;
           String bookingsServicePath = extractPath + "/app/components/bookings/bookingsService.js";
           try (FileInputStream inputStream = new FileInputStream(bookingsServicePath)) {
@@ -182,15 +209,37 @@ public class AngularjsAppCustomResourceLambda implements
           bookingsServiceContent = bookingsServiceContent
               .replace("var comSquashRegion = 'stringtobereplaced'",
                   "var comSquashRegion = '" + region + "'")
-              .replace("var comSquashIdentityPoolId = 'stringtobereplaced'",
-                  "var comSquashIdentityPoolId = '" + cognitoIdentityPoolId + "'")
               .replace("var comSquashApiGatewayBaseUrl = 'stringtobereplaced'",
                   "var comSquashApiGatewayBaseUrl = '" + apiGatewayBaseUrl + "'")
               .replace("var comSquashWebsiteBucket = 'stringtobereplaced'",
                   "var comSquashWebsiteBucket = '" + websiteBucket + "'");
           FileUtils.writeStringToFile(new File(bookingsServicePath), bookingsServiceContent);
           logger
-              .log("Modified the BookingsService file to point to the correct Cognito identity pool, ApiGatewayBaseUrl, and region");
+              .log("Modified the BookingsService file to point to the correct ApiGatewayBaseUrl, and region");
+
+          logger
+              .log("Modifying the IdentityService file to point to the correct Cognito data, and region");
+          String identityServiceContent;
+          String identityServicePath = extractPath + "/app/components/identity/identityService.js";
+          try (FileInputStream inputStream = new FileInputStream(identityServicePath)) {
+            identityServiceContent = IOUtils.toString(inputStream);
+          }
+          identityServiceContent = identityServiceContent
+              .replace("var comSquashRegion = 'stringtobereplaced'",
+                  "var comSquashRegion = '" + region + "'")
+              .replace("var comSquashIdentityPoolId = 'stringtobereplaced'",
+                  "var comSquashIdentityPoolId = '" + cognitoIdentityPoolId + "'")
+              .replace("var comSquashUserPoolId = 'stringtobereplaced'",
+                  "var comSquashUserPoolId = '" + cognitoUserPoolId + "'")
+              .replace(
+                  "var comSquashUserPoolIdentityProviderName = 'stringtobereplaced'",
+                  "var comSquashUserPoolIdentityProviderName = '"
+                      + cognitoUserPoolIdentityProviderName + "'")
+              .replace("var comSquashClientAppId = 'stringtobereplaced'",
+                  "var comSquashClientAppId = '" + javascriptClientAppId + "'");
+          FileUtils.writeStringToFile(new File(identityServicePath), identityServiceContent);
+          logger
+              .log("Modified the IdentityService file to point to the correct Cognito identity pool, and region");
 
           // Upload the modified app to the S3 website bucket
           logger.log("Uploading modified Angularjs app to S3 website bucket");
@@ -199,11 +248,64 @@ public class AngularjsAppCustomResourceLambda implements
               new File(extractPath + "/app"), true), logger);
           logger.log("Uploaded modified Angularjs app to S3 website bucket");
 
-          // Page must be public so it can be served from the website
+          // Upload Cognito SDKs and their dependencies.
+          logger.log("About to upload Cognito libraries");
+          List<ImmutableTriple<String, String, byte[]>> cognitoLibraries = new ArrayList<>();
+          cognitoLibraries
+              .add(new ImmutableTriple<>(
+                  "Cognito SDK",
+                  "aws-cognito-sdk.min.js",
+                  IOUtils
+                      .toByteArray(new URL(
+                          "https://raw.githubusercontent.com/aws/amazon-cognito-identity-js/master/dist/aws-cognito-sdk.min.js"))));
+          cognitoLibraries
+              .add(new ImmutableTriple<>(
+                  "Cognito Identity SDK",
+                  "amazon-cognito-identity.min.js",
+                  IOUtils
+                      .toByteArray(new URL(
+                          "https://raw.githubusercontent.com/aws/amazon-cognito-identity-js/master/dist/amazon-cognito-identity.min.js"))));
+          cognitoLibraries.add(new ImmutableTriple<>("Big Integer Library", "jsbn.js", IOUtils
+              .toByteArray(new URL("http://www-cs-students.stanford.edu/~tjw/jsbn/jsbn.js"))));
+          cognitoLibraries.add(new ImmutableTriple<>("Big Integer Library 2", "jsbn2.js", IOUtils
+              .toByteArray(new URL("http://www-cs-students.stanford.edu/~tjw/jsbn/jsbn2.js"))));
+
+          // The SJCL still seems to need configuring to include the bytes
+          // codec, despite 1.0 of Cognito Idp saying it had removed this
+          // dependency. So for now we get this bytes-codec-configured version
+          // from our resources.
+          String sjcl_library;
+          try {
+            sjcl_library = IOUtils.toString(AngularjsAppCustomResourceLambda.class
+                .getResourceAsStream("/squash/deployment/lambdas/sjcl.js"));
+          } catch (IOException e) {
+            logger.log("Exception caught reading sjcl.js file: " + e.getMessage());
+            throw new Exception("Exception caught reading sjcl.js file");
+          }
+          logger.log("Read modified SJCL library from resources");
+          cognitoLibraries.add(new ImmutableTriple<>("Stanford Javascript Crypto Library",
+              "sjcl.js", sjcl_library.getBytes(Charset.forName("UTF-8"))));
+
+          for (ImmutableTriple<String, String, byte[]> cognitoLibrary : cognitoLibraries) {
+            logger.log("Uploading a Cognito library to S3 website bucket. Library name: "
+                + cognitoLibrary.left);
+            ByteArrayInputStream libraryAsStream = new ByteArrayInputStream(cognitoLibrary.right);
+            ObjectMetadata metadata = new ObjectMetadata();
+            metadata.setContentLength(cognitoLibrary.right.length);
+            String keyName = "app/components/identity/cognito/" + cognitoLibrary.middle;
+            logger.log("Uploading to key: " + keyName);
+            PutObjectRequest putObjectRequest = new PutObjectRequest(websiteBucket, keyName,
+                libraryAsStream, metadata);
+            TransferUtils.waitForS3Transfer(transferManager.upload(putObjectRequest), logger);
+            logger.log("Uploaded a Cognito library to S3 website bucket: " + cognitoLibrary.left);
+          }
+
+          // App content must be public so it can be served from the website
           logger.log("Modifying Angularjs app ACL in S3 website bucket");
           TransferUtils
               .setPublicReadPermissionsOnBucket(websiteBucket, Optional.of("app/"), logger);
           logger.log("Modified Angularjs app ACL in S3 website bucket");
+
         } catch (IOException ioe) {
           logger.log("Caught an IO Exception: " + ioe.getMessage());
           throw ioe;

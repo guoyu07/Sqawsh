@@ -18,9 +18,8 @@
 
 'use strict'
 
-angular.module('squashApp.bookingsService', [])
-
-  .factory('BookingService', ['$q', function ($q) {
+angular.module('squashApp.bookingsService', ['squashApp.identityService'])
+  .factory('BookingService', ['$q', 'IdentityService', function ($q, IdentityService) {
     // Set up court numbers and booking time slots
     var numCourts = 5
     var courtNumbers = Array(numCourts).fill(0).map((x, i, a) => (i + 1))
@@ -34,13 +33,11 @@ angular.module('squashApp.bookingsService', [])
 
     // Initialize the Amazon Cognito credentials provider for calling AWS ApiGateway
     var comSquashRegion = 'stringtobereplaced' // will be replaced at stack creation time
-    var comSquashIdentityPoolId = 'stringtobereplaced' // will be replaced at stack creation time
     var comSquashApiGatewayBaseUrl = 'stringtobereplaced' // will be replaced at stack creation time
     var comSquashWebsiteBucket = 'stringtobereplaced' // will be replaced at stack creation time
     AWS.config.region = comSquashRegion // Region
-    AWS.config.credentials = new AWS.CognitoIdentityCredentials({
-      IdentityPoolId: comSquashIdentityPoolId
-    })
+    IdentityService.setUpGuestCredentials()
+
     // Workaround for occasional 504 timeouts from API Gateway bc 10-second timeout.
     // N.B. Lambda can be sluggish on cold-starts. May need tweaking.
     AWS.config.maxRetries = 4

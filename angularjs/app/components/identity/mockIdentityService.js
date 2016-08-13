@@ -16,15 +16,12 @@
 
 'use strict'
 
-// Declare app level module which depends on views, and components
-angular.module('squashApp', [
-  'ngRoute',
-  'squashApp.loginView',
-  'squashApp.bookingView',
-  'squashApp.reservationView',
-  'squashApp.cancellationView',
-  'squashApp.identityService',
-  'squashApp.bookingsService'
-]).config(['$routeProvider', function ($routeProvider) {
-  $routeProvider.otherwise({redirectTo: '/bookings'})
-}])
+angular.module('squashApp.identityService', [])
+  .factory('IdentityService', [function () {
+    return {
+      setUpGuestCredentials: function () {},
+      isAuthenticated: function () { return false },
+      authenticate: function (username, password) {},
+      logout: function () {}
+    }
+  }])

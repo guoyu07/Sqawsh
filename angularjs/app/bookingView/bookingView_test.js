@@ -24,7 +24,8 @@ describe('squashApp.bookingView module', function () {
   var getBookingsSpy
 
   beforeEach(function () {
-    // Load mock booking service module: this avoids AWS dependencies...
+    // Load mock booking and identity service modules: this avoids AWS dependencies...
+    module('squashApp.identityService')
     module('squashApp.bookingsService')
   })
 
