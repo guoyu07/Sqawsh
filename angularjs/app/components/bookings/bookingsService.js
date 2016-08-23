@@ -36,7 +36,6 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
     var comSquashApiGatewayBaseUrl = 'stringtobereplaced' // will be replaced at stack creation time
     var comSquashWebsiteBucket = 'stringtobereplaced' // will be replaced at stack creation time
     AWS.config.region = comSquashRegion // Region
-    IdentityService.setUpGuestCredentials()
 
     // Workaround for occasional 504 timeouts from API Gateway bc 10-second timeout.
     // N.B. Lambda can be sluggish on cold-starts. May need tweaking.
@@ -46,22 +45,16 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
     var apigClient
     var getApigClient = function () {
       return $q(function (resolve, reject) {
-        // Return existing client if we have one...
-        if (apigClient) {
-          resolve(apigClient)
-        }
-
-        // ...otherwise create a new one with new guest credentials from Cognito
-        AWS.config.credentials.get(function (error) {
-          if (error) {
-            reject(error)
-          }
-          resolve(apigClientFactory.newClient({
+        IdentityService.updateCredentials().then(function () {
+          // For now, create new client each time to ensure credentials are current.
+          // N.B. This client does not support credentials key in its config.
+          apigClient = apigClientFactory.newClient({
             accessKey: AWS.config.credentials.accessKeyId,
             secretKey: AWS.config.credentials.secretAccessKey,
             sessionToken: AWS.config.credentials.sessionToken,
             region: comSquashRegion
-          }))
+          })
+          resolve(apigClient)
         })
       })
     }
@@ -70,22 +63,18 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
     var s3Client
     var getS3Client = function () {
       return $q(function (resolve, reject) {
-        // Return existing client if we have one...
-        if (s3Client) {
-          resolve(s3Client)
-        }
-
-        // ...otherwise create a new one with new guest credentials from Cognito
-        AWS.config.credentials.get(function (error) {
-          if (error) {
-            reject(error)
+        IdentityService.updateCredentials().then(function () {
+          // Return existing client if we have one...
+          if (s3Client) {
+            resolve(s3Client)
           }
-          resolve(new AWS.S3({
-            accessKeyId: AWS.config.credentials.accessKeyId,
-            secretKey: AWS.config.credentials.secretAccessKey,
-            sessionToken: AWS.config.credentials.sessionToken,
+
+          // ...otherwise create a new one with credentials from Cognito
+          s3Client = new AWS.S3({
+            credentials: AWS.config.credentials,
             region: comSquashRegion
-          }))
+          })
+          resolve(s3Client)
         })
       })
     }
@@ -197,13 +186,13 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
             throw new BookingServiceError(error, builder)
           })
       },
-      reserveCourt: function (court, slot, date, player1, player2, password) {
+      reserveCourt: function (court, courtSpan, slot, slotSpan, date, player1, player2, password) {
         var booking = {
           'putOrDelete': 'PUT',
           'court': court,
-          'courtSpan': 1,
+          'courtSpan': courtSpan,
           'slot': slot,
-          'slotSpan': 1,
+          'slotSpan': slotSpan,
           'player1name': player1,
           'player2name': player2,
           'date': date,
@@ -228,13 +217,13 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
             throw error
           })
       },
-      cancelCourt: function (court, slot, date, players, password) {
+      cancelCourt: function (court, courtSpan, slot, slotSpan, date, players, password) {
         var booking = {
           'putOrDelete': 'DELETE',
           'court': court,
-          'courtSpan': 1,
+          'courtSpan': courtSpan,
           'slot': slot,
-          'slotSpan': 1,
+          'slotSpan': slotSpan,
           'players': players,
           'date': date,
           'password': password,

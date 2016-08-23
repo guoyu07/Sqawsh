@@ -17,11 +17,19 @@
 'use strict'
 
 angular.module('squashApp.identityService', [])
-  .factory('IdentityService', [function () {
+  .factory('IdentityService', ['$q', function ($q) {
     return {
-      setUpGuestCredentials: function () {},
-      isAuthenticated: function () { return false },
-      authenticate: function (username, password) {},
-      logout: function () {}
+      updateCredentials: function () {},
+      isLoggedIn: function () { return false },
+      login: function (username, password) {
+        return $q(function (resolve, reject) {
+          resolve()
+        })
+      },
+      logout: function () {
+        return $q(function (resolve, reject) {
+          resolve()
+        })
+      }
     }
   }])

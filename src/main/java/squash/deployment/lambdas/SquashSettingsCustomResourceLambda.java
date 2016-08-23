@@ -68,6 +68,7 @@ public class SquashSettingsCustomResourceLambda implements
    *    to the standard ones) provided via the Cloudformation stack template:
    * <ul>
    *    <li>SimpleDBDomainName - name of SimpleDb domain used to store squash bookings.</li>
+   *    <li>CognitoIdentityPoolId - id of the Cognito identity pool</li>
    *    <li>WebsiteBucket - name of S3 bucket serving the booking website.</li>
    *    <li>DatabaseBackupBucket - name of S3 bucket in which to store bookings database backups.</li>
    *    <li>DatabaseBackupSNSTopic - arn of SNS topic to notify with bookings database backups.</li>
@@ -97,6 +98,7 @@ public class SquashSettingsCustomResourceLambda implements
     @SuppressWarnings("unchecked")
     Map<String, Object> resourceProps = (Map<String, Object>) request.get("ResourceProperties");
     String simpleDBDomainName = (String) resourceProps.get("SimpleDBDomainName");
+    String cognitoIdentityPoolId = (String) resourceProps.get("CognitoIdentityPoolId");
     String websiteBucket = (String) resourceProps.get("WebsiteBucket");
     String databaseBackupBucket = (String) resourceProps.get("DatabaseBackupBucket");
     String databaseBackupSNSTopic = (String) resourceProps.get("DatabaseBackupSNSTopic");
@@ -108,6 +110,7 @@ public class SquashSettingsCustomResourceLambda implements
 
     // Log out our custom request parameters
     logger.log("SimpleDBDomainName: " + simpleDBDomainName);
+    logger.log("CognitoIdentityPoolId: " + cognitoIdentityPoolId);
     logger.log("WebsiteBucket: " + websiteBucket);
     logger.log("DatabaseBackupBucket: " + databaseBackupBucket);
     logger.log("DatabaseBackupSNSTopic: " + databaseBackupSNSTopic);
@@ -178,8 +181,9 @@ public class SquashSettingsCustomResourceLambda implements
                     while ((len = (is.read(buf))) > 0) {
                       String s = new String(buf);
                       if (s
-                          .contains("simpledbdomainname=stringtobereplaced\ns3websitebucketname=stringtobereplaced\ndatabasebackupbucketname=stringtobereplaced\ndatabasebackupsnstopicarn=stringtobereplaced\nregion=stringtobereplaced")) {
+                          .contains("simpledbdomainname=stringtobereplaced\ncognitoidentitypoolid=stringtobereplaced\ns3websitebucketname=stringtobereplaced\ndatabasebackupbucketname=stringtobereplaced\ndatabasebackupsnstopicarn=stringtobereplaced\nregion=stringtobereplaced")) {
                         String modified = "simpledbdomainname=" + simpleDBDomainName
+                            + "\ncognitoidentitypoolid=" + cognitoIdentityPoolId
                             + "\ns3websitebucketname=" + websiteBucket
                             + "\ndatabasebackupbucketname=" + databaseBackupBucket
                             + "\ndatabasebackupsnstopicarn=" + databaseBackupSNSTopic + "\nregion="

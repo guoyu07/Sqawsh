@@ -38,7 +38,9 @@ describe('squashApp.reservationView module', function () {
 
     // Set up some mock properties on the bookings service
     bookingService.activeCourt = 2
+    bookingService.activeCourtSpan = 1
     bookingService.activeSlot = 1
+    bookingService.activeSlotSpan = 1
     bookingService.activeSlotIndex = 0
     bookingService.activeDate = '2016-04-24'
     bookingService.player1 = 'J.Wilstrop'
@@ -72,9 +74,26 @@ describe('squashApp.reservationView module', function () {
       expect(bookingService.reserveCourt).not.toHaveBeenCalled()
       reservationViewCtrl.submitReservation({'$invalid': false})
       expect(bookingService.reserveCourt).toHaveBeenCalledWith(
-        2, 1, '2016-04-24', 'J.Wilstrop', 'N.Mathew', 'TheBogieman'
+        2, 1, 1, 1, '2016-04-24', 'J.Wilstrop', 'N.Mathew', 'TheBogieman'
       )
     })
+
+    it('should submit a court reservation form with the correct block booking spans', inject(function ($rootScope, $controller) {
+      // The reservation call should use the row and column spans as filled out on the reservation form
+
+      // Set up non-unit row and column spans
+      bookingService.activeCourtSpan = 4
+      bookingService.activeSlotSpan = 7
+
+      reservationViewCtrl.password = 'TheBogieman'
+      reservationViewCtrl.rowSpan = 7
+      reservationViewCtrl.colSpan = 4
+      expect(bookingService.reserveCourt).not.toHaveBeenCalled()
+      reservationViewCtrl.submitReservation({'$invalid': false})
+      expect(bookingService.reserveCourt).toHaveBeenCalledWith(
+        2, 4, 1, 7, '2016-04-24', 'J.Wilstrop', 'N.Mathew', 'TheBogieman'
+      )
+    }))
 
     it('should return to the booking view after an error-free submission of a court reservation', inject(function ($rootScope, $location) {
       // Perform an error-free submission
@@ -104,11 +123,40 @@ describe('squashApp.reservationView module', function () {
       spyOn($location, 'url')
       expect(reservationViewCtrl.bookingCreationFailed).toBe(false)
       expect(reservationViewCtrl.passwordIncorrect).toBe(false)
+      expect(reservationViewCtrl.unauthenticatedBlockBookingError).toBe(false)
       expect(reservationViewCtrl.bookingFailed).toBe(false)
       $rootScope.$apply()
 
       expect(reservationViewCtrl.bookingCreationFailed).toBe(false)
       expect(reservationViewCtrl.passwordIncorrect).toBe(true)
+      expect(reservationViewCtrl.unauthenticatedBlockBookingError).toBe(false)
+      expect(reservationViewCtrl.bookingFailed).toBe(true)
+
+      // Verify we do not navigate away from the reservation form
+      expect($location.url).not.toHaveBeenCalled()
+    }))
+
+    it('should set the unauthenticated block booking error flag when a block-booking reservation is submitted whilst unauthenticated', inject(function ($rootScope, $location, $q) {
+      // Configure the reserveCourt mock to return the unauthenticated block booking error
+      reserveCourtSpy.and.returnValue(
+        $q(function (resolve, reject) { reject({'data': 'You must login to manage block bookings'}) })
+      )
+
+      // Submit a valid reservation
+      reservationViewCtrl.password = 'TheBogieman'
+      reservationViewCtrl.submitReservation({'$invalid': false})
+
+      // Trigger the promise chain
+      spyOn($location, 'url')
+      expect(reservationViewCtrl.bookingCreationFailed).toBe(false)
+      expect(reservationViewCtrl.passwordIncorrect).toBe(false)
+      expect(reservationViewCtrl.unauthenticatedBlockBookingError).toBe(false)
+      expect(reservationViewCtrl.bookingFailed).toBe(false)
+      $rootScope.$apply()
+
+      expect(reservationViewCtrl.bookingCreationFailed).toBe(false)
+      expect(reservationViewCtrl.passwordIncorrect).toBe(false)
+      expect(reservationViewCtrl.unauthenticatedBlockBookingError).toBe(true)
       expect(reservationViewCtrl.bookingFailed).toBe(true)
 
       // Verify we do not navigate away from the reservation form
@@ -132,11 +180,13 @@ describe('squashApp.reservationView module', function () {
       spyOn($location, 'url')
       expect(reservationViewCtrl.bookingCreationFailed).toBe(false)
       expect(reservationViewCtrl.passwordIncorrect).toBe(false)
+      expect(reservationViewCtrl.unauthenticatedBlockBookingError).toBe(false)
       expect(reservationViewCtrl.bookingFailed).toBe(false)
       $rootScope.$apply()
 
       expect(reservationViewCtrl.bookingCreationFailed).toBe(true)
       expect(reservationViewCtrl.passwordIncorrect).toBe(false)
+      expect(reservationViewCtrl.unauthenticatedBlockBookingError).toBe(false)
       expect(reservationViewCtrl.bookingFailed).toBe(true)
 
       // Verify we do not navigate away from the reservation form
@@ -160,11 +210,13 @@ describe('squashApp.reservationView module', function () {
       spyOn($location, 'url')
       expect(reservationViewCtrl.bookingCreationFailed).toBe(false)
       expect(reservationViewCtrl.passwordIncorrect).toBe(false)
+      expect(reservationViewCtrl.unauthenticatedBlockBookingError).toBe(false)
       expect(reservationViewCtrl.bookingFailed).toBe(false)
       $rootScope.$apply()
 
       expect(reservationViewCtrl.bookingCreationFailed).toBe(false)
       expect(reservationViewCtrl.passwordIncorrect).toBe(false)
+      expect(reservationViewCtrl.unauthenticatedBlockBookingError).toBe(false)
       expect(reservationViewCtrl.bookingFailed).toBe(true)
 
       // Verify we do not navigate away from the reservation form

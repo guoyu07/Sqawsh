@@ -77,6 +77,7 @@ public class PutDeleteBookingLambdaTest {
     putDeleteBookingLambda.setBackupManager(mockery.mock(IBackupManager.class));
     putDeleteBookingLambda.setPageManager(mockery.mock(IPageManager.class));
     putDeleteBookingLambda.setBookingManager(mockery.mock(IBookingManager.class));
+    putDeleteBookingLambda.setCognitoIdentityPoolId("poolId");
 
     // Set up the valid date range
     fakeCurrentDate = LocalDate.of(2015, 10, 6);
@@ -131,13 +132,14 @@ public class PutDeleteBookingLambdaTest {
     mockery.assertIsSatisfied();
   }
 
-  // Define a test sublass with some overrides to facilitate testing
+  // Define a test subclass with some overrides to facilitate testing
   public class TestPutDeleteBookingLambda extends PutDeleteBookingLambda {
     private IBackupManager backupManager;
     private IBookingManager bookingManager;
     private IPageManager pageManager;
     private LocalDate currentLocalDate;
     private List<String> validDates;
+    private String cognitoIdentityPoolId;
 
     public void setBackupManager(IBackupManager backupManager) {
       this.backupManager = backupManager;
@@ -183,6 +185,22 @@ public class PutDeleteBookingLambdaTest {
     protected List<String> getValidDates() {
       return validDates;
     }
+
+    public void setCognitoIdentityPoolId(String cognitoIdentityPoolId) {
+      this.cognitoIdentityPoolId = cognitoIdentityPoolId;
+    }
+
+    public String getCognitoIdentityPoolId() {
+      return cognitoIdentityPoolId;
+    }
+
+    @Override
+    public String getStringProperty(String propertyName, LambdaLogger logger) {
+      if (propertyName.equals("cognitoidentitypoolid")) {
+        return cognitoIdentityPoolId;
+      }
+      return null;
+    }
   }
 
   @Test
@@ -191,7 +209,8 @@ public class PutDeleteBookingLambdaTest {
     doTestPutDeleteBookingThrowsIfParameterInvalid(
         "0", // Invalid
         courtSpan.toString(), slot.toString(), slotSpan.toString(), playersNames, player1Name,
-        player2Name, fakeCurrentDateString, password, apiGatewayBaseUrl, redirectUrl,
+        player2Name, fakeCurrentDateString, password, "authenticated",
+        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, redirectUrl,
         "The booking court number is outside the valid range (1-5). Please try again.redirectUrl",
         true);
   }
@@ -202,7 +221,8 @@ public class PutDeleteBookingLambdaTest {
     doTestPutDeleteBookingThrowsIfParameterInvalid(
         "6", // Invalid
         courtSpan.toString(), slot.toString(), slotSpan.toString(), playersNames, player1Name,
-        player2Name, fakeCurrentDateString, password, apiGatewayBaseUrl, redirectUrl,
+        player2Name, fakeCurrentDateString, password, "authenticated",
+        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, redirectUrl,
         "The booking court number is outside the valid range (1-5). Please try again.redirectUrl",
         true);
   }
@@ -220,6 +240,8 @@ public class PutDeleteBookingLambdaTest {
         player2Name,
         fakeCurrentDateString,
         password,
+        "authenticated",
+        putDeleteBookingLambda.getCognitoIdentityPoolId(),
         apiGatewayBaseUrl,
         redirectUrl,
         "The booking court span is outside the valid range (1-(6-court)). Please try again.redirectUrl",
@@ -240,6 +262,8 @@ public class PutDeleteBookingLambdaTest {
         player2Name,
         fakeCurrentDateString,
         password,
+        "authenticated",
+        putDeleteBookingLambda.getCognitoIdentityPoolId(),
         apiGatewayBaseUrl,
         redirectUrl,
         "The booking court span is outside the valid range (1-(6-court)). Please try again.redirectUrl",
@@ -254,7 +278,8 @@ public class PutDeleteBookingLambdaTest {
         courtSpan.toString(),
         "0", // Invalid
         slotSpan.toString(), playersNames, player1Name, player2Name, fakeCurrentDateString,
-        password, apiGatewayBaseUrl, redirectUrl,
+        password, "authenticated", putDeleteBookingLambda.getCognitoIdentityPoolId(),
+        apiGatewayBaseUrl, redirectUrl,
         "The booking time slot is outside the valid range (1-16). Please try again.redirectUrl",
         true);
   }
@@ -267,7 +292,8 @@ public class PutDeleteBookingLambdaTest {
         courtSpan.toString(),
         "17", // Invalid
         slotSpan.toString(), playersNames, player1Name, player2Name, fakeCurrentDateString,
-        password, apiGatewayBaseUrl, redirectUrl,
+        password, "authenticated", putDeleteBookingLambda.getCognitoIdentityPoolId(),
+        apiGatewayBaseUrl, redirectUrl,
         "The booking time slot is outside the valid range (1-16). Please try again.redirectUrl",
         true);
   }
@@ -285,6 +311,8 @@ public class PutDeleteBookingLambdaTest {
         player2Name,
         fakeCurrentDateString,
         password,
+        "authenticated",
+        putDeleteBookingLambda.getCognitoIdentityPoolId(),
         apiGatewayBaseUrl,
         redirectUrl,
         "The booking time slot span is outside the valid range (1- (17 - slot)). Please try again.redirectUrl",
@@ -305,6 +333,8 @@ public class PutDeleteBookingLambdaTest {
         player2Name,
         fakeCurrentDateString,
         password,
+        "authenticated",
+        putDeleteBookingLambda.getCognitoIdentityPoolId(),
         apiGatewayBaseUrl,
         redirectUrl,
         "The booking time slot span is outside the valid range (1- (17 - slot)). Please try again.redirectUrl",
@@ -325,6 +355,8 @@ public class PutDeleteBookingLambdaTest {
         player2Name,
         fakeCurrentDateString,
         password,
+        "authenticated",
+        putDeleteBookingLambda.getCognitoIdentityPoolId(),
         apiGatewayBaseUrl,
         redirectUrl,
         "The players names should have a format like J.Power i.e. Initial.Surname. Please try again.redirectUrl",
@@ -345,6 +377,8 @@ public class PutDeleteBookingLambdaTest {
         "Playerb", // Invalid - no initial for second player
         fakeCurrentDateString,
         password,
+        "authenticated",
+        putDeleteBookingLambda.getCognitoIdentityPoolId(),
         apiGatewayBaseUrl,
         redirectUrl,
         "The players names should have a format like J.Power i.e. Initial.Surname. Please try again.redirectUrl",
@@ -355,9 +389,11 @@ public class PutDeleteBookingLambdaTest {
   public void testCreateBookingThrowsIfPlayersNamesInWrongFormat_NoPlayer1() throws Exception {
 
     doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(), courtSpan.toString(),
-        slot.toString(), slotSpan.toString(), "/" + player2Name,
+        slot.toString(), slotSpan.toString(),
+        "/" + player2Name,
         "", // Invalid - no first player
-        player2Name, fakeCurrentDateString, password, apiGatewayBaseUrl, redirectUrl,
+        player2Name, fakeCurrentDateString, password, "authenticated",
+        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, redirectUrl,
         "Names of both players should be given. Please try again.redirectUrl", true);
   }
 
@@ -365,9 +401,11 @@ public class PutDeleteBookingLambdaTest {
   public void testCreateBookingThrowsIfPlayersNamesInWrongFormat_NoPlayer2() throws Exception {
 
     doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(), courtSpan.toString(),
-        slot.toString(), slotSpan.toString(), player1Name + "/", player1Name,
+        slot.toString(), slotSpan.toString(), player1Name + "/",
+        player1Name,
         "", // Invalid - no second player
-        fakeCurrentDateString, password, apiGatewayBaseUrl, redirectUrl,
+        fakeCurrentDateString, password, "authenticated",
+        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, redirectUrl,
         "Names of both players should be given. Please try again.redirectUrl", true);
   }
 
@@ -376,9 +414,11 @@ public class PutDeleteBookingLambdaTest {
 
     // Just have one test of this for now
     doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(), courtSpan.toString(),
-        slot.toString(), slotSpan.toString(), playersNames, player1Name, player2Name,
+        slot.toString(), slotSpan.toString(), playersNames, player1Name,
+        player2Name,
         "2015-10-08", // Invalid - too far into the future
-        password, apiGatewayBaseUrl, redirectUrl,
+        password, "authenticated", putDeleteBookingLambda.getCognitoIdentityPoolId(),
+        apiGatewayBaseUrl, redirectUrl,
         "The booking date is outside the valid range. Please try again.redirectUrl", true);
   }
 
@@ -389,14 +429,80 @@ public class PutDeleteBookingLambdaTest {
         slot.toString(), slotSpan.toString(), playersNames, player1Name, player2Name,
         fakeCurrentDateString,
         "pAssw0Rd", // Wrong password
-        apiGatewayBaseUrl, redirectUrl, "The password is incorrect. Please try again.redirectUrl",
-        true);
+        "authenticated", putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl,
+        redirectUrl, "The password is incorrect. Please try again.redirectUrl", true);
+  }
+
+  @Test
+  public void testCreateBlockBookingThrowsIfNotAuthenticated() throws Exception {
+
+    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(), "2", slot.toString(), "2",
+        playersNames, player1Name, player2Name, fakeCurrentDateString, password,
+        "unauthenticated", // Not authenticated
+        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, redirectUrl,
+        "You must login to manage block bookings. Please try again.redirectUrl", true);
+  }
+
+  @Test
+  public void testCreateBlockBookingThrowsIfAuthenticatedWithWrongCognitoPool() throws Exception {
+
+    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(), "2", slot.toString(), "2",
+        playersNames, player1Name, player2Name, fakeCurrentDateString, password,
+        "authenticated", // Authenticated...
+        "wrong identity pool", // ...but with wrong pool
+        apiGatewayBaseUrl, redirectUrl,
+        "You must login to manage block bookings. Please try again.redirectUrl", true);
+  }
+
+  @Test
+  public void testCreateSingleBookingDoesNotThrowIfNotAuthenticated() throws Exception {
+
+    // Lack of authentication should be irrelevant for non-block bookings
+
+    // ARRANGE
+    // Don't care about manager calls in this test
+    mockery.checking(new Expectations() {
+      {
+        ignoring(putDeleteBookingLambda.getBookingManager(mockLogger));
+        ignoring(putDeleteBookingLambda.getPageManager(mockLogger));
+        ignoring(putDeleteBookingLambda.getBackupManager(mockLogger));
+      }
+    });
+
+    // ACT and ASSERT
+    doTestCreateBooking(fakeCurrentDateString, playersNames, player1Name, player2Name,
+        court.toString(), "1", slot.toString(), "1", password, "unauthenticated", // Not
+                                                                                  // authenticated
+        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, false);
+  }
+
+  @Test
+  public void testCreateSingleBookingDoesNotThrowIfAuthenticatedWithWrongPool() throws Exception {
+
+    // Lack of authentication should be irrelevant for non-block bookings
+
+    // ARRANGE
+    // Don't care about manager calls in this test
+    mockery.checking(new Expectations() {
+      {
+        ignoring(putDeleteBookingLambda.getBookingManager(mockLogger));
+        ignoring(putDeleteBookingLambda.getPageManager(mockLogger));
+        ignoring(putDeleteBookingLambda.getBackupManager(mockLogger));
+      }
+    });
+
+    // ACT and ASSERT
+    doTestCreateBooking(fakeCurrentDateString, playersNames, player1Name, player2Name,
+        court.toString(), "1", slot.toString(), "1", password, "authenticated", // Authenticated...
+        "wrong identity pool", // ...but with wrong pool
+        apiGatewayBaseUrl, false);
   }
 
   private void doTestPutDeleteBookingThrowsIfParameterInvalid(String court, String courtSpan,
       String slot, String slotSpan, String players, String player1name, String player2name,
-      String date, String password, String apiGatewayBaseUrl, String redirectUrl, String message,
-      boolean create) throws Exception {
+      String date, String password, String cognitoAuthenticationType, String cognitoIdentityPoolId,
+      String apiGatewayBaseUrl, String redirectUrl, String message, boolean create)
+      throws Exception {
 
     // ARRANGE
     thrown.expect(Exception.class);
@@ -414,6 +520,8 @@ public class PutDeleteBookingLambdaTest {
     request.setPlayer2name(player2name);
     request.setDate(date);
     request.setPassword(password);
+    request.setCognitoAuthenticationType(cognitoAuthenticationType);
+    request.setCognitoIdentityPoolId(cognitoIdentityPoolId);
     request.setApiGatewayBaseUrl(apiGatewayBaseUrl);
     request.setRedirectUrl(redirectUrl);
 
@@ -485,7 +593,8 @@ public class PutDeleteBookingLambdaTest {
     // ACT and ASSERT
     doTestCreateBooking(fakeCurrentDateString, playersNames, player1Name, player2Name,
         court.toString(), courtSpan.toString(), slot.toString(), slotSpan.toString(), password,
-        apiGatewayBaseUrl, false);
+        "authenticated", putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl,
+        false);
   }
 
   // Test we call the page manager correctly, including for boundary cases
@@ -538,7 +647,7 @@ public class PutDeleteBookingLambdaTest {
     // ACT and ASSERT
     doTestCreateBooking(fakeCurrentDateString, playersNames, player1Name, player2Name,
         court.toString(), courtSpan.toString(), slot.toString(), slotSpan.toString(), password,
-        apiGatewayBaseUrl, true);
+        "authenticated", putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, true);
   }
 
   // Test we call the backup manager correctly, including for boundary cases
@@ -588,7 +697,8 @@ public class PutDeleteBookingLambdaTest {
     // ACT and ASSERT
     doTestCreateBooking(fakeCurrentDateString, playersNames, player1Name, player2Name,
         court.toString(), courtSpan.toString(), slot.toString(), slotSpan.toString(), password,
-        apiGatewayBaseUrl, false);
+        "authenticated", putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl,
+        false);
   }
 
   @Test
@@ -613,7 +723,8 @@ public class PutDeleteBookingLambdaTest {
     // ACT and ASSERT
     doTestCreateBooking(fakeCurrentDateString, playersNames, player1Name, player2Name,
         court.toString(), courtSpan.toString(), slot.toString(), slotSpan.toString(), password,
-        apiGatewayBaseUrl, false);
+        "authenticated", putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl,
+        false);
   }
 
   @Test
@@ -638,7 +749,8 @@ public class PutDeleteBookingLambdaTest {
     // ACT and ASSERT
     doTestCreateBooking(fakeCurrentDateString, playersNames, player1Name, player2Name,
         court.toString(), courtSpan.toString(), slot.toString(), slotSpan.toString(), password,
-        apiGatewayBaseUrl, false);
+        "authenticated", putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl,
+        false);
   }
 
   @Test
@@ -663,12 +775,14 @@ public class PutDeleteBookingLambdaTest {
     // ACT and ASSERT
     doTestCreateBooking(fakeCurrentDateString, playersNames, player1Name, player2Name,
         court.toString(), courtSpan.toString(), slot.toString(), slotSpan.toString(), password,
-        apiGatewayBaseUrl, false);
+        "authenticated", putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl,
+        false);
   }
 
   private void doTestCreateBooking(String date, String playersNames, String player1Name,
       String player2Name, String court, String courtSpan, String slot, String slotSpan,
-      String password, String apiGatewayBaseUrl, Boolean checkRedirectUrl) throws Exception {
+      String password, String cognitoAuthenticationType, String cognitoIdentityPoolId,
+      String apiGatewayBaseUrl, Boolean checkRedirectUrl) throws Exception {
 
     // ACT
     // Call create booking with valid parameters
@@ -683,8 +797,11 @@ public class PutDeleteBookingLambdaTest {
     request.setPlayer2name(player2Name);
     request.setDate(date);
     request.setPassword(password);
+    request.setCognitoAuthenticationType(cognitoAuthenticationType);
+    request.setCognitoIdentityPoolId(cognitoIdentityPoolId);
     request.setApiGatewayBaseUrl(apiGatewayBaseUrl);
     request.setRedirectUrl(redirectUrl);
+
     PutDeleteBookingLambdaResponse response = putDeleteBookingLambda.createOrDeleteBooking(request,
         mockContext);
     if (checkRedirectUrl) {
@@ -703,7 +820,8 @@ public class PutDeleteBookingLambdaTest {
     doTestPutDeleteBookingThrowsIfParameterInvalid(
         "0", // Invalid
         courtSpan.toString(), slot.toString(), slotSpan.toString(), playersNames, player1Name,
-        player2Name, fakeCurrentDateString, password, apiGatewayBaseUrl, redirectUrl,
+        player2Name, fakeCurrentDateString, password, "authenticated",
+        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, redirectUrl,
         "The booking court number is outside the valid range (1-5)", false);
   }
 
@@ -713,7 +831,8 @@ public class PutDeleteBookingLambdaTest {
     doTestPutDeleteBookingThrowsIfParameterInvalid(
         "6", // Invalid
         courtSpan.toString(), slot.toString(), slotSpan.toString(), playersNames, player1Name,
-        player2Name, fakeCurrentDateString, password, apiGatewayBaseUrl, redirectUrl,
+        player2Name, fakeCurrentDateString, password, "authenticated",
+        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, redirectUrl,
         "The booking court number is outside the valid range (1-5)", false);
   }
 
@@ -724,7 +843,8 @@ public class PutDeleteBookingLambdaTest {
         court.toString(),
         "0", // Invalid
         slot.toString(), slotSpan.toString(), playersNames, player1Name, player2Name,
-        fakeCurrentDateString, password, apiGatewayBaseUrl, redirectUrl,
+        fakeCurrentDateString, password, "authenticated",
+        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, redirectUrl,
         "The booking court span is outside the valid range (1-(6-court))", false);
   }
 
@@ -736,30 +856,35 @@ public class PutDeleteBookingLambdaTest {
         court.toString(),
         invalidCourtSpan.toString(), // Invalid
         slot.toString(), slotSpan.toString(), playersNames, player1Name, player2Name,
-        fakeCurrentDateString, password, apiGatewayBaseUrl, redirectUrl,
+        fakeCurrentDateString, password, "authenticated",
+        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, redirectUrl,
         "The booking court span is outside the valid range (1-(6-court))", false);
   }
 
   @Test
   public void testDeleteBookingThrowsIfTimeSlotBelowValidRange() throws Exception {
 
-    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(),
+    doTestPutDeleteBookingThrowsIfParameterInvalid(
+        court.toString(),
         courtSpan.toString(),
         "0", // Invalid
         slotSpan.toString(), playersNames, player1Name, player2Name, fakeCurrentDateString,
-        password, apiGatewayBaseUrl, redirectUrl,
-        "The booking time slot is outside the valid range (1-16)", false);
+        password, "authenticated", putDeleteBookingLambda.getCognitoIdentityPoolId(),
+        apiGatewayBaseUrl, redirectUrl, "The booking time slot is outside the valid range (1-16)",
+        false);
   }
 
   @Test
   public void testDeleteBookingThrowsIfTimeSlotAboveValidRange() throws Exception {
 
-    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(),
+    doTestPutDeleteBookingThrowsIfParameterInvalid(
+        court.toString(),
         courtSpan.toString(),
         "17", // Invalid
         slotSpan.toString(), playersNames, player1Name, player2Name, fakeCurrentDateString,
-        password, apiGatewayBaseUrl, redirectUrl,
-        "The booking time slot is outside the valid range (1-16)", false);
+        password, "authenticated", putDeleteBookingLambda.getCognitoIdentityPoolId(),
+        apiGatewayBaseUrl, redirectUrl, "The booking time slot is outside the valid range (1-16)",
+        false);
   }
 
   @Test
@@ -769,9 +894,9 @@ public class PutDeleteBookingLambdaTest {
         courtSpan.toString(),
         slot.toString(),
         "0", // Invalid
-        playersNames, player1Name, player2Name, fakeCurrentDateString, password, apiGatewayBaseUrl,
-        redirectUrl, "The booking time slot span is outside the valid range (1- (17 - slot))",
-        false);
+        playersNames, player1Name, player2Name, fakeCurrentDateString, password, "authenticated",
+        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, redirectUrl,
+        "The booking time slot span is outside the valid range (1- (17 - slot))", false);
   }
 
   @Test
@@ -782,9 +907,9 @@ public class PutDeleteBookingLambdaTest {
         courtSpan.toString(),
         slot.toString(),
         invalidSlotSpan.toString(), // Invalid
-        playersNames, player1Name, player2Name, fakeCurrentDateString, password, apiGatewayBaseUrl,
-        redirectUrl, "The booking time slot span is outside the valid range (1- (17 - slot))",
-        false);
+        playersNames, player1Name, player2Name, fakeCurrentDateString, password, "authenticated",
+        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, redirectUrl,
+        "The booking time slot span is outside the valid range (1- (17 - slot))", false);
   }
 
   @Test
@@ -801,6 +926,8 @@ public class PutDeleteBookingLambdaTest {
         player2Name,
         fakeCurrentDateString,
         password,
+        "authenticated",
+        putDeleteBookingLambda.getCognitoIdentityPoolId(),
         apiGatewayBaseUrl,
         redirectUrl,
         "The players names should have a format like J.Power i.e. Initial.Surname. Please try again.redirectUrl",
@@ -821,6 +948,8 @@ public class PutDeleteBookingLambdaTest {
         "Playerb",
         fakeCurrentDateString,
         password,
+        "authenticated",
+        putDeleteBookingLambda.getCognitoIdentityPoolId(),
         apiGatewayBaseUrl,
         redirectUrl,
         "The players names should have a format like J.Power i.e. Initial.Surname. Please try again.redirectUrl",
@@ -831,9 +960,11 @@ public class PutDeleteBookingLambdaTest {
   public void testDeleteBookingThrowsIfPlayersNamesInWrongFormat_NoPlayer1() throws Exception {
 
     doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(), courtSpan.toString(),
-        slot.toString(), slotSpan.toString(),
+        slot.toString(),
+        slotSpan.toString(),
         "/B.Playerb", // Invalid - no first player
-        "", "Playerb", fakeCurrentDateString, password, apiGatewayBaseUrl, redirectUrl,
+        "", "Playerb", fakeCurrentDateString, password, "authenticated",
+        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, redirectUrl,
         "Names of both players should be given. Please try again.redirectUrl", false);
   }
 
@@ -841,9 +972,11 @@ public class PutDeleteBookingLambdaTest {
   public void testDeleteBookingThrowsIfPlayersNamesInWrongFormat_NoPlayer2() throws Exception {
 
     doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(), courtSpan.toString(),
-        slot.toString(), slotSpan.toString(),
+        slot.toString(),
+        slotSpan.toString(),
         "A.Playera/", // Invalid - no second player
-        player1Name, "", fakeCurrentDateString, password, apiGatewayBaseUrl, redirectUrl,
+        player1Name, "", fakeCurrentDateString, password, "authenticated",
+        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, redirectUrl,
         "Names of both players should be given. Please try again.redirectUrl", false);
   }
 
@@ -854,18 +987,86 @@ public class PutDeleteBookingLambdaTest {
     doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(), courtSpan.toString(),
         slot.toString(), slotSpan.toString(), playersNames, player1Name, player2Name,
         "2015-10-08", // Invalid - too far into the future,
-        password, apiGatewayBaseUrl, redirectUrl, "The booking date is outside the valid range",
-        false);
+        password, "authenticated", putDeleteBookingLambda.getCognitoIdentityPoolId(),
+        apiGatewayBaseUrl, redirectUrl, "The booking date is outside the valid range", false);
   }
 
   @Test
   public void testDeleteBookingThrowsIfPasswordIncorrect() throws Exception {
 
     doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(), courtSpan.toString(),
-        slot.toString(), slotSpan.toString(), playersNames, player1Name, player2Name,
-        fakeCurrentDateString, "pAssword", // Wrong
-                                           // password
-        apiGatewayBaseUrl, redirectUrl, "The password is incorrect", false);
+        slot.toString(), slotSpan.toString(), playersNames, player1Name,
+        player2Name,
+        fakeCurrentDateString,
+        "pAssword", // Wrong
+                    // password
+        "authenticated", putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl,
+        redirectUrl, "The password is incorrect", false);
+  }
+
+  @Test
+  public void testDeleteBlockBookingThrowsIfNotAuthenticated() throws Exception {
+
+    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(), "2", slot.toString(), "2",
+        playersNames, player1Name, player2Name, fakeCurrentDateString, password,
+        "unauthenticated", // Not authenticated
+        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, redirectUrl,
+        "You must login to manage block bookings. Please try again.redirectUrl", true);
+  }
+
+  @Test
+  public void testDeleteBlockBookingThrowsIfAuthenticatedWithWrongCognitoPool() throws Exception {
+
+    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(), "2", slot.toString(), "2",
+        playersNames, player1Name, player2Name, fakeCurrentDateString, password,
+        "authenticated", // Authenticated...
+        "wrong identity pool", // ...but with wrong pool
+        apiGatewayBaseUrl, redirectUrl,
+        "You must login to manage block bookings. Please try again.redirectUrl", true);
+  }
+
+  @Test
+  public void testDeleteSingleBookingDoesNotThrowIfNotAuthenticated() throws Exception {
+
+    // Lack of authentication should be irrelevant for non-block bookings
+
+    // ARRANGE
+    // Don't care about manager calls in this test
+    mockery.checking(new Expectations() {
+      {
+        ignoring(putDeleteBookingLambda.getBookingManager(mockLogger));
+        ignoring(putDeleteBookingLambda.getPageManager(mockLogger));
+        ignoring(putDeleteBookingLambda.getBackupManager(mockLogger));
+      }
+    });
+
+    // ACT and ASSERT
+    doTestDeleteBooking(fakeCurrentDateString, playersNames, court.toString(), "1",
+        slot.toString(), "1", password, "unauthenticated", // Not
+        // authenticated
+        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, false);
+  }
+
+  @Test
+  public void testDeleteSingleBookingDoesNotThrowIfAuthenticatedWithWrongPool() throws Exception {
+
+    // Lack of authentication should be irrelevant for non-block bookings
+
+    // ARRANGE
+    // Don't care about manager calls in this test
+    mockery.checking(new Expectations() {
+      {
+        ignoring(putDeleteBookingLambda.getBookingManager(mockLogger));
+        ignoring(putDeleteBookingLambda.getPageManager(mockLogger));
+        ignoring(putDeleteBookingLambda.getBackupManager(mockLogger));
+      }
+    });
+
+    // ACT and ASSERT
+    doTestDeleteBooking(fakeCurrentDateString, playersNames, court.toString(), "1",
+        slot.toString(), "1", password, "authenticated", // Authenticated...
+        "wrong identity pool", // ...but with wrong pool
+        apiGatewayBaseUrl, false);
   }
 
   // Test we call the booking manager correctly, including for boundary cases
@@ -912,8 +1113,8 @@ public class PutDeleteBookingLambdaTest {
 
     // ACT and ASSERT
     doTestDeleteBooking(fakeCurrentDateString, playersNames, court.toString(),
-        courtSpan.toString(), slot.toString(), slotSpan.toString(), password, apiGatewayBaseUrl,
-        false);
+        courtSpan.toString(), slot.toString(), slotSpan.toString(), password, "authenticated",
+        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, false);
   }
 
   // Test we call the page manager correctly, including for boundary cases
@@ -964,8 +1165,8 @@ public class PutDeleteBookingLambdaTest {
 
     // ACT and ASSERT
     doTestDeleteBooking(fakeCurrentDateString, playersNames, court.toString(),
-        courtSpan.toString(), slot.toString(), slotSpan.toString(), password, apiGatewayBaseUrl,
-        true);
+        courtSpan.toString(), slot.toString(), slotSpan.toString(), password, "authenticated",
+        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, true);
   }
 
   // Test we call the backup manager correctly, including for boundary cases
@@ -1015,8 +1216,8 @@ public class PutDeleteBookingLambdaTest {
 
     // ACT and ASSERT
     doTestDeleteBooking(fakeCurrentDateString, playersNames, court.toString(),
-        courtSpan.toString(), slot.toString(), slotSpan.toString(), password, apiGatewayBaseUrl,
-        false);
+        courtSpan.toString(), slot.toString(), slotSpan.toString(), password, "authenticated",
+        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, false);
   }
 
   @Test
@@ -1040,8 +1241,8 @@ public class PutDeleteBookingLambdaTest {
 
     // ACT and ASSERT
     doTestDeleteBooking(fakeCurrentDateString, playersNames, court.toString(),
-        courtSpan.toString(), slot.toString(), slotSpan.toString(), password, apiGatewayBaseUrl,
-        false);
+        courtSpan.toString(), slot.toString(), slotSpan.toString(), password, "authenticated",
+        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, false);
   }
 
   @Test
@@ -1065,8 +1266,8 @@ public class PutDeleteBookingLambdaTest {
 
     // ACT and ASSERT
     doTestDeleteBooking(fakeCurrentDateString, playersNames, court.toString(),
-        courtSpan.toString(), slot.toString(), slotSpan.toString(), password, apiGatewayBaseUrl,
-        false);
+        courtSpan.toString(), slot.toString(), slotSpan.toString(), password, "authenticated",
+        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, false);
   }
 
   @Test
@@ -1090,12 +1291,13 @@ public class PutDeleteBookingLambdaTest {
 
     // ACT and ASSERT
     doTestDeleteBooking(fakeCurrentDateString, playersNames, court.toString(),
-        courtSpan.toString(), slot.toString(), slotSpan.toString(), password, apiGatewayBaseUrl,
-        false);
+        courtSpan.toString(), slot.toString(), slotSpan.toString(), password, "authenticated",
+        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, false);
   }
 
   private void doTestDeleteBooking(String date, String playersNames, String court,
-      String courtSpan, String slot, String slotSpan, String password, String apiGatewayBaseUrl,
+      String courtSpan, String slot, String slotSpan, String password,
+      String cognitoAuthenticationType, String cognitoIdentityPoolId, String apiGatewayBaseUrl,
       Boolean checkRedirectUrl) throws Exception {
 
     // ACT
@@ -1112,6 +1314,8 @@ public class PutDeleteBookingLambdaTest {
     request.setPlayer2name(null);
     request.setDate(date);
     request.setPassword(password);
+    request.setCognitoAuthenticationType(cognitoAuthenticationType);
+    request.setCognitoIdentityPoolId(cognitoIdentityPoolId);
     request.setApiGatewayBaseUrl(apiGatewayBaseUrl);
     request.setRedirectUrl(redirectUrl);
     PutDeleteBookingLambdaResponse response = putDeleteBookingLambda.createOrDeleteBooking(request,

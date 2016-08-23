@@ -65,6 +65,9 @@ Password:<br>
 <span class="error" ng-show="ctrl.cancellationFailed && ctrl.passwordIncorrect">
   The password did not match.
 </span>
+<span class="error" ng-show="ctrl.bookingFailed && ctrl.unauthenticatedBlockBookingError">
+  You must login to cancel block bookings.
+</span>
 <span class="error" ng-show="ctrl.bookingFailed && ctrl.bookingCancellationFailed">
   Failed to cancel the booking - please check if court was booked.
 </span>

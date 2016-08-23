@@ -16,7 +16,7 @@
 
 'use strict'
 
-angular.module('squashApp.reservationView', ['ngRoute', 'squashApp.bookingsService'])
+angular.module('squashApp.reservationView', ['ngRoute', 'squashApp.bookingsService', 'squashApp.identityService'])
 
   .config(['$routeProvider', function ($routeProvider) {
     $routeProvider.when('/reservations', {
@@ -25,8 +25,11 @@ angular.module('squashApp.reservationView', ['ngRoute', 'squashApp.bookingsServi
     })
   }])
 
-  .controller('ReservationViewCtrl', ['$scope', '$location', '$timeout', 'BookingService', function ($scope, $location, $timeout, BookingService) {
+  .controller('ReservationViewCtrl', ['$scope', '$location', '$timeout', 'BookingService', 'IdentityService', function ($scope, $location, $timeout, BookingService, IdentityService) {
     var self = this
+
+    self.rowSpan = 1
+    self.colSpan = 1
 
     self.activeCourt = BookingService.activeCourt
     self.activeSlot = BookingService.activeSlot
@@ -47,10 +50,18 @@ angular.module('squashApp.reservationView', ['ngRoute', 'squashApp.bookingsServi
       }
 
       // The form is valid - so let's create the booking
+      // If no block booking values entered, assume not a block booking:
+      if (!self.rowSpan) {
+        self.rowSpan = 1
+      }
+      if (!self.colSpan) {
+        self.colSpan = 1
+      }
       self.passwordIncorrect = false
+      self.unauthenticatedBlockBookingError = false
       self.bookingCreationFailed = false
       self.bookingFailed = false
-      BookingService.reserveCourt(self.activeCourt, self.activeSlotIndex + 1, self.activeDate, self.player1, self.player2, self.password)
+      BookingService.reserveCourt(self.activeCourt, self.colSpan, self.activeSlotIndex + 1, self.rowSpan, self.activeDate, self.player1, self.player2, self.password)
         .then(function (result) {
           self.returnToBookings()
           updateUi()
@@ -58,12 +69,18 @@ angular.module('squashApp.reservationView', ['ngRoute', 'squashApp.bookingsServi
         .catch(function (error) {
           if (typeof error.data !== 'undefined' && error.data.indexOf('The password is incorrect') > -1) {
             self.passwordIncorrect = true
+          } else if (typeof error.data !== 'undefined' && error.data.indexOf('You must login to manage block bookings') > -1) {
+            self.unauthenticatedBlockBookingError = true
           } else if (typeof error.data !== 'undefined' && error.data.indexOf('Booking creation failed') > -1) {
             self.bookingCreationFailed = true
           }
           self.bookingFailed = true
           updateUi()
         })
+    }
+
+    self.showAdminUi = function () {
+      return IdentityService.isLoggedIn()
     }
 
     function updateUi () {

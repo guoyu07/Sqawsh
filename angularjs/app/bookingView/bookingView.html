@@ -136,6 +136,8 @@ limitations under the License.-->
     border: 2px solid #dadada;
     border-radius: 7px;
     font-size: 80%;
+  }
+  .adminSpan {
     float: right
   }
   #goButton {
@@ -169,7 +171,7 @@ limitations under the License.-->
 <div align="center" class="dateSelector">
   <button class="dateButton" ng-click="ctrl.incrementOrDecrementDate(-1)" ng-disabled="ctrl.isEarliestDate()">Earlier</button>
   <select ng-options="date as (date | date:'fullDate') for date in ctrl.validDates" ng-model="ctrl.selectedDate" ng-change="ctrl.selectedDateChanged()"></select>
-  <button class="dateButton" ng-click="ctrl.incrementOrDecrementDate(1)" ng-disabled="ctrl.isLatestDate()">Later</button><Button class="adminButton" ng-click="ctrl.login()">{{ctrl.loginButtonText()}}</Button>
+  <button class="dateButton" ng-click="ctrl.incrementOrDecrementDate(1)" ng-disabled="ctrl.isLatestDate()">Later</button><span class="adminSpan"><Button ng-show="ctrl.showAdminUi()" class="adminButton">Manage Booking Rules</Button><Button class="adminButton" ng-click="ctrl.loginOrOut()">{{ctrl.loginOrOutButtonText()}}</Button></span>
 </div>
 <table class="bookingTable">
 <thead>
@@ -189,7 +191,14 @@ limitations under the License.-->
           <Button title="{{ctrl.tooltip(timeSlotIndex, courtNumber - 1)}}" ng-class="ctrl.buttonStyle(timeSlotIndex, courtNumber - 1)" ng-click="ctrl.showForm(timeSlotIndex, courtNumber - 1)">{{ctrl.bookingText(timeSlotIndex, courtNumber - 1)}}</Button>
         </div>
         <div ng-switch-when="true" class="blockBooking" title="{{ctrl.tooltip(timeSlotIndex, courtNumber - 1)}}">
-          {{ctrl.bookingText(timeSlotIndex, courtNumber - 1)}}
+          <div ng-switch on="ctrl.showAdminUi()">
+            <div ng-switch-when="true" class="blockBooking">
+              <Button title="{{ctrl.tooltip(timeSlotIndex, courtNumber - 1)}}" ng-class="ctrl.buttonStyle(timeSlotIndex, courtNumber - 1)" ng-click="ctrl.showForm(timeSlotIndex, courtNumber - 1)">{{ctrl.bookingText(timeSlotIndex, courtNumber - 1)}}</Button>
+            </div>
+            <div ng-switch-when="false" class="blockBooking" title="{{ctrl.tooltip(timeSlotIndex, courtNumber - 1)}}">
+              {{ctrl.bookingText(timeSlotIndex, courtNumber - 1)}}
+            </div>
+          </div>
         </div>
       </div>
     </td>

@@ -27,18 +27,28 @@ angular.module('squashApp.loginView', ['ngRoute', 'squashApp.identityService'])
 
   .controller('LoginViewCtrl', ['$scope', '$location', 'IdentityService', function ($scope, $location, IdentityService) {
     var self = this
+    self.loginFailed = false
 
     self.returnToBookings = function () {
       $location.url('/bookings')
     }
 
-    self.authenticate = function (form) {
+    self.login = function (form) {
       if (form.$invalid) {
         return
       }
 
-      // The form is valid - so let's try to authenticate
-      IdentityService.authenticate(self.username, self.password)
-      console.log('called authenticate')
+      self.loginFailed = false
+
+      // The form is valid - so let's try to login
+      IdentityService.login(self.username, self.password)
+        .then(function () {
+          console.log('login successful')
+          self.returnToBookings()
+        })
+        .catch(function (err) {
+          self.loginFailed = true
+          console.log('login failed with error: ' + err)
+        })
     }
   }])

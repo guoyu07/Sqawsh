@@ -11,6 +11,7 @@ module.exports = function (config) {
       'app/components/bookings/mockBookingsService.js',
       'app/reservationView/**/*.js',
       'app/cancellationView/**/*.js',
+      'app/loginView/**/*.js',
       'app/bookingView/bookingView.js',
       'app/bookingView/bookingView_test.js',
       'app/bookingView/**/*.js'

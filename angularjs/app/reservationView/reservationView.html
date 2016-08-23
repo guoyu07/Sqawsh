@@ -76,6 +76,14 @@ limitations under the License.-->
 <span class="error" ng-show="reservationForm.player2.$error.required && reservationForm.$submitted">
   Required
 </span>
+<div ng-show="ctrl.showAdminUi()">
+<br>
+  Number of courts to book:<br>
+<input type="text" ng-model="ctrl.colSpan" ng-model-options="{ updateOn: 'blur' }" ng-maxlength=1 placeholder="e.g. 1" ng-pattern="/^[1-5]$/" name="colSpan">
+<br>
+  Number of time slots to book:<br>
+<input type="text" ng-model="ctrl.rowSpan" ng-model-options="{ updateOn: 'blur' }" ng-maxlength=2 placeholder="e.g. 2" ng-pattern="/^([1-9]|1[0-6])$/" name="rowSpan">
+</div>
 <br><br>
   Password:<br>
 <input type="password" ng-model="ctrl.password" placeholder="enter password" name="password" required>
@@ -89,10 +97,13 @@ limitations under the License.-->
 <span class="error" ng-show="ctrl.bookingFailed && ctrl.passwordIncorrect">
   The password did not match.
 </span>
+<span class="error" ng-show="ctrl.bookingFailed && ctrl.unauthenticatedBlockBookingError">
+  You must login to create block bookings.
+</span>
 <span class="error" ng-show="ctrl.bookingFailed && ctrl.bookingCreationFailed">
   Failed to create the booking - please check if court is already booked.
 </span>
-<span class="error" ng-show="ctrl.bookingFailed && !ctrl.passwordIncorrect && !ctrl.bookingCreationFailed">
+<span class="error" ng-show="ctrl.bookingFailed && !ctrl.passwordIncorrect && !ctrl.unauthenticatedBlockBookingError && !ctrl.bookingCreationFailed">
   Apologies - something has gone wrong whilst creating the booking.
 </span>
 </p>

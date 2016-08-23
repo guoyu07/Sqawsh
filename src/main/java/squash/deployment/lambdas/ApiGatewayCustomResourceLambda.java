@@ -724,6 +724,23 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
         + "<a href= '$redirectUrl'>Please click here if you are not redirected automatically within a few seconds</a>\n"
         + "</p>\n" + "</body>\n";
 
+    // The PUT and DELETE lambda methods currently use the Cognito context
+    // variables to determine whether the caller was authenticated as admin.
+    // This template just adds these Cognito variables to the others
+    // already present in the request body.
+    String putDeleteRequestTemplate = "{\n"
+        + "\"apiGatewayBaseUrl\" : $input.json('$.apiGatewayBaseUrl'),\n"
+        + "\"court\" : $input.json('$.court'),\n" + "\"courtSpan\" : $input.json('$.courtSpan'),\n"
+        + "\"slot\" : $input.json('$.slot'),\n" + "\"slotSpan\" : $input.json('$.slotSpan'),\n"
+        + "\"date\" : $input.json('$.date'),\n" + "\"password\" : $input.json('$.password'),\n"
+        + "\"player1name\" : $input.json('$.player1name'),\n"
+        + "\"player2name\" : $input.json('$.player2name'),\n"
+        + "\"players\" : $input.json('$.players'),\n"
+        + "\"putOrDelete\" : $input.json('$.putOrDelete'),\n"
+        + "\"redirectUrl\" : $input.json('$.redirectUrl'),\n"
+        + "\"cognitoAuthenticationType\" : \"$context.identity.cognitoAuthenticationType\",\n"
+        + "\"cognitoIdentityPoolId\" : \"$context.identity.cognitoIdentityPoolId\"\n" + "}";
+
     PutMethodResult method = null;
     if (methodName.equals("ValidDatesGET")) {
       putMethodRequest.setHttpMethod("GET");
@@ -793,6 +810,9 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       putIntegration400ResponseRequest.setSelectionPattern("The booking date.*");
     } else if (methodName.equals("BookingsPUT")) {
       putMethodRequest.setHttpMethod("PUT");
+      // Set IAM authorisation so ApiGateway provides the Cognito context
+      // variables
+      putMethodRequest.setAuthorizationType("AWS_IAM");
       putMethod200ResponseRequest.setHttpMethod("PUT");
       putMethod500ResponseRequest.setHttpMethod("PUT");
       putMethod400ResponseRequest.setHttpMethod("PUT");
@@ -807,6 +827,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       // N.B. Lambda uses POST even for GET methods
       putIntegrationRequest.setHttpMethod("PUT");
       putIntegrationRequest.setCredentials(extraParameters.get("BookingsApiGatewayInvocationRole"));
+      requestTemplates.put("application/json", putDeleteRequestTemplate);
       response500Templates.put("application/json", errorResponseMappingTemplate);
       response400Templates.put("application/json", errorResponseMappingTemplate);
       responseParameters.put("method.response.header.access-control-allow-methods",
@@ -814,9 +835,12 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       putIntegration500ResponseRequest
           .setSelectionPattern("Apologies - something has gone wrong. Please try again.");
       putIntegration400ResponseRequest
-          .setSelectionPattern("The booking court.*|The booking time.*|The players names.*|The booking date.*|The password is incorrect.*|Booking creation failed.*|Booking cancellation failed.*");
+          .setSelectionPattern("The booking court.*|The booking time.*|The players names.*|The booking date.*|The password is incorrect.*|You must login to manage block bookings.*|Booking creation failed.*|Booking cancellation failed.*");
     } else if (methodName.equals("BookingsDELETE")) {
       putMethodRequest.setHttpMethod("DELETE");
+      // Set IAM authorisation so ApiGateway provides the Cognito context
+      // variables
+      putMethodRequest.setAuthorizationType("AWS_IAM");
       putMethod200ResponseRequest.setHttpMethod("DELETE");
       putMethod500ResponseRequest.setHttpMethod("DELETE");
       putMethod400ResponseRequest.setHttpMethod("DELETE");
@@ -831,6 +855,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       // N.B. Lambda uses POST even for GET methods
       putIntegrationRequest.setHttpMethod("DELETE");
       putIntegrationRequest.setCredentials(extraParameters.get("BookingsApiGatewayInvocationRole"));
+      requestTemplates.put("application/json", putDeleteRequestTemplate);
       response500Templates.put("application/json", errorResponseMappingTemplate);
       response400Templates.put("application/json", errorResponseMappingTemplate);
       responseParameters.put("method.response.header.access-control-allow-methods",
@@ -838,7 +863,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       putIntegration500ResponseRequest
           .setSelectionPattern("Apologies - something has gone wrong. Please try again.");
       putIntegration400ResponseRequest
-          .setSelectionPattern("The booking court.*|The booking time.*|The players names.*|The booking date.*|The password is incorrect.*|Booking creation failed.*|Booking cancellation failed.*");
+          .setSelectionPattern("The booking court.*|The booking time.*|The players names.*|The booking date.*|The password is incorrect.*|You must login to manage block bookings.*|Booking creation failed.*|Booking cancellation failed.*");
     } else if (methodName.equals("BookingsPOST")) {
       // Redirect to the mutated booking page after creating or cancelling a
       // booking

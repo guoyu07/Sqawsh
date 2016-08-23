@@ -18,6 +18,7 @@
 
 describe('squashApp.bookingView module', function () {
   var bookingService
+  var identityService
   var getCachedValidDatesSpy
   var getValidDatesSpy
   var getCachedBookingsSpy
@@ -33,7 +34,7 @@ describe('squashApp.bookingView module', function () {
   beforeEach(module('squashApp.bookingView'))
 
   var bookingViewCtrl
-  beforeEach(inject(function ($rootScope, $controller, BookingService) {
+  beforeEach(inject(function ($rootScope, $controller, BookingService, IdentityService) {
     // Configure mock response from the BookingService
     getCachedValidDatesSpy = spyOn(BookingService, 'getCachedValidDates')
       .and.callThrough()
@@ -44,6 +45,7 @@ describe('squashApp.bookingView module', function () {
     getBookingsSpy = spyOn(BookingService, 'getBookings')
       .and.callThrough()
     bookingService = BookingService
+    identityService = IdentityService
 
     // Create the controller now that the mock is set up
     var scope = $rootScope.$new()
@@ -909,6 +911,185 @@ describe('squashApp.bookingView module', function () {
       bookingViewCtrl.showForm(2, 1)
       expect($location.url).toHaveBeenCalledWith('/cancellations')
       expect($location.url).not.toHaveBeenCalledWith('/reservations')
+    }))
+
+    it('should set booking service variables to transfer required values to the forms', inject(function ($rootScope, $location) {
+      var courtNumberIndex = 3
+      var timeSlotIndex = 5
+      bookingViewCtrl.courtNumbers[courtNumberIndex] = 4
+      bookingViewCtrl.colSpan = function (index1, index2) { return 2 }
+      bookingViewCtrl.timeSlots[timeSlotIndex] = 8
+      bookingViewCtrl.rowSpan = function (index1, index2) { return 22 }
+      bookingViewCtrl.selectedDate = '2016-08-30'
+      bookingViewCtrl.bookingText = function (index1, index2) { return 'Players names' }
+      spyOn(bookingService, 'getTwoFamousPlayers').and.returnValue(['F.Perry', 'I.Nastase'])
+
+      // Trigger the promise chain
+      $rootScope.$apply()
+      bookingViewCtrl.showForm(timeSlotIndex, courtNumberIndex)
+
+      expect(bookingService.activeCourt).toBe(4)
+      expect(bookingService.activeCourtSpan).toBe(2)
+      expect(bookingService.activeSlot).toBe(8)
+      expect(bookingService.activeSlotSpan).toBe(22)
+      expect(bookingService.activeSlotIndex).toBe(5)
+      expect(bookingService.activeDate).toBe('2016-08-30')
+      expect(bookingService.player1).toBe('')
+      expect(bookingService.player2).toBe('')
+      expect(bookingService.players).toBe('Players names')
+      expect(bookingService.famousPlayer1).toBe('F.Perry')
+      expect(bookingService.famousPlayer2).toBe('I.Nastase')
+    }))
+  })
+
+  describe('BookingViewCtrl controller loginOrOut function', function () {
+    it('should show ask the identity service if the user is logged in', inject(function ($rootScope) {
+      // ARRANGE
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      spyOn(identityService, 'isLoggedIn').and.callThrough()
+      expect(identityService.isLoggedIn).not.toHaveBeenCalled()
+
+      // ACT
+      bookingViewCtrl.loginOrOut()
+
+      // ASSERT
+      expect(identityService.isLoggedIn).toHaveBeenCalled()
+    }))
+
+    it('should call logout on the identity service if the user is logged in', inject(function ($rootScope) {
+      // ARRANGE
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      spyOn(identityService, 'isLoggedIn').and.returnValue(true)
+      spyOn(identityService, 'logout').and.callThrough()
+      spyOn(identityService, 'login')
+      expect(identityService.isLoggedIn).not.toHaveBeenCalled()
+      expect(identityService.logout).not.toHaveBeenCalled()
+      expect(identityService.login).not.toHaveBeenCalled()
+
+      // ACT
+      bookingViewCtrl.loginOrOut()
+
+      // ASSERT
+      expect(identityService.isLoggedIn).toHaveBeenCalled()
+      expect(identityService.logout).toHaveBeenCalled()
+      expect(identityService.login).not.toHaveBeenCalled()
+    }))
+
+    it('should call route to the login view if the user is logged out', inject(function ($rootScope, $location) {
+      // ARRANGE
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      spyOn($location, 'url')
+      spyOn(identityService, 'isLoggedIn').and.returnValue(false)
+      spyOn(identityService, 'logout').and.callThrough()
+      spyOn(identityService, 'login')
+      expect(identityService.isLoggedIn).not.toHaveBeenCalled()
+      expect(identityService.logout).not.toHaveBeenCalled()
+      expect(identityService.login).not.toHaveBeenCalled()
+
+      // ACT
+      bookingViewCtrl.loginOrOut()
+
+      // ASSERT
+      expect($location.url).toHaveBeenCalledWith('/login')
+      expect(identityService.isLoggedIn).toHaveBeenCalled()
+      expect(identityService.logout).not.toHaveBeenCalled()
+      expect(identityService.login).not.toHaveBeenCalled()
+    }))
+  })
+
+  describe('BookingViewCtrl controller showAdminUi function', function () {
+    it('should ask the identity service if the user is logged in', inject(function ($rootScope) {
+      // ARRANGE
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      spyOn(identityService, 'isLoggedIn').and.callThrough()
+      expect(identityService.isLoggedIn).not.toHaveBeenCalled()
+
+      // ACT
+      bookingViewCtrl.showAdminUi()
+
+      // ASSERT
+      expect(identityService.isLoggedIn).toHaveBeenCalled()
+    }))
+
+    it('it should return true if the user is logged in', inject(function ($rootScope) {
+      // ARRANGE
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      spyOn(identityService, 'isLoggedIn').and.returnValue(true)
+
+      // ACT
+      var result = bookingViewCtrl.showAdminUi()
+
+      // ASSERT
+      expect(result).toBe(true)
+    }))
+
+    it('it should return false if the user is not logged in', inject(function ($rootScope) {
+      // ARRANGE
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      spyOn(identityService, 'isLoggedIn').and.returnValue(false)
+
+      // ACT
+      var result = bookingViewCtrl.showAdminUi()
+
+      // ASSERT
+      expect(result).toBe(false)
+    }))
+  })
+
+  describe('BookingViewCtrl controller loginOrOutButtonText function', function () {
+    it('should ask the identity service if the user is logged in', inject(function ($rootScope) {
+      // ARRANGE
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      spyOn(identityService, 'isLoggedIn').and.callThrough()
+      expect(identityService.isLoggedIn).not.toHaveBeenCalled()
+
+      // ACT
+      bookingViewCtrl.loginOrOutButtonText()
+
+      // ASSERT
+      expect(identityService.isLoggedIn).toHaveBeenCalled()
+    }))
+
+    it('it should return Logout if the user is logged in', inject(function ($rootScope) {
+      // ARRANGE
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      spyOn(identityService, 'isLoggedIn').and.returnValue(true)
+
+      // ACT
+      var result = bookingViewCtrl.loginOrOutButtonText()
+
+      // ASSERT
+      expect(result).toBe('Logout')
+    }))
+
+    it('it should return Admin if the user is not logged in', inject(function ($rootScope) {
+      // ARRANGE
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      spyOn(identityService, 'isLoggedIn').and.returnValue(false)
+
+      // ACT
+      var result = bookingViewCtrl.loginOrOutButtonText()
+
+      // ASSERT
+      expect(result).toBe('Admin')
     }))
   })
 

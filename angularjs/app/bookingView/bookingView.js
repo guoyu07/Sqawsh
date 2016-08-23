@@ -235,7 +235,9 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService',
 
       // Transfer state to the form view via the booking service
       BookingService.activeCourt = self.courtNumbers[courtNumberIndex]
+      BookingService.activeCourtSpan = self.colSpan(timeSlotIndex, courtNumberIndex)
       BookingService.activeSlot = self.timeSlots[timeSlotIndex]
+      BookingService.activeSlotSpan = self.rowSpan(timeSlotIndex, courtNumberIndex)
       BookingService.activeSlotIndex = timeSlotIndex
       BookingService.activeDate = self.selectedDate
       BookingService.player1 = ''
@@ -252,16 +254,20 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService',
       }
     }
 
-    self.login = function () {
-      if (IdentityService.isAuthenticated()) {
-        IdentityService.logout()
+    self.loginOrOut = function () {
+      if (IdentityService.isLoggedIn()) {
+        IdentityService.logout().then(function () { updateUi() })
       } else {
         $location.url('/login')
       }
     }
 
-    self.loginButtonText = function () {
-      return IdentityService.isAuthenticated() ? 'Logout' : 'Admin'
+    self.showAdminUi = function () {
+      return IdentityService.isLoggedIn()
+    }
+
+    self.loginOrOutButtonText = function () {
+      return self.showAdminUi() ? 'Logout' : 'Admin'
     }
 
     function reset () {

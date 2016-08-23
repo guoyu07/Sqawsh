@@ -29,7 +29,9 @@ angular.module('squashApp.cancellationView', ['ngRoute', 'squashApp.bookingsServ
     var self = this
 
     self.activeCourt = BookingService.activeCourt
+    self.activeCourtSpan = BookingService.activeCourtSpan
     self.activeSlot = BookingService.activeSlot
+    self.activeSlotSpan = BookingService.activeSlotSpan
     self.activeSlotIndex = BookingService.activeSlotIndex
     self.activeDate = BookingService.activeDate
     self.player1 = BookingService.player1
@@ -47,9 +49,10 @@ angular.module('squashApp.cancellationView', ['ngRoute', 'squashApp.bookingsServ
 
       // The form is valid - so let's cancel the booking
       self.passwordIncorrect = false
+      self.unauthenticatedBlockBookingError = false
       self.bookingCancellationFailed = false
       self.cancellationFailed = false
-      BookingService.cancelCourt(self.activeCourt, self.activeSlotIndex + 1, self.activeDate, self.players, self.password)
+      BookingService.cancelCourt(self.activeCourt, self.activeCourtSpan, self.activeSlotIndex + 1, self.activeSlotSpan, self.activeDate, self.players, self.password)
         .then(function (result) {
           self.returnToBookings()
           updateUi()
@@ -57,6 +60,8 @@ angular.module('squashApp.cancellationView', ['ngRoute', 'squashApp.bookingsServ
         .catch(function (error) {
           if (typeof error.data !== 'undefined' && error.data.indexOf('The password is incorrect') > -1) {
             self.passwordIncorrect = true
+          } else if (typeof error.data !== 'undefined' && error.data.indexOf('You must login to manage block bookings') > -1) {
+            self.unauthenticatedBlockBookingError = true
           } else if (typeof error.data !== 'undefined' && error.data.indexOf('Booking cancellation failed') > -1) {
             self.bookingCancellationFailed = true
           }

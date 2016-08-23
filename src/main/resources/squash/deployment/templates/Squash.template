@@ -534,8 +534,7 @@
                      "Comment2" : "to unauthenticated users. N.B. The aud value here is the",
                      "Comment3" : "identity pool id. The lambda will edit this role to add an",
                      "Comment4" : "assume-role policy with the identity pool id once it has",
-                     "Comment5" : "created the identity pool, and remove the Deny. N.B. No",
-                     "Comment6" : "permissions are granted here (Deny), since Cognito is not yet used"},
+                     "Comment5" : "created the identity pool, and remove the Deny."},
       "Type": "AWS::IAM::Role",
       "Properties": {
         "AssumeRolePolicyDocument": {
@@ -553,10 +552,16 @@
             "PolicyDocument": {
               "Version": "2012-10-17",
               "Statement": [{
-                "Effect": "Deny",
+                "Effect": "Allow",
                 "Action": [
                   "mobileanalytics:PutEvents",
-                  "cognito-sync:*",
+                  "cognito-sync:*"
+                ],
+                "Resource": "*"
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
                   "execute-api:Invoke"
                 ],
                 "Resource": "*"
@@ -572,8 +577,7 @@
                      "Comment2" : "to authenticated users. N.B. The aud value here is the",
                      "Comment3" : "identity pool id. The lambda will edit this role to add an",
                      "Comment4" : "assume-role policy with the identity pool id once it has",
-                     "Comment5" : "created the identity pool, and remove the Deny. N.B. No",
-                     "Comment6" : "permissions are granted here (Deny), since Cognito is not yet used"},
+                     "Comment5" : "created the identity pool, and remove the Deny."},
       "Type": "AWS::IAM::Role",
       "Properties": {
         "AssumeRolePolicyDocument": {
@@ -591,10 +595,16 @@
             "PolicyDocument": {
               "Version": "2012-10-17",
               "Statement": [{
-                "Effect": "Deny",
+                "Effect": "Allow",
                 "Action": [
                   "mobileanalytics:PutEvents",
-                  "cognito-sync:*",
+                  "cognito-sync:*"
+                ],
+                "Resource": "*"
+              },
+              {
+                "Effect": "Allow",
+                "Action": [
                   "execute-api:Invoke"
                 ],
                 "Resource": "*"
@@ -1154,6 +1164,7 @@
       "Properties" : {
         "ServiceToken": { "Fn::GetAtt" : ["SquashSettingsCustomResourceLambda", "Arn"] },
         "SimpleDBDomainName" : { "Ref" : "SquashSimpleDBDomain" },
+        "CognitoIdentityPoolId": { "Fn::GetAtt" : ["SquashCognitoCustomResource", "CognitoIdentityPoolId"] },
         "WebsiteBucket" : {"Ref" : "WebsiteBucketName"},
         "DatabaseBackupBucket" : {"Ref" : "DatabaseBackupBucketName"},
         "DatabaseBackupSNSTopic" : {"Ref" : "DatabaseBackupSNSTopic"},

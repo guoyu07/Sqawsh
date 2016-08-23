@@ -50,7 +50,7 @@ limitations under the License.-->
     color: tomato;
   }
 </style>
-<form novalidate class="login-form" ng-submit="ctrl.authenticate(loginForm)" name="loginForm" ng-cloak>
+<form novalidate class="login-form" ng-submit="ctrl.login(loginForm)" name="loginForm" ng-cloak>
 <div class="form-box">
 Your username:<br>
 <input type="text" ng-model="ctrl.username" ng-model-options="{ updateOn: 'blur' }" placeholder="enter username" name="username" required>
@@ -67,7 +67,7 @@ Your password:<br>
 <button type="submit">Login</button>
 </p>
 <p>
-<span class="error" ng-show="ctrl.authenticationFailed">
+<span class="error" ng-show="ctrl.loginFailed">
   Login failed.
 </span>
 </p>

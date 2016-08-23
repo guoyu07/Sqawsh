@@ -63,6 +63,12 @@ public class LogGroupDeleter {
           DeleteLogGroupRequest deleteLogGroupRequest = new DeleteLogGroupRequest(logGroup
               .getLogGroupName());
           client.deleteLogGroup(deleteLogGroupRequest);
+          // sleep to avoid Too Many Requests errors
+          try {
+            Thread.sleep(100);
+          } catch (Exception e) {
+            e.printStackTrace();
+          }
         });
   }
 }

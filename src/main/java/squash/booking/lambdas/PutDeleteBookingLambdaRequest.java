@@ -34,6 +34,8 @@ public class PutDeleteBookingLambdaRequest {
   String password;
   String apiGatewayBaseUrl;
   String redirectUrl;
+  String cognitoAuthenticationType;
+  String cognitoIdentityPoolId;
 
   public String getPutOrDelete() {
     return putOrDelete;
@@ -174,10 +176,6 @@ public class PutDeleteBookingLambdaRequest {
     this.apiGatewayBaseUrl = apiGatewayBaseUrl;
   }
 
-  public String getRedirectUrl() {
-    return redirectUrl;
-  }
-
   /**
    *  Sets the Url to redirect client to after the PutDeleteBooking call.
    *
@@ -187,11 +185,44 @@ public class PutDeleteBookingLambdaRequest {
     this.redirectUrl = redirectUrl;
   }
 
+  public String getRedirectUrl() {
+    return redirectUrl;
+  }
+
+  /**
+   *  Sets whether the user is authenticated or unauthenticated.
+   *  
+   *  Will have value 'authenticated' or 'unauthenticated'.
+   *
+   * @param cognitoAuthenticationType whether the user is authenticated or unauthenticated.
+   */
+  public void setCognitoAuthenticationType(String cognitoAuthenticationType) {
+    this.cognitoAuthenticationType = cognitoAuthenticationType;
+  }
+
+  public String getCognitoAuthenticationType() {
+    return cognitoAuthenticationType;
+  }
+
+  /**
+   *  Sets the Cognito identity pool id to which the user belongs.
+   *
+   * @param cognitoIdentityPoolId the Cognito identity pool id to which the user belongs.
+   */
+  public void setCognitoIdentityPoolId(String cognitoIdentityPoolId) {
+    this.cognitoIdentityPoolId = cognitoIdentityPoolId;
+  }
+
+  public String getCognitoIdentityPoolId() {
+    return cognitoIdentityPoolId;
+  }
+
   @Override
   public String toString() {
     return com.google.common.base.MoreObjects.toStringHelper(this).addValue(this.putOrDelete)
         .addValue(this.court).addValue(this.courtSpan).addValue(this.slot).addValue(this.slotSpan)
         .addValue(this.players).addValue(this.player1name).addValue(this.player2name)
-        .addValue(this.date).addValue(this.apiGatewayBaseUrl).addValue(this.redirectUrl).toString();
+        .addValue(this.date).addValue(this.apiGatewayBaseUrl).addValue(this.redirectUrl)
+        .addValue(this.cognitoAuthenticationType).addValue(this.cognitoIdentityPoolId).toString();
   }
 }

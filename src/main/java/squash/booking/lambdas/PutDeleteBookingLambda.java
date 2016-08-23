@@ -33,9 +33,12 @@ import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.regex.Pattern;
 
 /**
@@ -154,7 +157,8 @@ public class PutDeleteBookingLambda {
       Booking booking = convertBookingRequest(request);
       String password = request.getPassword();
       String apiGatewayBaseUrl = request.getApiGatewayBaseUrl();
-      validateBookingParameters(booking, password, logger);
+      validateBookingParameters(booking, request.getCognitoIdentityPoolId(),
+          request.getCognitoAuthenticationType(), password, logger);
       logger.log("Validated booking parameters");
 
       String putOrDelete = request.getPutOrDelete();
@@ -212,6 +216,9 @@ public class PutDeleteBookingLambda {
             + redirectUrl, e);
       case "The password is incorrect":
         throw new Exception("The password is incorrect. Please try again." + redirectUrl, e);
+      case "Attempting to mutate a block booking without authenticated credentials from the correct Cognito pool":
+        throw new Exception("You must login to manage block bookings. Please try again."
+            + redirectUrl, e);
       case "Booking creation failed":
         throw new Exception("Booking creation failed. Please try again." + redirectUrl, e);
       case "Booking deletion failed":
@@ -293,10 +300,26 @@ public class PutDeleteBookingLambda {
     return booking;
   }
 
-  private void validateBookingParameters(Booking booking, String password, LambdaLogger logger)
-      throws Exception {
+  private void validateBookingParameters(Booking booking, String cognitoIdentityPoolId,
+      String authenticationType, String password, LambdaLogger logger) throws Exception {
 
     logger.log("Validating booking parameters");
+
+    // Check user is authenticated with the correct pool if a block booking is
+    // being mutated.
+    if ((booking.getCourtSpan() > 1) || (booking.getSlotSpan() > 1)) {
+      String validCognitoIdentityPoolId = getStringProperty("cognitoidentitypoolid", logger);
+      if ((!cognitoIdentityPoolId.equals(validCognitoIdentityPoolId))
+          || (!authenticationType.equals("authenticated"))) {
+        logger
+            .log("Attempting to mutate a block booking without authenticated credentials from the correct Cognito pool");
+        logger.log("Cognito pool id used by request: " + cognitoIdentityPoolId);
+        logger.log("Correct Cognito pool id: " + validCognitoIdentityPoolId);
+        logger.log("Cognito authentication type: " + authenticationType);
+        throw new Exception(
+            "Attempting to mutate a block booking without authenticated credentials from the correct Cognito pool");
+      }
+    }
 
     int court = booking.getCourt();
     if ((court < 1) || (court > 5)) {
@@ -324,7 +347,7 @@ public class PutDeleteBookingLambda {
     String player1Name;
     String player2Name;
     String playersNames = booking.getPlayers();
-    if (playersNames != null) {
+    if ((playersNames != null) && !playersNames.equals("")) {
       // This is a delete request. Split out name of each player, so we can
       // validate it.
       String[] players = playersNames.split("/");
@@ -367,5 +390,26 @@ public class PutDeleteBookingLambda {
       logger.log("The password is incorrect");
       throw new Exception("The password is incorrect");
     }
+  }
+
+  /**
+   * Returns a named property from the SquashCustomResource settings file.
+   */
+  protected String getStringProperty(String propertyName, LambdaLogger logger) throws IOException {
+    // Use a getter here so unit tests can substitute a mock value.
+    // We get the value from a settings file so that
+    // CloudFormation can substitute the actual value when the
+    // stack is created, by replacing the settings file.
+
+    Properties properties = new Properties();
+    try (InputStream stream = BookingManager.class
+        .getResourceAsStream("/squash/booking/lambdas/SquashCustomResource.settings")) {
+      properties.load(stream);
+    } catch (IOException e) {
+      logger.log("Exception caught reading SquashCustomResource.settings properties file: "
+          + e.getMessage());
+      throw e;
+    }
+    return properties.getProperty(propertyName);
   }
 }

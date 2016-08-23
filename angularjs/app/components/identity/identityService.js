@@ -14,86 +14,33 @@
  * limitations under the License.
  */
 
-/* global alert, AWS, AWSCognito, sjcl*/
+/* global AWS, AWSCognito, sjcl*/
 
 'use strict'
 
 angular.module('squashApp.identityService', [])
-  .factory('IdentityService', [function () {
-    var isAuthenticated = false
+  .factory('IdentityService', ['$q', function ($q) {
     var comSquashRegion = 'stringtobereplaced' // will be replaced at stack creation time
     var comSquashIdentityPoolId = 'stringtobereplaced' // will be replaced at stack creation time
     var comSquashUserPoolId = 'stringtobereplaced' // will be replaced at stack creation time
     var comSquashUserPoolIdentityProviderName = 'stringtobereplaced' // will be replaced at stack creation time
     var comSquashClientAppId = 'stringtobereplaced' // will be replaced at stack creation time
+    var isAuthenticated = false
     AWS.config.region = comSquashRegion // Region
     AWSCognito.config.region = comSquashRegion // Region
 
-    return {
-      setUpGuestCredentials: function () {
-        AWS.config.credentials = new AWS.CognitoIdentityCredentials({
-          IdentityPoolId: comSquashIdentityPoolId
-        })
-      },
-      isAuthenticated: function () {
-        return isAuthenticated
-      },
-      authenticate: function (username, password) {
-        sjcl.random.startCollectors()
+    // We create this provider once only, so that other AWS service clients never need their
+    // provider replacing after they are constructed. We need only to update the logins
+    // array on this provider as we log in/out and as the id- and refresh-tokens expire.
+    AWS.config.credentials = new AWS.CognitoIdentityCredentials({
+      IdentityPoolId: comSquashIdentityPoolId
+    })
 
-        console.log('Starting authenticate...')
-        var authenticationData = {
-          Username: username,
-          Password: password
-        }
-        var authenticationDetails = new AWSCognito.CognitoIdentityServiceProvider.AuthenticationDetails(authenticationData)
-        console.log('Got authenticatation details...')
-        var poolData = {
-          UserPoolId: comSquashUserPoolId,
-          ClientId: comSquashClientAppId,
-          Paranoia: 7
-        }
-        var userPool = new AWSCognito.CognitoIdentityServiceProvider.CognitoUserPool(poolData)
-        console.log('Got user pool...')
-        var userData = {
-          Username: username,
-          Pool: userPool
-        }
-        var cognitoUser = new AWSCognito.CognitoIdentityServiceProvider.CognitoUser(userData)
-        console.log('Got cognito user...')
-        return cognitoUser.authenticateUser(authenticationDetails, {
-          onSuccess: function (result) {
-            console.log('Authenticated with user pool...')
-            console.log('User pool access token + ' + result.getAccessToken().getJwtToken())
-
-            var loginsValue = {}
-            loginsValue[comSquashUserPoolIdentityProviderName] = result.getIdToken().getJwtToken()
-            AWS.config.credentials = new AWS.CognitoIdentityCredentials({
-              IdentityPoolId: comSquashIdentityPoolId,
-              Logins: loginsValue
-            })
-            AWS.config.credentials.get(function (error) {
-              if (error) {
-                console.log('Failed to get temporary credentials...')
-                isAuthenticated = false
-                alert(error)
-              }
-              console.log('Got temporary credentials...')
-              isAuthenticated = true
-              console.log('Access key: ' + AWS.config.credentials.accessKeyId)
-              console.log('Secret access key: ' + AWS.config.credentials.secretAccessKey)
-              console.log('Session token: ' + AWS.config.credentials.sessionToken)
-            })
-          },
-          onFailure: function (err) {
-            console.log('Failed to authenticate user...')
-            isAuthenticated = false
-            alert(err)
-            this.setUpGuestCredentials()
-          }
-        })
-      },
-      logout: function () {
+    var doGetUserPoolSession = function () {
+      // If we have a user in local storage, this gets their user pool session,
+      // refreshing the user pool tokens if necessary. N.B. It will fail if the
+      // user pool 'refresh token' itself has expired.
+      return $q(function (resolve, reject) {
         var poolData = {
           UserPoolId: comSquashUserPoolId,
           ClientId: comSquashClientAppId,
@@ -102,10 +49,169 @@ angular.module('squashApp.identityService', [])
         var userPool = new AWSCognito.CognitoIdentityServiceProvider.CognitoUserPool(poolData)
         var cognitoUser = userPool.getCurrentUser()
         if (cognitoUser != null) {
-          cognitoUser.signOut()
-          isAuthenticated = false
-          this.setUpGuestCredentials()
+          cognitoUser.getSession(function (err, userPoolSession) {
+            // Return null unless we have a valid user pool session
+            if ((userPoolSession !== null) && userPoolSession.isValid()) {
+              resolve(userPoolSession)
+            } else {
+              if (err) {
+                console.log('getSession gave error: ' + err)
+              }
+              resolve()
+            }
+          })
+        } else {
+          resolve()
         }
+      })
+    }
+
+    var doUpdateAwsTemporaryCredentials = function () {
+      // Updates our temporary credentials (access key id, secret access key, and session
+      // token) if they've expired, or the user has just logged in/out. N.B. This 'session'
+      // is different to the user pool 'session'.
+
+      // Before refreshing the credentials, ensure the logins array on the credentials object
+      // is up-to-date. It is either null (for guest users), or has the user pool id token
+      // (for authenticated users).
+      var newLogins = {}
+      var newAuthenticatedState = false
+      return doGetUserPoolSession().then(function (userPoolSession) {
+        if ((userPoolSession !== undefined) && (userPoolSession !== null)) {
+          // We're authenticated with the user pool
+          newAuthenticatedState = true
+          newLogins[comSquashUserPoolIdentityProviderName] = userPoolSession.getIdToken().getJwtToken()
+        } else {
+          newLogins = null
+        }
+      }).catch(function (err) {
+        console.log('Swallowing errors whilst updating credentials: ' + err)
+      }).then(function () {
+        // Ensure the credentials get refreshed if the logins have changed
+        if (loginsAreDifferent(newLogins, AWS.config.credentials.params.Logins)) {
+          // We've just launched and/or we've just changed the logins array
+          AWS.config.credentials.params.Logins = newLogins
+          isAuthenticated = newAuthenticatedState
+          if (AWS.config.credentials.params.Logins === null) {
+            // We've just launched, or we've just logged out - so ensure we don't try to refresh credentials for
+            // an authenticated id when we have no logins. Clearing the cached Cognito id means the refresh call
+            // will get a new guest id before getting new credentials for it. N.B. we can't reuse an old id:
+            // Cognito will have promoted or disabled it when we last logged-in.
+            AWS.config.credentials.clearCachedId()
+          }
+
+          // Don't expire for now - or else we end up get-ting new creds twice, since we currently do it manually here...
+          // AWS.config.credentials.expired = true
+          // Get new credentials - need to do this manually as the generated ApiGateway client does not support CognitoIdentityCredentials.
+          // Should subclass it so that it does...
+          return $q(function (resolve, reject) {
+            AWS.config.credentials.refresh(function (error) {
+              if (error) {
+                reject(error)
+              } else {
+                resolve()
+              }
+            })
+          })
+        } else {
+          // We have suitable, but possibly-expired, credentials - so refresh only if they've expired
+          return $q(function (resolve, reject) {
+            AWS.config.credentials.get(function (error) {
+              if (error) {
+                reject(error)
+              } else {
+                resolve()
+              }
+            })
+          })
+        }
+      }).catch(function (err) {
+        throw err
+      })
+    }
+    // Do initial update on service construction
+    doUpdateAwsTemporaryCredentials()
+
+    var loginsAreDifferent = function (logins1, logins2) {
+      // Detect if the two logins maps differ
+      if (logins1 === undefined) {
+        return logins2 !== undefined
+      } else if (logins1 === null) {
+        return logins2 !== null
+      } else {
+        if ((logins2 === undefined) || (logins2 === null)) {
+          return true
+        }
+        var logins1Value = logins1[comSquashUserPoolIdentityProviderName]
+        var logins2Value = logins2[comSquashUserPoolIdentityProviderName]
+        return logins1Value !== logins2Value
+      }
+    }
+
+    return {
+      updateCredentials: function () {
+        return doUpdateAwsTemporaryCredentials()
+      },
+      isLoggedIn: function () {
+        return isAuthenticated
+      },
+      login: function (username, password) {
+        return $q(function (resolve, reject) {
+          sjcl.random.startCollectors()
+          var authenticationData = {
+            Username: username,
+            Password: password
+          }
+          var authenticationDetails = new AWSCognito.CognitoIdentityServiceProvider.AuthenticationDetails(authenticationData)
+          var poolData = {
+            UserPoolId: comSquashUserPoolId,
+            ClientId: comSquashClientAppId,
+            Paranoia: 7
+          }
+          var userPool = new AWSCognito.CognitoIdentityServiceProvider.CognitoUserPool(poolData)
+          var userData = {
+            Username: username,
+            Pool: userPool
+          }
+          var cognitoUser = new AWSCognito.CognitoIdentityServiceProvider.CognitoUser(userData)
+          cognitoUser.authenticateUser(authenticationDetails, {
+            onSuccess: function (result) {
+              doUpdateAwsTemporaryCredentials().then(resolve())
+            },
+            onFailure: function (err) {
+              doUpdateAwsTemporaryCredentials().then(reject(err))
+            }
+          })
+        })
+      },
+      logout: function () {
+        return $q(function (resolve, reject) {
+          var poolData = {
+            UserPoolId: comSquashUserPoolId,
+            ClientId: comSquashClientAppId,
+            Paranoia: 7
+          }
+          var userPool = new AWSCognito.CognitoIdentityServiceProvider.CognitoUserPool(poolData)
+          var cognitoUser = userPool.getCurrentUser()
+          if (cognitoUser != null) {
+            cognitoUser.getSession(function (err, userPoolSession) {
+              if (err) {
+                doUpdateAwsTemporaryCredentials().then(reject(err))
+              } else {
+                // FIXME: do only if session valid?
+                cognitoUser.globalSignOut({
+                  onSuccess: function (result) {
+                    doUpdateAwsTemporaryCredentials().then(resolve())
+                  },
+                  onFailure: function (err) {
+                    doUpdateAwsTemporaryCredentials().then(reject(err))
+                  }
+                })
+              }
+            })
+          }
+          doUpdateAwsTemporaryCredentials().then(resolve())
+        })
       }
     }
   }])
