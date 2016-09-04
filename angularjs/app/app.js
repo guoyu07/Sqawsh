@@ -20,6 +20,7 @@
 angular.module('squashApp', [
   'ngRoute',
   'squashApp.loginView',
+  'squashApp.bookingRuleView',
   'squashApp.bookingView',
   'squashApp.reservationView',
   'squashApp.cancellationView',

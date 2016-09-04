@@ -205,13 +205,13 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService',
 
     self.buttonStyle = function (timeSlotIndex, courtNumberIndex) {
       if (self.cellIsAtBookingTopLeft(timeSlotIndex, courtNumberIndex)) {
-        return 'cancellationButton'
+        return 'cancellation-button'
       }
-      return 'reservationButton'
+      return 'reservation-button'
     }
 
     self.cellClass = function (timeSlotIndex, courtNumberIndex) {
-      return self.isBlockBooking(timeSlotIndex, courtNumberIndex) ? 'blockBookingCell' : 'nonBlockBookingCell'
+      return self.isBlockBooking(timeSlotIndex, courtNumberIndex) ? 'block-booking-cell' : 'non-block-booking-cell'
     }
 
     self.bookingText = function (timeSlotIndex, courtNumberIndex) {
@@ -252,6 +252,11 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService',
       } else {
         $location.url('/reservations')
       }
+    }
+
+    self.manageBookingRules = function () {
+      // Show the booking rule editor
+      $location.url('/bookingrules')
     }
 
     self.loginOrOut = function () {
@@ -380,6 +385,7 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService',
       this.validDates = undefined
       this.selectedDate = undefined
       this.bookings = undefined
+      this.bookingRules = undefined
       this.bookedPlayers = undefined
       this.rowspans = undefined
       this.colspans = undefined
@@ -403,6 +409,12 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService',
       }
       this.getBookings = function () {
         return this.bookings
+      }
+      this.setBookingRules = function (bookingRules) {
+        this.bookingRules = angular.copy(bookingRules)
+      }
+      this.getBookingRules = function () {
+        return this.bookingRules
       }
       this.setBookedPlayers = function (bookedPlayers) {
         this.bookedPlayers = angular.copy(bookedPlayers)

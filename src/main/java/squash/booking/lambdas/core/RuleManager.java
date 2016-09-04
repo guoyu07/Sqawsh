@@ -106,8 +106,8 @@ public class RuleManager implements IRuleManager {
     // Check that the rule we're creating does not clash with an existing rule.
     if (doesRuleClash(bookingRuleToCreate, existingBookingRules)) {
       logger
-          .log("Cannot create rule as it clashes with existing rule, so throwing a 'Booking rule creation failed' exception");
-      throw new Exception("Booking rule creation failed");
+          .log("Cannot create rule as it clashes with existing rule, so throwing a 'Booking rule creation failed - rule would clash' exception");
+      throw new Exception("Booking rule creation failed - rule would clash");
     }
 
     logger.log("The new rule does not clash with existing rules - so proceeding to create rule");
@@ -248,7 +248,7 @@ public class RuleManager implements IRuleManager {
     if (datesToExclude.size() >= maxNumberOfDatesToExclude) {
       logger.log("The maximum number of booking rule exclusions(" + maxNumberOfDatesToExclude
           + ") exists already.");
-      throw new Exception("Booking rule exclusion addition failed");
+      throw new Exception("Booking rule exclusion addition failed - too many exclusions");
     }
 
     logger.log("Proceeding to add the new rule exclusion");
@@ -308,7 +308,7 @@ public class RuleManager implements IRuleManager {
     existingRule.get().setDatesToExclude(datesToExclude.toArray(new String[datesToExclude.size()]));
     if (doesRuleClash(existingRule.get(), existingBookingRules)) {
       logger.log("Cannot delete booking rule exclusion as remaining rules would then clash");
-      throw new Exception("Booking rule exclusion deletion failed");
+      throw new Exception("Booking rule exclusion deletion failed - latent clash exists");
     }
 
     logger.log("Proceeding to delete the rule exclusion");

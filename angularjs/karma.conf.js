@@ -5,8 +5,11 @@ module.exports = function (config) {
     files: [
       'app/bower_components/angular/angular.js',
       'app/bower_components/angular-route/angular-route.js',
+      'app/bower_components/angular-animate/angular-animate.js',
+      'app/bower_components/angular-sanitize/angular-sanitize.js',
+      'app/bower_components/moment/moment.js',
+      'app/bower_components/angular-bootstrap/ui-bootstrap-tpls.js',
       'app/bower_components/angular-mocks/angular-mocks.js',
-
       'app/components/identity/mockIdentityService.js',
       'app/components/bookings/mockBookingsService.js',
       'app/reservationView/**/*.js',
@@ -14,7 +17,9 @@ module.exports = function (config) {
       'app/loginView/**/*.js',
       'app/bookingView/bookingView.js',
       'app/bookingView/bookingView_test.js',
-      'app/bookingView/**/*.js'
+      'app/bookingView/**/*.js',
+      'app/bookingRuleView/bookingRuleView.js',
+      'app/bookingRuleView/bookingRuleView_test.js'
     ],
 
     logLevel: config.LOG_DEBUG,

@@ -19,7 +19,7 @@
 'use strict'
 
 angular.module('squashApp.bookingsService', ['squashApp.identityService'])
-  .factory('BookingService', ['$q', 'IdentityService', function ($q, IdentityService) {
+  .factory('BookingService', ['$q', '$filter', 'IdentityService', function ($q, $filter, IdentityService) {
     // Set up court numbers and booking time slots
     var numCourts = 5
     var courtNumbers = Array(numCourts).fill(0).map((x, i, a) => (i + 1))
@@ -186,6 +186,126 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
             throw new BookingServiceError(error, builder)
           })
       },
+      getBookingRules: function () {
+        // Return the booking rules
+        return getApigClient()
+          .then(function (client) {
+            var params = {}
+            var body = {}
+            var additionalParams = {}
+            return client.bookingrulesGet(params, body, additionalParams)
+          })
+          .then(function (response) {
+            if ((response.data !== null) && (response.data.hasOwnProperty('errorMessage'))) {
+              // The booking rule fetch failed
+              throw response.data.errorMessage
+            }
+            return response.data.bookingRules
+          })
+          .catch(function (error) {
+            throw error
+          })
+      },
+      createBookingRule: function (name, court, courtSpan, timeSlot, timeSlotSpan, date, isRecurring) {
+        var bookingRule = {
+          'booking': {
+            'players': name,
+            'court': court,
+            'courtSpan': courtSpan,
+            'slot': (timeSlots.indexOf(timeSlot) + 1),
+            'slotSpan': timeSlotSpan,
+            'date': $filter('date')(date, 'yyyy-MM-dd')
+          },
+          'isRecurring': isRecurring,
+          'datesToExclude': []
+        }
+        var params = {}
+        var body = {
+          'putOrDelete': 'PUT',
+          'bookingRule': bookingRule,
+          'dateToExclude': ''
+        }
+        var additionalParams = {}
+        return getApigClient()
+          .then(function (client) {
+            return client.bookingrulesPut(params, body, additionalParams)
+          })
+          .then(function (result) {
+            if ((result.data !== null) && (result.data.hasOwnProperty('errorMessage'))) {
+              // The booking rule creation failed
+              throw result.data.errorMessage
+            }
+          })
+          .catch(function (error) {
+            throw error
+          })
+      },
+      addRuleExclusion: function (bookingRule, dateToExclude) {
+        var params = {}
+        var body = {
+          'putOrDelete': 'PUT',
+          'bookingRule': bookingRule,
+          'dateToExclude': dateToExclude
+        }
+        var additionalParams = {}
+        return getApigClient()
+          .then(function (client) {
+            return client.bookingrulesPut(params, body, additionalParams)
+          })
+          .then(function (result) {
+            if ((result.data !== null) && (result.data.hasOwnProperty('errorMessage'))) {
+              // The booking rule exclusion addition failed
+              throw result.data.errorMessage
+            }
+          })
+          .catch(function (error) {
+            throw error
+          })
+      },
+      deleteBookingRule: function (bookingRuleToDelete) {
+        var params = {}
+        var body = {
+          'putOrDelete': 'DELETE',
+          'bookingRule': bookingRuleToDelete,
+          'dateToExclude': ''
+        }
+        var additionalParams = {}
+        return getApigClient()
+          .then(function (client) {
+            return client.bookingrulesDelete(params, body, additionalParams)
+          })
+          .then(function (result) {
+            if ((result.data !== null) && (result.data.hasOwnProperty('errorMessage'))) {
+              // The booking rule deletion failed
+              throw result.data.errorMessage
+            }
+          })
+          .catch(function (error) {
+            throw error
+          })
+      },
+      deleteRuleExclusion: function (bookingRule, dateToExclude) {
+        var params = {}
+        var body = {
+          'putOrDelete': 'DELETE',
+          'bookingRule': bookingRule,
+          'dateToExclude': dateToExclude
+        }
+        var additionalParams = {}
+        return getApigClient()
+          .then(function (client) {
+            return client.bookingrulesDelete(params, body, additionalParams)
+          })
+          .then(function (result) {
+            if ((result.data !== null) && (result.data.hasOwnProperty('errorMessage'))) {
+              // The booking rule exclusion deletion failed
+              throw result.data.errorMessage
+            }
+          })
+          .catch(function (error) {
+            throw error
+          })
+      },
       reserveCourt: function (court, courtSpan, slot, slotSpan, date, player1, player2, password) {
         var booking = {
           'putOrDelete': 'PUT',
@@ -208,7 +328,7 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
             return client.bookingsPut(params, body, additionalParams)
           })
           .then(function (result) {
-            if ((result.data != null) && (result.data.hasOwnProperty('errorMessage'))) {
+            if ((result.data !== null) && (result.data.hasOwnProperty('errorMessage'))) {
               // The booking failed
               throw result.data.errorMessage
             }
@@ -238,7 +358,7 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
             return client.bookingsDelete(params, body, additionalParams)
           })
           .then(function (result) {
-            if ((result.data != null) && (result.data.hasOwnProperty('errorMessage'))) {
+            if ((result.data !== null) && (result.data.hasOwnProperty('errorMessage'))) {
               // The delete failed
               throw result.data.errorMessage
             }

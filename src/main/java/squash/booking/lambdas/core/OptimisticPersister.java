@@ -194,8 +194,9 @@ public class OptimisticPersister implements IOptimisticPersister {
       // We allow puts to inactivate attributes even when on the limit -
       // otherwise we could never delete when we're on the limit.
       logger.log("Cannot create attribute - the maximum number of attributes already exists ("
-          + maxNumberOfAttributes + ") so throwing a 'Database put failed' exception");
-      throw new Exception("Database put failed");
+          + maxNumberOfAttributes
+          + ") so throwing a 'Database put failed - too many attributes' exception");
+      throw new Exception("Database put failed - too many attributes");
     }
 
     // Do a conditional put - so we don't overwrite someone else's attributes

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-/* global AWS, AWSCognito, sjcl*/
+/* global AWS, AWSCognito, sjcl */
 
 'use strict'
 
@@ -48,7 +48,7 @@ angular.module('squashApp.identityService', [])
         }
         var userPool = new AWSCognito.CognitoIdentityServiceProvider.CognitoUserPool(poolData)
         var cognitoUser = userPool.getCurrentUser()
-        if (cognitoUser != null) {
+        if (cognitoUser !== null) {
           cognitoUser.getSession(function (err, userPoolSession) {
             // Return null unless we have a valid user pool session
             if ((userPoolSession !== null) && userPoolSession.isValid()) {
@@ -129,8 +129,6 @@ angular.module('squashApp.identityService', [])
         throw err
       })
     }
-    // Do initial update on service construction
-    doUpdateAwsTemporaryCredentials()
 
     var loginsAreDifferent = function (logins1, logins2) {
       // Detect if the two logins maps differ
@@ -193,7 +191,7 @@ angular.module('squashApp.identityService', [])
           }
           var userPool = new AWSCognito.CognitoIdentityServiceProvider.CognitoUserPool(poolData)
           var cognitoUser = userPool.getCurrentUser()
-          if (cognitoUser != null) {
+          if (cognitoUser !== null) {
             cognitoUser.getSession(function (err, userPoolSession) {
               if (err) {
                 doUpdateAwsTemporaryCredentials().then(reject(err))

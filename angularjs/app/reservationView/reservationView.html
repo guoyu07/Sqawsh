@@ -54,7 +54,7 @@ limitations under the License.-->
 <h2>You are reserving court {{ctrl.activeCourt}} for {{ctrl.activeSlot | date:'shortTime'}} on {{ctrl.activeDate | date:'fullDate'}}</h2>
 <div class="form-box">
   Your name:<br>
-<input type="text" ng-model="ctrl.player1" ng-model-options="{ updateOn: 'blur' }" ng-maxlength=12 placeholder="e.g. {{ctrl.famousPlayer1}}" ng-pattern="/^[a-zA-Z]\.[a-zA-Z]+$/" name="player1" required>
+<input type="text" ng-model="ctrl.player1" ng-model-options="{ updateOn: 'blur' }" ng-maxlength=12 placeholder="e.g. {{ctrl.famousPlayer1}}" ng-pattern="/^[a-zA-Z]\.[a-zA-Z]+$/" name="player1" autocapitalize="off" autocorrect="off" required>
 <span class="error" ng-show="reservationForm.player1.$error.pattern && reservationForm.$submitted">
   Should be Initial.Surname
 </span>
@@ -66,7 +66,7 @@ limitations under the License.-->
 </span>
 <br>
   Your opponent's name:<br>
-<input type="text" ng-model="ctrl.player2" ng-model-options="{ updateOn: 'blur' }" ng-maxlength=12 placeholder="e.g. {{ctrl.famousPlayer2}}" ng-pattern="/^[a-zA-Z]\.[a-zA-Z]+$/" name="player2" required>
+<input type="text" ng-model="ctrl.player2" ng-model-options="{ updateOn: 'blur' }" ng-maxlength=12 placeholder="e.g. {{ctrl.famousPlayer2}}" ng-pattern="/^[a-zA-Z]\.[a-zA-Z]+$/" name="player2" autocapitalize="off" autocorrect="off" required>
 <span class="error" ng-show="reservationForm.player2.$error.pattern && reservationForm.$submitted">
   Should be Initial.Surname
 </span>
@@ -79,10 +79,10 @@ limitations under the License.-->
 <div ng-show="ctrl.showAdminUi()">
 <br>
   Number of courts to book:<br>
-<input type="text" ng-model="ctrl.colSpan" ng-model-options="{ updateOn: 'blur' }" ng-maxlength=1 placeholder="e.g. 1" ng-pattern="/^[1-5]$/" name="colSpan">
+<input type="text" ng-model="ctrl.colSpan" ng-model-options="{ updateOn: 'blur' }" ng-maxlength=1 placeholder="e.g. 1" ng-pattern="/^[1-5]$/" name="colSpan" autocapitalize="off" autocorrect="off" autocomplete="off">
 <br>
   Number of time slots to book:<br>
-<input type="text" ng-model="ctrl.rowSpan" ng-model-options="{ updateOn: 'blur' }" ng-maxlength=2 placeholder="e.g. 2" ng-pattern="/^([1-9]|1[0-6])$/" name="rowSpan">
+<input type="text" ng-model="ctrl.rowSpan" ng-model-options="{ updateOn: 'blur' }" ng-maxlength=2 placeholder="e.g. 2" ng-pattern="/^([1-9]|1[0-6])$/" name="rowSpan" autocapitalize="off" autocorrect="off" autocomplete="off">
 </div>
 <br><br>
   Password:<br>

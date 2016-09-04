@@ -226,33 +226,33 @@ describe('squashApp.bookingView module', function () {
   })
 
   describe('BookingViewCtrl controller cellClass function', function () {
-    it('should return nonBlockBookingCell if a court with a single booking is queried', inject(function ($rootScope) {
+    it('should return non-block-booking-cell if a court with a single booking is queried', inject(function ($rootScope) {
       // Trigger the promise chain
       $rootScope.$apply()
 
-      expect(bookingViewCtrl.cellClass(2, 1)).toBe('nonBlockBookingCell')
+      expect(bookingViewCtrl.cellClass(2, 1)).toBe('non-block-booking-cell')
     }))
 
-    it('should return blockBookingCell if a cell at the top left of a block booking is queried', inject(function ($rootScope) {
+    it('should return block-booking-cell if a cell at the top left of a block booking is queried', inject(function ($rootScope) {
       // Trigger the promise chain
       $rootScope.$apply()
 
-      expect(bookingViewCtrl.cellClass(1, 2)).toBe('blockBookingCell')
+      expect(bookingViewCtrl.cellClass(1, 2)).toBe('block-booking-cell')
     }))
   })
 
   describe('BookingViewCtrl controller buttonStyle function', function () {
-    it('should return the cancellation button style for courts with a single booking', inject(function ($rootScope) {
+    it('should return the cancellation-button style for courts with a single booking', inject(function ($rootScope) {
       // Trigger the promise chain
       $rootScope.$apply()
 
-      expect(bookingViewCtrl.buttonStyle(2, 1)).toBe('cancellationButton')
+      expect(bookingViewCtrl.buttonStyle(2, 1)).toBe('cancellation-button')
     }))
-    it('should return the reservation button style for unbooked courts', inject(function ($rootScope) {
+    it('should return the reservation-button style for unbooked courts', inject(function ($rootScope) {
       // Trigger the promise chain
       $rootScope.$apply()
 
-      expect(bookingViewCtrl.buttonStyle(3, 2)).toBe('reservationButton')
+      expect(bookingViewCtrl.buttonStyle(3, 2)).toBe('reservation-button')
     }))
   })
 

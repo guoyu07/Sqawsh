@@ -64,6 +64,43 @@ angular.module('squashApp.bookingsService', [])
           }
         })
       },
+      getBookingRules: function () {
+        return $q(function (resolve, reject) {
+          var bookingRules = [
+            {
+              booking: {players: 'Sunday recurring rule', court: 3, courtSpan: 2, slot: 1, slotSpan: 5, date: '2016-10-02'},
+              isRecurring: true,
+              datesToExclude: ['2016-07-02']
+            },
+            {
+              booking: {players: 'Tuesday non-recurring rule', court: 1, courtSpan: 2, slot: 10, slotSpan: 3, date: '2016-10-04'},
+              isRecurring: false,
+              datesToExclude: []
+            }
+          ]
+          resolve(bookingRules)
+        })
+      },
+      createBookingRule: function (name, court, courtSpan, timeSlot, timeSlotSpan, date, isRecurring) {
+        return $q(function (resolve, reject) {
+          resolve()
+        })
+      },
+      addRuleExclusion: function (bookingRule, dateToExclude) {
+        return $q(function (resolve, reject) {
+          resolve()
+        })
+      },
+      deleteBookingRule: function (bookingRuleToDelete) {
+        return $q(function (resolve, reject) {
+          resolve()
+        })
+      },
+      deleteRuleExclusion: function (bookingRule, dateToExclude) {
+        return $q(function (resolve, reject) {
+          resolve()
+        })
+      },
       reserveCourt: function (court, slot, date, player1, player2, password) {
         return $q(function (resolve, reject) {
           resolve()

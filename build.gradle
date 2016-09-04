@@ -21,7 +21,7 @@ repositories {
 dependencyManagement {
     imports {
         // Specify AWS SDK version here.
-        mavenBom 'com.amazonaws:aws-java-sdk-bom:1.11.23'
+        mavenBom 'com.amazonaws:aws-java-sdk-bom:1.11.43'
     }
 }
 

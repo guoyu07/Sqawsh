@@ -259,8 +259,9 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
 
         // Add all resources and methods to the Api, then upload its SDK to S3.
         constructApiAndUploadSdk(restApiId, apiGatewayClient, region, validDatesGETLambdaURI,
-            bookingsGETLambdaURI, bookingsPUTDELETELambdaURI, bookingsApiGatewayInvocationRole,
-            stageName, logger);
+            bookingsGETLambdaURI, bookingsPUTDELETELambdaURI, bookingRulesGETLambdaURI,
+            bookingRuleOrExclusionPUTDELETELambdaURI, bookingsApiGatewayInvocationRole, stageName,
+            logger);
 
         apiGatewayBaseUrl = getApiGatewayBaseUrl(restApiId, region, stageName);
         logger.log("Created API with base url: " + apiGatewayBaseUrl);
@@ -299,8 +300,9 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
         // And add back the updated set of resources and SDK
         logger.log("Adding back updated resources to Api with apiId: " + restApiId);
         constructApiAndUploadSdk(restApiId, apiGatewayClient, region, validDatesGETLambdaURI,
-            bookingsGETLambdaURI, bookingsPUTDELETELambdaURI, bookingsApiGatewayInvocationRole,
-            stageName, logger);
+            bookingsGETLambdaURI, bookingsPUTDELETELambdaURI, bookingRulesGETLambdaURI,
+            bookingRuleOrExclusionPUTDELETELambdaURI, bookingsApiGatewayInvocationRole, stageName,
+            logger);
 
         apiGatewayBaseUrl = getApiGatewayBaseUrl(restApiId, region, stageName);
         logger.log("Updated API with base url: " + apiGatewayBaseUrl);
@@ -355,14 +357,17 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
   // the api, and when recreating it during stack updates.
   void constructApiAndUploadSdk(String restApiId, AmazonApiGateway apiGatewayClient, String region,
       String validDatesGETLambdaURI, String bookingsGETLambdaURI,
-      String bookingsPUTDELETELambdaURI, String bookingsApiGatewayInvocationRole, String stageName,
-      LambdaLogger logger) throws Exception {
+      String bookingsPUTDELETELambdaURI, String bookingRulesGETLambdaURI,
+      String bookingRuleOrExclusionPUTDELETELambdaURI, String bookingsApiGatewayInvocationRole,
+      String stageName, LambdaLogger logger) throws Exception {
     // Create the API's resources
     logger.log("Creating API resources");
     String validDates = createTopLevelResourceOnApi("validdates", restApiId, apiGatewayClient,
         logger).getId();
     String bookings = createTopLevelResourceOnApi("bookings", restApiId, apiGatewayClient, logger)
         .getId();
+    String bookingRules = createTopLevelResourceOnApi("bookingrules", restApiId, apiGatewayClient,
+        logger).getId();
     String reservationForm = createTopLevelResourceOnApi("reservationform", restApiId,
         apiGatewayClient, logger).getId();
     String cancellationForm = createTopLevelResourceOnApi("cancellationform", restApiId,
@@ -377,6 +382,8 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     extraParameters.put("ValidDatesGETLambdaURI", validDatesGETLambdaURI);
     extraParameters.put("BookingsGETLambdaURI", bookingsGETLambdaURI);
     extraParameters.put("BookingsPUTDELETELambdaURI", bookingsPUTDELETELambdaURI);
+    extraParameters.put("BookingRulesGETLambdaURI", bookingRulesGETLambdaURI);
+    extraParameters.put("BookingRulesPUTDELETELambdaURI", bookingRuleOrExclusionPUTDELETELambdaURI);
     extraParameters.put("BookingsApiGatewayInvocationRole", bookingsApiGatewayInvocationRole);
     createMethodOnResource("ValidDatesGET", validDates, restApiId, extraParameters,
         apiGatewayClient, region, logger);
@@ -394,6 +401,17 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     createMethodOnResource("BookingsPOST", bookings, restApiId, extraParameters, apiGatewayClient,
         region, logger);
     createMethodOnResource("BookingsOPTIONS", bookings, restApiId, extraParameters,
+        apiGatewayClient, region, logger);
+
+    // Methods on the bookingrules resource
+    logger.log("Creating methods on bookingrules resource");
+    createMethodOnResource("BookingrulesGET", bookingRules, restApiId, extraParameters,
+        apiGatewayClient, region, logger);
+    createMethodOnResource("BookingrulesDELETE", bookingRules, restApiId, extraParameters,
+        apiGatewayClient, region, logger);
+    createMethodOnResource("BookingrulesPUT", bookingRules, restApiId, extraParameters,
+        apiGatewayClient, region, logger);
+    createMethodOnResource("BookingrulesOPTIONS", bookingRules, restApiId, extraParameters,
         apiGatewayClient, region, logger);
 
     // Methods on the reservationform resource
@@ -556,6 +574,8 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     createResourceRequest.setRestApiId(restApiId);
     if (resourceName.equals("bookings")) {
       createResourceRequest.setPathPart("bookings");
+    } else if (resourceName.equals("bookingrules")) {
+      createResourceRequest.setPathPart("bookingrules");
     } else if (resourceName.equals("validdates")) {
       createResourceRequest.setPathPart("validdates");
     } else if (resourceName.equals("reservationform")) {
@@ -565,6 +585,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     } else {
       throw new InvalidParameterException("Invalid resource name: " + resourceName);
     }
+
     // Get the id of the parent resource
     GetResourcesRequest getResourcesRequest = new GetResourcesRequest();
     // High enough limit for now
@@ -724,11 +745,17 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
         + "<a href= '$redirectUrl'>Please click here if you are not redirected automatically within a few seconds</a>\n"
         + "</p>\n" + "</body>\n";
 
+    // Booking rules are visible only via the angular app - so their errors have
+    // no redirect url
+    String bookingRuleErrorResponseMappingTemplate = "#set($inputRoot = $input.path('$'))\n"
+        + "<head>\n" + "<title>Grrr</title>\n" + "</head>\n" + "<body>\n"
+        + "$inputRoot.errorMessage\n" + "</body>\n";
+
     // The PUT and DELETE lambda methods currently use the Cognito context
     // variables to determine whether the caller was authenticated as admin.
     // This template just adds these Cognito variables to the others
     // already present in the request body.
-    String putDeleteRequestTemplate = "{\n"
+    String bookingsPutDeleteRequestTemplate = "{\n"
         + "\"apiGatewayBaseUrl\" : $input.json('$.apiGatewayBaseUrl'),\n"
         + "\"court\" : $input.json('$.court'),\n" + "\"courtSpan\" : $input.json('$.courtSpan'),\n"
         + "\"slot\" : $input.json('$.slot'),\n" + "\"slotSpan\" : $input.json('$.slotSpan'),\n"
@@ -738,6 +765,13 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
         + "\"players\" : $input.json('$.players'),\n"
         + "\"putOrDelete\" : $input.json('$.putOrDelete'),\n"
         + "\"redirectUrl\" : $input.json('$.redirectUrl'),\n"
+        + "\"cognitoAuthenticationType\" : \"$context.identity.cognitoAuthenticationType\",\n"
+        + "\"cognitoIdentityPoolId\" : \"$context.identity.cognitoIdentityPoolId\"\n" + "}";
+
+    String bookingRulesPutDeleteRequestTemplate = "{\n"
+        + "\"bookingRule\" : $input.json('$.bookingRule'),\n"
+        + "\"dateToExclude\" : $input.json('$.dateToExclude'),\n"
+        + "\"putOrDelete\" : $input.json('$.putOrDelete'),\n"
         + "\"cognitoAuthenticationType\" : \"$context.identity.cognitoAuthenticationType\",\n"
         + "\"cognitoIdentityPoolId\" : \"$context.identity.cognitoIdentityPoolId\"\n" + "}";
 
@@ -827,7 +861,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       // N.B. Lambda uses POST even for GET methods
       putIntegrationRequest.setHttpMethod("PUT");
       putIntegrationRequest.setCredentials(extraParameters.get("BookingsApiGatewayInvocationRole"));
-      requestTemplates.put("application/json", putDeleteRequestTemplate);
+      requestTemplates.put("application/json", bookingsPutDeleteRequestTemplate);
       response500Templates.put("application/json", errorResponseMappingTemplate);
       response400Templates.put("application/json", errorResponseMappingTemplate);
       responseParameters.put("method.response.header.access-control-allow-methods",
@@ -855,7 +889,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       // N.B. Lambda uses POST even for GET methods
       putIntegrationRequest.setHttpMethod("DELETE");
       putIntegrationRequest.setCredentials(extraParameters.get("BookingsApiGatewayInvocationRole"));
-      requestTemplates.put("application/json", putDeleteRequestTemplate);
+      requestTemplates.put("application/json", bookingsPutDeleteRequestTemplate);
       response500Templates.put("application/json", errorResponseMappingTemplate);
       response400Templates.put("application/json", errorResponseMappingTemplate);
       responseParameters.put("method.response.header.access-control-allow-methods",
@@ -948,6 +982,96 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       requestTemplates.put("application/json", "{\"statusCode\": 200}");
       responseParameters.put("method.response.header.access-control-allow-methods",
           "'GET,PUT,DELETE,POST,OPTIONS'");
+    } else if (methodName.equals("BookingrulesGET")) {
+      putMethodRequest.setHttpMethod("GET");
+      putMethod200ResponseRequest.setHttpMethod("GET");
+      putMethod500ResponseRequest.setHttpMethod("GET");
+      putMethod400ResponseRequest.setHttpMethod("GET");
+      putIntegration500ResponseRequest.setHttpMethod("GET");
+      putIntegration200ResponseRequest.setHttpMethod("GET");
+      putIntegration400ResponseRequest.setHttpMethod("GET");
+
+      method = client.putMethod(putMethodRequest);
+      // N.B. Using LAMBDA type here is not yet supported by this sdk - so use
+      // AWS instead.
+      putIntegrationRequest.setType(IntegrationType.AWS);
+      putIntegrationRequest.setUri(extraParameters.get("BookingRulesGETLambdaURI"));
+      // N.B. Lambda uses POST even for GET methods
+      putIntegrationRequest.setHttpMethod("GET");
+      putIntegrationRequest.setCredentials(extraParameters.get("BookingsApiGatewayInvocationRole"));
+      responseParameters.put("method.response.header.access-control-allow-methods",
+          "'GET,PUT,DELETE,OPTIONS'");
+      response500Templates.put("application/json", bookingRuleErrorResponseMappingTemplate);
+      response400Templates.put("application/json", bookingRuleErrorResponseMappingTemplate);
+      putIntegration500ResponseRequest
+          .setSelectionPattern("Apologies - something has gone wrong. Please try again.");
+    } else if (methodName.equals("BookingrulesPUT")) {
+      putMethodRequest.setHttpMethod("PUT");
+      // Set IAM authorisation so ApiGateway provides the Cognito context
+      // variables
+      putMethodRequest.setAuthorizationType("AWS_IAM");
+      putMethod200ResponseRequest.setHttpMethod("PUT");
+      putMethod500ResponseRequest.setHttpMethod("PUT");
+      putMethod400ResponseRequest.setHttpMethod("PUT");
+      putIntegration500ResponseRequest.setHttpMethod("PUT");
+      putIntegration200ResponseRequest.setHttpMethod("PUT");
+      putIntegration400ResponseRequest.setHttpMethod("PUT");
+      method = client.putMethod(putMethodRequest);
+      // N.B. Using LAMBDA type here is not yet supported by this sdk - so use
+      // AWS instead.
+      putIntegrationRequest.setType(IntegrationType.AWS);
+      putIntegrationRequest.setUri(extraParameters.get("BookingRulesPUTDELETELambdaURI"));
+      // N.B. Lambda uses POST even for GET methods
+      putIntegrationRequest.setHttpMethod("PUT");
+      putIntegrationRequest.setCredentials(extraParameters.get("BookingsApiGatewayInvocationRole"));
+      requestTemplates.put("application/json", bookingRulesPutDeleteRequestTemplate);
+      response500Templates.put("application/json", bookingRuleErrorResponseMappingTemplate);
+      response400Templates.put("application/json", bookingRuleErrorResponseMappingTemplate);
+      responseParameters.put("method.response.header.access-control-allow-methods",
+          "'GET,PUT,DELETE,OPTIONS'");
+      putIntegration500ResponseRequest
+          .setSelectionPattern("Apologies - something has gone wrong. Please try again.");
+      putIntegration400ResponseRequest
+          .setSelectionPattern("You must login to manage booking rules.*|Booking rule creation failed.*|Booking rule addition failed - too many rules.*|Booking rule exclusion addition failed - too many exclusions.*|Booking rule creation failed - new rule would clash.*");
+    } else if (methodName.equals("BookingrulesDELETE")) {
+      putMethodRequest.setHttpMethod("DELETE");
+      // Set IAM authorisation so ApiGateway provides the Cognito context
+      // variables
+      putMethodRequest.setAuthorizationType("AWS_IAM");
+      putMethod200ResponseRequest.setHttpMethod("DELETE");
+      putMethod500ResponseRequest.setHttpMethod("DELETE");
+      putMethod400ResponseRequest.setHttpMethod("DELETE");
+      putIntegration500ResponseRequest.setHttpMethod("DELETE");
+      putIntegration200ResponseRequest.setHttpMethod("DELETE");
+      putIntegration400ResponseRequest.setHttpMethod("DELETE");
+      method = client.putMethod(putMethodRequest);
+      // N.B. Using LAMBDA type here is not yet supported by this sdk - so use
+      // AWS instead.
+      putIntegrationRequest.setType(IntegrationType.AWS);
+      putIntegrationRequest.setUri(extraParameters.get("BookingRulesPUTDELETELambdaURI"));
+      // N.B. Lambda uses POST even for GET methods
+      putIntegrationRequest.setHttpMethod("DELETE");
+      putIntegrationRequest.setCredentials(extraParameters.get("BookingsApiGatewayInvocationRole"));
+      requestTemplates.put("application/json", bookingRulesPutDeleteRequestTemplate);
+      response500Templates.put("application/json", bookingRuleErrorResponseMappingTemplate);
+      response400Templates.put("application/json", bookingRuleErrorResponseMappingTemplate);
+      responseParameters.put("method.response.header.access-control-allow-methods",
+          "'GET,PUT,DELETE,OPTIONS'");
+      putIntegration500ResponseRequest
+          .setSelectionPattern("Apologies - something has gone wrong. Please try again.");
+      putIntegration400ResponseRequest
+          .setSelectionPattern("You must login to manage booking rules.*|Booking rule deletion failed.*|Booking rule exclusion deletion failed - latent clash exists.*");
+    } else if (methodName.equals("BookingrulesOPTIONS")) {
+      // OPTIONS method is required for CORS.
+      putMethodRequest.setHttpMethod("OPTIONS");
+      putMethod200ResponseRequest.setHttpMethod("OPTIONS");
+      putIntegration200ResponseRequest.setHttpMethod("OPTIONS");
+      method = client.putMethod(putMethodRequest);
+      putIntegrationRequest.setType(IntegrationType.MOCK);
+      putIntegrationRequest.setHttpMethod("OPTIONS");
+      requestTemplates.put("application/json", "{\"statusCode\": 200}");
+      responseParameters.put("method.response.header.access-control-allow-methods",
+          "'GET,PUT,DELETE,OPTIONS'");
     } else if (methodName.equals("ReservationformGET")) {
       methodRequestParameters.put("method.request.querystring.court", Boolean.valueOf("true"));
       methodRequestParameters.put("method.request.querystring.slot", Boolean.valueOf("true"));
@@ -1033,7 +1157,9 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       putIntegration500ResponseRequest.setResponseTemplates(response500Templates);
       client.putIntegrationResponse(putIntegration500ResponseRequest);
     } else if (methodName.equals("BookingsGET") || methodName.equals("BookingsPUT")
-        || methodName.equals("BookingsPOST") || methodName.equals("BookingsDELETE")) {
+        || methodName.equals("BookingsPOST") || methodName.equals("BookingsDELETE")
+        || methodName.equals("BookingrulesGET") || methodName.equals("BookingrulesPUT")
+        || methodName.equals("BookingrulesDELETE")) {
       putMethod500ResponseRequest.setResponseModels(methodResponseModels);
       putMethod500ResponseRequest.setResponseParameters(methodResponseParameters);
       client.putMethodResponse(putMethod500ResponseRequest);

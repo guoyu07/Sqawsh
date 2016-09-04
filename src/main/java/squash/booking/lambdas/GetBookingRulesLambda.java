@@ -106,9 +106,6 @@ public class GetBookingRulesLambda {
       throw new Exception("Apologies - something has gone wrong. Please try again." + redirectUrl,
           ace);
     } catch (Exception e) {
-      // FIXME: This will need revisiting once the Angular client supports
-      // booking rules, when we'll know which exceptional cases it needs to
-      // discriminate.
       throw new Exception("Apologies - something has gone wrong. Please try again." + redirectUrl,
           e);
     }

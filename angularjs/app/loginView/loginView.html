@@ -53,7 +53,7 @@ limitations under the License.-->
 <form novalidate class="login-form" ng-submit="ctrl.login(loginForm)" name="loginForm" ng-cloak>
 <div class="form-box">
 Your username:<br>
-<input type="text" ng-model="ctrl.username" ng-model-options="{ updateOn: 'blur' }" placeholder="enter username" name="username" required>
+<input type="text" ng-model="ctrl.username" ng-model-options="{ updateOn: 'blur' }" placeholder="enter username" name="username" autocapitalize="off" autocorrect="off" required>
 <span class="error" ng-show="loginForm.username.$error.required && loginForm.$submitted">
   Required
 </span>
