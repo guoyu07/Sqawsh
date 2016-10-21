@@ -59,11 +59,11 @@ describe('squashApp.bookingRuleView module', function () {
 
     // Set up a new rule to add for the addNewRule tests
     bookingRuleToAdd = {
-      booking: {players: 'Monday recurring rule', court: 3, courtSpan: 2, slot: 1, slotSpan: 5, date: '2016-10-03'},
+      booking: {name: 'Monday recurring rule', court: 3, courtSpan: 2, slot: 1, slotSpan: 5, date: '2016-10-03'},
       isRecurring: true,
       datesToExclude: ['2016-07-03']
     }
-    bookingRuleViewCtrl.newRuleName = bookingRuleToAdd.booking.players
+    bookingRuleViewCtrl.newRuleName = bookingRuleToAdd.booking.name
     bookingRuleViewCtrl.newRuleCourt = bookingRuleToAdd.booking.court
     bookingRuleViewCtrl.newRuleCourtSpan = bookingRuleToAdd.booking.courtSpan
     bookingRuleViewCtrl.newRuleTimeSlot = bookingRuleToAdd.booking.slot
@@ -83,7 +83,7 @@ describe('squashApp.bookingRuleView module', function () {
       $rootScope.$apply()
 
       // Reset add exclusion datepickers to their uninitialised state
-      bookingRuleViewCtrl.bookedPlayers = undefined
+      bookingRuleViewCtrl.bookingNames = undefined
 
       var sundayRuleIndex = 0
       var sundayRuleDateDisablerFunction = bookingRuleViewCtrl.addExclusionDateOptions[sundayRuleIndex].dateDisabled
@@ -704,7 +704,7 @@ describe('squashApp.bookingRuleView module', function () {
       // Expect the service was called correctly
       expect(createBookingRuleSpy.calls.count()).toEqual(1)
       expect(createBookingRuleSpy.calls.argsFor(0)).toEqual([
-        bookingRuleToAdd.booking.players,
+        bookingRuleToAdd.booking.name,
         bookingRuleToAdd.booking.court,
         bookingRuleToAdd.booking.courtSpan,
         bookingRuleToAdd.booking.slot,

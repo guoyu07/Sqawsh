@@ -204,15 +204,12 @@ public class PutDeleteBookingLambda {
         throw new Exception(
             "The booking time slot span is outside the valid range (1- (17 - slot)). Please try again."
                 + redirectUrl, e);
-      case "The players names should have a format like J.Power i.e. Initial.Surname":
+      case "The booking name must have a valid format":
         throw new Exception(
-            "The players names should have a format like J.Power i.e. Initial.Surname. Please try again."
+            "The booking name must have a valid format e.g. J.Power/A.Shabana. Please try again."
                 + redirectUrl, e);
       case "The booking date is outside the valid range":
         throw new Exception("The booking date is outside the valid range. Please try again."
-            + redirectUrl, e);
-      case "Names of both players should be given":
-        throw new Exception("Names of both players should be given. Please try again."
             + redirectUrl, e);
       case "The password is incorrect":
         throw new Exception("The password is incorrect. Please try again." + redirectUrl, e);
@@ -293,9 +290,7 @@ public class PutDeleteBookingLambda {
     booking.setSlot(Integer.parseInt(request.getSlot()));
     booking.setSlotSpan(Integer.parseInt(request.getSlotSpan()));
     booking.setDate(request.getDate());
-    booking.setPlayer1Name(request.getPlayer1name());
-    booking.setPlayer2Name(request.getPlayer2name());
-    booking.setPlayers(request.getPlayers());
+    booking.setName(request.getName().trim());
 
     return booking;
   }
@@ -341,41 +336,12 @@ public class PutDeleteBookingLambda {
       throw new Exception("The booking time slot span is outside the valid range (1- (17 - slot))");
     }
 
-    // Validate the format of the players' names. Delete requests will have only
-    // the combined playersnames set, whilst create requests will have only the
-    // players' individual names set.
-    String player1Name;
-    String player2Name;
-    String playersNames = booking.getPlayers();
-    if ((playersNames != null) && !playersNames.equals("")) {
-      // This is a delete request. Split out name of each player, so we can
-      // validate it.
-      String[] players = playersNames.split("/");
-      if (players.length != 2) {
-        logger.log("Error: at least one of the players names is absent");
-        throw new Exception("Names of both players should be given");
-      }
-      player1Name = players[0];
-      player2Name = players[1];
-    } else {
-      // Create request - so names will be individually set
-      player1Name = booking.getPlayer1Name();
-      player2Name = booking.getPlayer2Name();
-    }
-    if ((player1Name.length() == 0) || (player2Name.length() == 0)) {
-      logger.log("Error: one of the players names is absent");
-      throw new Exception("Names of both players should be given");
-    }
-    String players = player1Name + "/" + player2Name;
-    booking.setPlayers(players);
-
-    Pattern regex = Pattern.compile("^[a-zA-Z]\\.[a-zA-Z]*$");
-    boolean player1Ok = regex.matcher(player1Name).matches();
-    boolean player2Ok = regex.matcher(player2Name).matches();
-    if (!player1Ok || !player2Ok) {
-      logger.log("The players names should have a format like J.Power i.e. Initial.Surname");
-      throw new Exception(
-          "The players names should have a format like J.Power i.e. Initial.Surname");
+    // The booking name must not be empty. Could be stricter here?
+    Pattern regex = Pattern.compile("^[a-zA-Z\\. /-]*$");
+    if (!regex.matcher(booking.getName()).matches() || (booking.getName().trim().length() == 0)
+        || (booking.getName().length() > 30)) {
+      logger.log("The booking must have a valid non-empty name");
+      throw new Exception("The booking name must have a valid format");
     }
 
     // Verify date is valid

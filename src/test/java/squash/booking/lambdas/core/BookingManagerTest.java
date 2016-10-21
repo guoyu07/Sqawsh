@@ -18,10 +18,6 @@ package squash.booking.lambdas.core;
 
 import static org.junit.Assert.assertTrue;
 
-import squash.booking.lambdas.core.Booking;
-import squash.booking.lambdas.core.BookingManager;
-import squash.booking.lambdas.core.IOptimisticPersister;
-
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.jmock.Expectations;
 import org.jmock.Mockery;
@@ -73,8 +69,8 @@ public class BookingManagerTest {
   Booking blockBookingOverlappingExistingSingleBooking;
   Booking blockBookingOverlappingExistingBlockBooking;
 
-  String existingPlayersNames;
-  String newPlayersNames;
+  String existingName;
+  String newName;
 
   // Bookings before and after we attempt to change them by calling a booking
   // manager method
@@ -93,21 +89,21 @@ public class BookingManagerTest {
     bookingManager.setCurrentLocalDate(fakeCurrentDate);
 
     // Set up the test bookings
-    existingPlayersNames = "A.Shabana/J.Power";
-    newPlayersNames = "J.Willstrop/N.Matthew";
-    existingSingleBooking = new Booking(2, 1, 3, 1, existingPlayersNames);
+    existingName = "A.Shabana/J.Power";
+    newName = "J.Willstrop/N.Matthew";
+    existingSingleBooking = new Booking(2, 1, 3, 1, existingName);
     existingSingleBooking.setDate(fakeCurrentDateString);
-    blockBookingOverlappingExistingSingleBooking = new Booking(1, 3, 3, 2, newPlayersNames);
+    blockBookingOverlappingExistingSingleBooking = new Booking(1, 3, 3, 2, newName);
     blockBookingOverlappingExistingSingleBooking.setDate(fakeCurrentDateString);
-    blockBookingOverlappingExistingBlockBooking = new Booking(2, 2, 9, 2, newPlayersNames);
+    blockBookingOverlappingExistingBlockBooking = new Booking(2, 2, 9, 2, newName);
     blockBookingOverlappingExistingBlockBooking.setDate(fakeCurrentDateString);
-    singleBookingOfFreeCourt = new Booking(4, 1, 12, 1, newPlayersNames);
+    singleBookingOfFreeCourt = new Booking(4, 1, 12, 1, newName);
     singleBookingOfFreeCourt.setDate(fakeCurrentDateString);
-    existingBlockBooking = new Booking(3, 3, 10, 2, existingPlayersNames);
+    existingBlockBooking = new Booking(3, 3, 10, 2, existingName);
     existingBlockBooking.setDate(fakeCurrentDateString);
-    singleBookingWithinExistingBlockBooking = new Booking(4, 1, 11, 1, newPlayersNames);
+    singleBookingWithinExistingBlockBooking = new Booking(4, 1, 11, 1, newName);
     singleBookingWithinExistingBlockBooking.setDate(fakeCurrentDateString);
-    blockBookingOfFreeCourts = new Booking(1, 5, 13, 3, newPlayersNames);
+    blockBookingOfFreeCourts = new Booking(1, 5, 13, 3, newName);
     blockBookingOfFreeCourts.setDate(fakeCurrentDateString);
     bookingsBeforeCall = new ArrayList<>();
     bookingsBeforeCall.add(existingSingleBooking);
@@ -154,7 +150,7 @@ public class BookingManagerTest {
         + bookingToCreate.getSlotSpan().toString();
     ReplaceableAttribute bookingAttribute = new ReplaceableAttribute();
     bookingAttribute.setName(attributeName);
-    bookingAttribute.setValue(newPlayersNames);
+    bookingAttribute.setValue(newName);
 
     // Booking creation gets existing bookings before trying to make the new one
     expectOptimisticPersisterGetToReturnVersionedAttributesOrThrow(expectedVersionNumber,
@@ -188,7 +184,7 @@ public class BookingManagerTest {
         booking -> {
           attributes.add(new Attribute(booking.getCourt().toString() + "-"
               + booking.getCourtSpan().toString() + "-" + booking.getSlot().toString() + "-"
-              + booking.getSlotSpan().toString(), booking.getPlayers()));
+              + booking.getSlotSpan().toString(), booking.getName()));
         });
 
     // Set up mock optimistic persister to return these bookings - or to throw
@@ -221,7 +217,7 @@ public class BookingManagerTest {
 
     Attribute attribute = new Attribute();
     attribute.setName(attributeName);
-    attribute.setValue(bookingToDelete.getPlayers());
+    attribute.setValue(bookingToDelete.getName());
 
     if (!exceptionToThrow.isPresent()) {
       mockery.checking(new Expectations() {
@@ -322,7 +318,7 @@ public class BookingManagerTest {
         booking -> {
           attributes.add(new Attribute(booking.getCourt().toString() + "-"
               + booking.getCourtSpan().toString() + "-" + booking.getSlot().toString() + "-"
-              + booking.getSlotSpan().toString(), booking.getPlayers()));
+              + booking.getSlotSpan().toString(), booking.getName()));
           expectedDateAttributeListPairs.add(new ImmutablePair<>(booking.getDate(), attributes));
         });
 
@@ -598,7 +594,7 @@ public class BookingManagerTest {
         booking -> {
           attributes.add(new Attribute(booking.getCourt().toString() + "-"
               + booking.getCourtSpan().toString() + "-" + booking.getSlot().toString() + "-"
-              + booking.getSlotSpan().toString(), booking.getPlayers()));
+              + booking.getSlotSpan().toString(), booking.getName()));
         });
     allDateAttributeListPairs.add(new ImmutablePair<>(fakeCurrentDateString, attributes));
 

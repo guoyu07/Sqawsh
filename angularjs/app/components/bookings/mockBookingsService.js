@@ -40,11 +40,11 @@ angular.module('squashApp.bookingsService', [])
         return $q(function (resolve, reject) {
           var date = builder.getSelectedDate()
           if (date === '2016-04-23') {
-            builder.setBookings([{'court': 1, 'courtSpan': 1, 'slot': 2, 'slotSpan': 1, 'players': 'H.Ashour/H.AckerTDog'}, {'court': 1, 'courtSpan': 1, 'slot': 3, 'slotSpan': 2, 'players': 'A.Booking/B.Lock'}])
+            builder.setBookings([{'court': 1, 'courtSpan': 1, 'slot': 2, 'slotSpan': 1, 'name': 'H.Ashour/H.AckerTDog'}, {'court': 1, 'courtSpan': 1, 'slot': 3, 'slotSpan': 2, 'name': 'A.Booking/B.Lock'}])
             builder.setSelectedDate('2016-04-23')
             resolve(builder)
           } else {
-            builder.setBookings([{'court': 2, 'courtSpan': 1, 'slot': 4, 'slotSpan': 1, 'players': 'J.Khan/J.Barrington'}, {'court': 1, 'courtSpan': 3, 'slot': 5, 'slotSpan': 1, 'players': 'A.Different/B.Ooking'}])
+            builder.setBookings([{'court': 2, 'courtSpan': 1, 'slot': 4, 'slotSpan': 1, 'name': 'J.Khan/J.Barrington'}, {'court': 1, 'courtSpan': 3, 'slot': 5, 'slotSpan': 1, 'name': 'A.Different/B.Ooking'}])
             builder.setSelectedDate('2016-04-24')
             resolve(builder)
           }
@@ -54,11 +54,11 @@ angular.module('squashApp.bookingsService', [])
         return $q(function (resolve, reject) {
           var date = builder.getSelectedDate()
           if (date === '2016-04-23') {
-            builder.setBookings([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'players': 'R.Ashour/J.Power'}, {'court': 3, 'courtSpan': 3, 'slot': 2, 'slotSpan': 3, 'players': 'A.Block/B.Ooking'}])
+            builder.setBookings([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'name': 'R.Ashour/J.Power'}, {'court': 3, 'courtSpan': 3, 'slot': 2, 'slotSpan': 3, 'name': 'A.Block/B.Ooking'}])
             builder.setSelectedDate('2016-04-23')
             resolve(builder)
           } else {
-            builder.setBookings([{'court': 3, 'courtSpan': 1, 'slot': 1, 'slotSpan': 1, 'players': 'R.Ashour/G.Gaultier'}, {'court': 1, 'courtSpan': 2, 'slot': 1, 'slotSpan': 1, 'players': 'A.Nother/B.Lock'}])
+            builder.setBookings([{'court': 3, 'courtSpan': 1, 'slot': 1, 'slotSpan': 1, 'name': 'R.Ashour/G.Gaultier'}, {'court': 1, 'courtSpan': 2, 'slot': 1, 'slotSpan': 1, 'name': 'A.Nother/B.Lock'}])
             builder.setSelectedDate('2016-04-24')
             resolve(builder)
           }
@@ -68,12 +68,12 @@ angular.module('squashApp.bookingsService', [])
         return $q(function (resolve, reject) {
           var bookingRules = [
             {
-              booking: {players: 'Sunday recurring rule', court: 3, courtSpan: 2, slot: 1, slotSpan: 5, date: '2016-10-02'},
+              booking: {name: 'Sunday recurring rule', court: 3, courtSpan: 2, slot: 1, slotSpan: 5, date: '2016-10-02'},
               isRecurring: true,
               datesToExclude: ['2016-07-02']
             },
             {
-              booking: {players: 'Tuesday non-recurring rule', court: 1, courtSpan: 2, slot: 10, slotSpan: 3, date: '2016-10-04'},
+              booking: {name: 'Tuesday non-recurring rule', court: 1, courtSpan: 2, slot: 10, slotSpan: 3, date: '2016-10-04'},
               isRecurring: false,
               datesToExclude: []
             }
@@ -101,12 +101,12 @@ angular.module('squashApp.bookingsService', [])
           resolve()
         })
       },
-      reserveCourt: function (court, slot, date, player1, player2, password) {
+      reserveCourt: function (court, slot, date, name, password) {
         return $q(function (resolve, reject) {
           resolve()
         })
       },
-      cancelCourt: function (court, slot, date, players, password) {
+      cancelCourt: function (court, slot, date, name, password) {
         return $q(function (resolve, reject) {
           resolve()
         })

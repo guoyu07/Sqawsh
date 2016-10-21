@@ -43,9 +43,7 @@ describe('squashApp.cancellationView module', function () {
     bookingService.activeSlotSpan = 1
     bookingService.activeSlotIndex = 0
     bookingService.activeDate = '2016-04-24'
-    bookingService.player1 = 'J.Wilstrop'
-    bookingService.player2 = 'N.Mathew'
-    bookingService.players = 'J.Wilstrop/N.Mathew'
+    bookingService.activeName = 'J.Wilstrop/N.Mathew'
 
     // Create the controller now that the mock is set up
     var scope = $rootScope.$new()
@@ -61,9 +59,7 @@ describe('squashApp.cancellationView module', function () {
       expect(cancellationViewCtrl.activeSlotSpan).toEqual(1)
       expect(cancellationViewCtrl.activeSlotIndex).toEqual(0)
       expect(cancellationViewCtrl.activeDate).toEqual('2016-04-24')
-      expect(cancellationViewCtrl.player1).toEqual('J.Wilstrop')
-      expect(cancellationViewCtrl.player2).toEqual('N.Mathew')
-      expect(cancellationViewCtrl.players).toEqual('J.Wilstrop/N.Mathew')
+      expect(cancellationViewCtrl.activeName).toEqual('J.Wilstrop/N.Mathew')
     })
 
     it('should not submit a court cancellation form that is invalid', function () {

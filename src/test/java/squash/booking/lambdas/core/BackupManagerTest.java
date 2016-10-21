@@ -21,11 +21,6 @@ import static org.hamcrest.Matchers.hasProperty;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import squash.booking.lambdas.core.BackupManager;
-import squash.booking.lambdas.core.Booking;
-import squash.booking.lambdas.core.BookingRule;
-import squash.booking.lambdas.core.IBookingManager;
-import squash.booking.lambdas.core.IRuleManager;
 import squash.deployment.lambdas.utils.IS3TransferManager;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -72,7 +67,7 @@ public class BackupManagerTest {
   Integer courtSpan;
   Integer slot;
   Integer slotSpan;
-  String playersNames;
+  String name;
   Booking booking;
   String date = "2016-01-12";
   List<Booking> bookings;
@@ -118,8 +113,8 @@ public class BackupManagerTest {
     courtSpan = 4;
     slot = 12;
     slotSpan = 3;
-    playersNames = "D.Playerd/F.Playerf";
-    booking = new Booking(court, courtSpan, slot, slotSpan, playersNames);
+    name = "D.Playerd/F.Playerf";
+    booking = new Booking(court, courtSpan, slot, slotSpan, name);
     booking.setDate(date);
     bookings = new ArrayList<>();
     bookings.add(booking);
@@ -449,8 +444,7 @@ public class BackupManagerTest {
   private String getExpectedBookingJson(Booking booking) {
     return "{\"date\":\"" + booking.getDate() + "\",\"court\":" + booking.getCourt()
         + ",\"courtSpan\":" + booking.getCourtSpan() + ",\"slot\":" + booking.getSlot()
-        + ",\"slotSpan\":" + booking.getSlotSpan() + ",\"players\":\"" + booking.getPlayers()
-        + "\"}";
+        + ",\"slotSpan\":" + booking.getSlotSpan() + ",\"name\":\"" + booking.getName() + "\"}";
   }
 
   @Test

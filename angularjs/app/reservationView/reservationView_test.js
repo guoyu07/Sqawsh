@@ -43,8 +43,6 @@ describe('squashApp.reservationView module', function () {
     bookingService.activeSlotSpan = 1
     bookingService.activeSlotIndex = 0
     bookingService.activeDate = '2016-04-24'
-    bookingService.player1 = 'J.Wilstrop'
-    bookingService.player2 = 'N.Mathew'
 
     // Create the controller now that the mock is set up
     var scope = $rootScope.$new()
@@ -58,8 +56,6 @@ describe('squashApp.reservationView module', function () {
       expect(reservationViewCtrl.activeSlot).toEqual(1)
       expect(reservationViewCtrl.activeSlotIndex).toEqual(0)
       expect(reservationViewCtrl.activeDate).toEqual('2016-04-24')
-      expect(reservationViewCtrl.player1).toEqual('J.Wilstrop')
-      expect(reservationViewCtrl.player2).toEqual('N.Mathew')
     })
 
     it('should not submit a court reservation form that is invalid', function () {
@@ -71,10 +67,11 @@ describe('squashApp.reservationView module', function () {
     it('should submit a court reservation form that is valid', function () {
       // Try to submit a valid form
       reservationViewCtrl.password = 'TheBogieman'
+      reservationViewCtrl.name = 'J.Wilstrop/N.Mathew'
       expect(bookingService.reserveCourt).not.toHaveBeenCalled()
       reservationViewCtrl.submitReservation({'$invalid': false})
       expect(bookingService.reserveCourt).toHaveBeenCalledWith(
-        2, 1, 1, 1, '2016-04-24', 'J.Wilstrop', 'N.Mathew', 'TheBogieman'
+        2, 1, 1, 1, '2016-04-24', 'J.Wilstrop/N.Mathew', 'TheBogieman'
       )
     })
 
@@ -86,12 +83,13 @@ describe('squashApp.reservationView module', function () {
       bookingService.activeSlotSpan = 7
 
       reservationViewCtrl.password = 'TheBogieman'
+      reservationViewCtrl.name = 'J.Wilstrop/N.Mathew'
       reservationViewCtrl.rowSpan = 7
       reservationViewCtrl.colSpan = 4
       expect(bookingService.reserveCourt).not.toHaveBeenCalled()
       reservationViewCtrl.submitReservation({'$invalid': false})
       expect(bookingService.reserveCourt).toHaveBeenCalledWith(
-        2, 4, 1, 7, '2016-04-24', 'J.Wilstrop', 'N.Mathew', 'TheBogieman'
+        2, 4, 1, 7, '2016-04-24', 'J.Wilstrop/N.Mathew', 'TheBogieman'
       )
     }))
 

@@ -96,7 +96,7 @@ public class BookingManager implements IBookingManager {
 
     // Do a conditional put - so we don't overwrite someone else's booking
     String attributeName = getAttributeNameFromBooking(bookingToCreate);
-    String attributeValue = bookingToCreate.getPlayers();
+    String attributeValue = bookingToCreate.getName();
     logger.log("ItemName: " + itemName);
     logger.log("AttributeName: " + attributeName);
     logger.log("AttributeValue: " + attributeValue);
@@ -189,8 +189,8 @@ public class BookingManager implements IBookingManager {
     Integer courtSpan = Integer.parseInt(parts[1]);
     Integer slot = Integer.parseInt(parts[2]);
     Integer slotSpan = Integer.parseInt(parts[3]);
-    String players = attribute.getValue();
-    Booking booking = new Booking(court, courtSpan, slot, slotSpan, players);
+    String name = attribute.getValue();
+    Booking booking = new Booking(court, courtSpan, slot, slotSpan, name);
     booking.setDate(date);
     return booking;
   }
@@ -210,7 +210,7 @@ public class BookingManager implements IBookingManager {
     logger.log("About to delete booking from database: " + bookingToDelete.toString());
     Attribute attribute = new Attribute();
     attribute.setName(getAttributeNameFromBooking(bookingToDelete));
-    attribute.setValue(bookingToDelete.getPlayers());
+    attribute.setValue(bookingToDelete.getName());
     getOptimisticPersister().delete(bookingToDelete.getDate(), attribute);
 
     logger.log("Deleted booking from database");

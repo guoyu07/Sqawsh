@@ -209,7 +209,7 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
       createBookingRule: function (name, court, courtSpan, timeSlot, timeSlotSpan, date, isRecurring) {
         var bookingRule = {
           'booking': {
-            'players': name,
+            'name': name,
             'court': court,
             'courtSpan': courtSpan,
             'slot': (timeSlots.indexOf(timeSlot) + 1),
@@ -306,15 +306,14 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
             throw error
           })
       },
-      reserveCourt: function (court, courtSpan, slot, slotSpan, date, player1, player2, password) {
+      reserveCourt: function (court, courtSpan, slot, slotSpan, date, name, password) {
         var booking = {
           'putOrDelete': 'PUT',
           'court': court,
           'courtSpan': courtSpan,
           'slot': slot,
           'slotSpan': slotSpan,
-          'player1name': player1,
-          'player2name': player2,
+          'name': name,
           'date': date,
           'password': password,
           'apiGatewayBaseUrl': comSquashApiGatewayBaseUrl,
@@ -337,14 +336,14 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
             throw error
           })
       },
-      cancelCourt: function (court, courtSpan, slot, slotSpan, date, players, password) {
+      cancelCourt: function (court, courtSpan, slot, slotSpan, date, name, password) {
         var booking = {
           'putOrDelete': 'DELETE',
           'court': court,
           'courtSpan': courtSpan,
           'slot': slot,
           'slotSpan': slotSpan,
-          'players': players,
+          'name': name,
           'date': date,
           'password': password,
           'apiGatewayBaseUrl': comSquashApiGatewayBaseUrl,

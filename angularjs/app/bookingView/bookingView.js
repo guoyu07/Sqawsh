@@ -80,14 +80,14 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService',
     // Helper functions
     function updateBookingArrays (builder) {
       // Initialise array holding who, if anyone, has a court/time booked
-      var bookedPlayers = new Array(self.timeSlots.length)
+      var bookingNames = new Array(self.timeSlots.length)
       // Initialise arrays holding size of bookings
       var rowspans = new Array(self.timeSlots.length)
       var colspans = new Array(self.timeSlots.length)
       // Initialise array holding whether a table cell is within a block booking
       var cellIsBlockBookingInterior = new Array(self.timeSlots.length)
-      for (var timeSlotIndex = 0; timeSlotIndex < bookedPlayers.length; timeSlotIndex++) {
-        bookedPlayers[timeSlotIndex] = new Array(self.courtNumbers.length)
+      for (var timeSlotIndex = 0; timeSlotIndex < bookingNames.length; timeSlotIndex++) {
+        bookingNames[timeSlotIndex] = new Array(self.courtNumbers.length)
         rowspans[timeSlotIndex] = new Array(self.courtNumbers.length)
         colspans[timeSlotIndex] = new Array(self.courtNumbers.length)
         cellIsBlockBookingInterior[timeSlotIndex] = new Array(self.courtNumbers.length)
@@ -98,7 +98,7 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService',
       for (var i = 0; i < bookings.length; i++) {
         var slotIndex = bookings[i].slot - 1
         var courtIndex = bookings[i].court - 1
-        bookedPlayers[slotIndex][courtIndex] = bookings[i].players
+        bookingNames[slotIndex][courtIndex] = bookings[i].name
         rowspans[slotIndex][courtIndex] = bookings[i].slotSpan
         colspans[slotIndex][courtIndex] = bookings[i].courtSpan
         for (var courtOffset = 0; courtOffset < bookings[i].courtSpan; courtOffset++) {
@@ -109,7 +109,7 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService',
         // Reset the cell at the top left of each booking
         cellIsBlockBookingInterior[slotIndex][courtIndex] = undefined
       }
-      builder.setBookedPlayers(bookedPlayers)
+      builder.setBookingNames(bookingNames)
       builder.setRowspans(rowspans)
       builder.setColspans(colspans)
       builder.setCellIsBlockBookingInterior(cellIsBlockBookingInterior)
@@ -147,7 +147,7 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService',
         self.validDates = angular.copy(builder.getValidDates())
         self.selectedDate = angular.copy(builder.getSelectedDate())
         self.bookings = angular.copy(builder.getBookings())
-        self.bookedPlayers = angular.copy(builder.getBookedPlayers())
+        self.bookingNames = angular.copy(builder.getBookingNames())
         self.rowspans = angular.copy(builder.getRowspans())
         self.colspans = angular.copy(builder.getColspans())
         self.cellIsBlockBookingInterior = angular.copy(builder.getCellIsBlockBookingInterior())
@@ -216,14 +216,14 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService',
 
     self.bookingText = function (timeSlotIndex, courtNumberIndex) {
       if (self.cellIsAtBookingTopLeft(timeSlotIndex, courtNumberIndex)) {
-        return self.bookedPlayers[timeSlotIndex][courtNumberIndex]
+        return self.bookingNames[timeSlotIndex][courtNumberIndex]
       }
       return 'Reserve'
     }
 
     self.tooltip = function (timeSlotIndex, courtNumberIndex) {
       if (self.cellIsAtBookingTopLeft(timeSlotIndex, courtNumberIndex)) {
-        return self.bookedPlayers[timeSlotIndex][courtNumberIndex]
+        return self.bookingNames[timeSlotIndex][courtNumberIndex]
       }
       // No tooltip for unbooked courts
       return ''
@@ -240,9 +240,7 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService',
       BookingService.activeSlotSpan = self.rowSpan(timeSlotIndex, courtNumberIndex)
       BookingService.activeSlotIndex = timeSlotIndex
       BookingService.activeDate = self.selectedDate
-      BookingService.player1 = ''
-      BookingService.player2 = ''
-      BookingService.players = self.bookingText(timeSlotIndex, courtNumberIndex)
+      BookingService.activeName = self.bookingText(timeSlotIndex, courtNumberIndex)
       BookingService.famousPlayer1 = famousPlayers[0]
       BookingService.famousPlayer2 = famousPlayers[1]
 
@@ -386,7 +384,7 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService',
       this.selectedDate = undefined
       this.bookings = undefined
       this.bookingRules = undefined
-      this.bookedPlayers = undefined
+      this.bookingNames = undefined
       this.rowspans = undefined
       this.colspans = undefined
       this.cellIsBlockBookingInterior = undefined
@@ -416,11 +414,11 @@ angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService',
       this.getBookingRules = function () {
         return this.bookingRules
       }
-      this.setBookedPlayers = function (bookedPlayers) {
-        this.bookedPlayers = angular.copy(bookedPlayers)
+      this.setBookingNames = function (bookingNames) {
+        this.bookingNames = angular.copy(bookingNames)
       }
-      this.getBookedPlayers = function () {
-        return this.bookedPlayers
+      this.getBookingNames = function () {
+        return this.bookingNames
       }
       this.setRowspans = function (rowspans) {
         this.rowspans = angular.copy(rowspans)

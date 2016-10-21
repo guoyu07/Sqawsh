@@ -528,7 +528,7 @@ public class RuleManager implements IRuleManager {
 
   private BookingRule getBookingRuleFromAttribute(Attribute attribute) {
     // N.B. BookingRule attributes have names like
-    // <date>-<court>-<courtSpan>-<slot>-<slotSpan>-<isRecurring>-<players>
+    // <date>-<court>-<courtSpan>-<slot>-<slotSpan>-<isRecurring>-<name>
     // e.g. 2016-07-04-4-2-7-3-true-TeamTraining books courts 4-5 for time slots
     // 7-9 every Monday, starting on Monday 4th July 2016, for TeamTraining.
     // The value is a comma-separated array of dates to exclude.
@@ -539,15 +539,15 @@ public class RuleManager implements IRuleManager {
     Integer slot = Integer.parseInt(parts[5]);
     Integer slotSpan = Integer.parseInt(parts[6]);
     Boolean isRecurring = Boolean.valueOf(parts[7]);
-    // All remaining parts will be players names - possibly hyphenated
-    String players = "";
+    // All remaining parts will be the booking name - possibly hyphenated
+    String name = "";
     for (int partNum = 8; partNum < parts.length; partNum++) {
-      players += parts[partNum];
+      name += parts[partNum];
       if (partNum < (parts.length - 1)) {
-        players += "-";
+        name += "-";
       }
     }
-    Booking rulesBooking = new Booking(court, courtSpan, slot, slotSpan, players);
+    Booking rulesBooking = new Booking(court, courtSpan, slot, slotSpan, name);
     rulesBooking.setDate(date);
     String[] datesToExclude = new String[0];
     if (attribute.getValue().length() > 0) {
@@ -564,7 +564,7 @@ public class RuleManager implements IRuleManager {
         + bookingRule.getBooking().getCourtSpan().toString() + "-"
         + bookingRule.getBooking().getSlot().toString() + "-"
         + bookingRule.getBooking().getSlotSpan().toString() + "-"
-        + bookingRule.getIsRecurring().toString() + "-" + bookingRule.getBooking().getPlayers();
+        + bookingRule.getIsRecurring().toString() + "-" + bookingRule.getBooking().getName();
   }
 
   private void purgeExpiredRulesAndRuleExclusions() throws Exception {

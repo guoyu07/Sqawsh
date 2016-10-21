@@ -223,28 +223,27 @@ public class PageManager implements IPageManager {
     // In order to merge the day's bookings with our velocity template, we need
     // to create an object with bookings on a grid corresponding to the html
     // table. For each grid cell, we need to know whether the cell is booked,
-    // and if it is, the names of the players who've booked it, and, if it's a
-    // block booking, the span of the block and whether this cell is interior to
-    // the block.
+    // and if it is, the name of the booking, and, if it's a block booking, the
+    // span of the block and whether this cell is interior to the block.
     logger.log("About to set up velocity context");
     List<ArrayList<Boolean>> bookedState = new ArrayList<>();
     List<ArrayList<Integer>> rowSpan = new ArrayList<>();
     List<ArrayList<Integer>> colSpan = new ArrayList<>();
     List<ArrayList<Boolean>> isBlockInterior = new ArrayList<>();
-    List<ArrayList<String>> players = new ArrayList<>();
+    List<ArrayList<String>> names = new ArrayList<>();
     // First set up default arrays for case of no bookings
     for (int slot = 1; slot <= 16; slot++) {
       bookedState.add(new ArrayList<>());
       rowSpan.add(new ArrayList<>());
       colSpan.add(new ArrayList<>());
       isBlockInterior.add(new ArrayList<>());
-      players.add(new ArrayList<>());
+      names.add(new ArrayList<>());
       for (int court = 1; court <= numCourts; court++) {
         bookedState.get(slot - 1).add(false);
         rowSpan.get(slot - 1).add(1);
         colSpan.get(slot - 1).add(1);
         isBlockInterior.get(slot - 1).add(true);
-        players.get(slot - 1).add("");
+        names.get(slot - 1).add("");
       }
     }
     // Mutate cells which are in fact booked
@@ -256,7 +255,7 @@ public class PageManager implements IPageManager {
           colSpan.get(slot - 1).set(court - 1, booking.getCourtSpan());
           isBlockInterior.get(slot - 1).set(court - 1,
               ((court == booking.getCourt()) && (slot == booking.getSlot())) ? false : true);
-          players.get(slot - 1).set(court - 1, booking.getPlayers());
+          names.get(slot - 1).set(court - 1, booking.getName());
         }
       }
     }
@@ -284,7 +283,7 @@ public class PageManager implements IPageManager {
     context.put("rowSpan", rowSpan);
     context.put("colSpan", colSpan);
     context.put("isBlockInterior", isBlockInterior);
-    context.put("players", players);
+    context.put("names", names);
     logger.log("Set up velocity context");
 
     // TODO assert some sensible invariants on data sizes?
@@ -334,7 +333,7 @@ public class PageManager implements IPageManager {
       bookingNode.put("courtSpan", booking.getCourtSpan());
       bookingNode.put("slot", booking.getSlot());
       bookingNode.put("slotSpan", booking.getSlotSpan());
-      bookingNode.put("players", booking.getPlayers());
+      bookingNode.put("name", booking.getName());
       bookingsNode.add(bookingNode);
     }
 

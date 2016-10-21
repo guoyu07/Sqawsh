@@ -21,7 +21,7 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import java.util.Objects;
 
 /**
- * Represents a court booking at a specified date and time for specified players.
+ * Represents a court booking at a specified date and time with a specified name.
  *
  * <p>Bookings can be for:
  *    <ul>
@@ -39,16 +39,14 @@ import java.util.Objects;
  *
  * @author robinsteel19@outlook.com (Robin Steel)
  */
-@JsonPropertyOrder({ "date", "court", "courtSpan", "slot", "slotSpan", "players" })
+@JsonPropertyOrder({ "date", "court", "courtSpan", "slot", "slotSpan", "name" })
 public class Booking {
   Integer court;
   Integer courtSpan;
   Integer slot;
   Integer slotSpan;
   String date;
-  String players;
-  String player1Name;
-  String player2Name;
+  String name;
 
   public Integer getCourt() {
     return court;
@@ -109,37 +107,15 @@ public class Booking {
     this.date = date;
   }
 
-  public String getPlayers() {
-    return players;
+  public String getName() {
+    return name;
   }
 
   /**
-   *  Sets the players names, separated by a forward slash, e.g. A.Shabana/J.Power.
+   *  Sets the booking name, e.g. A.Shabana/J.Power.
    */
-  public void setPlayers(String players) {
-    this.players = players;
-  }
-
-  public String getPlayer1Name() {
-    return player1Name;
-  }
-
-  /**
-   *  Sets the name of the first player, e.g. A.Shabana.
-   */
-  public void setPlayer1Name(String player1Name) {
-    this.player1Name = player1Name;
-  }
-
-  public String getPlayer2Name() {
-    return player2Name;
-  }
-
-  /**
-   *  Sets the name of the second player, e.g. J.Power.
-   */
-  public void setPlayer2Name(String player2Name) {
-    this.player2Name = player2Name;
+  public void setName(String name) {
+    this.name = name;
   }
 
   public Booking() {
@@ -147,7 +123,7 @@ public class Booking {
     this.courtSpan = 1;
     this.slot = 2;
     this.slotSpan = 1;
-    this.players = "D.EfaultPlayer1/D.EfaultPlayer2";
+    this.name = "DefaultBooking";
   }
 
   /**
@@ -159,41 +135,39 @@ public class Booking {
     this.courtSpan = booking.getCourtSpan();
     this.slot = booking.getSlot();
     this.slotSpan = booking.getSlotSpan();
-    this.players = booking.getPlayers();
-    this.player1Name = booking.getPlayer1Name();
-    this.player2Name = booking.getPlayer2Name();
+    this.name = booking.getName();
   }
 
   /**
-   * Constructs booking for the specified court and time for the specified players.
+   * Constructs booking for the specified court and time with the specified name.
    *
    * @param court the 1-based number of the booked court.
    * @param slot the 1-based time slot of the booked court.
-   * @param players the names of the players, separated by a forward slash, e.g. A.Shabana/J.Power
+   * @param name the name of the booking, e.g. A.Shabana/J.Power
    */
-  public Booking(Integer court, Integer slot, String players) {
+  public Booking(Integer court, Integer slot, String name) {
     this.court = court;
     this.courtSpan = 1;
     this.slot = slot;
     this.slotSpan = 1;
-    this.players = players;
+    this.name = name;
   }
 
   /**
-   * Constructs a block booking for the specified court and time spans for the specified players.
+   * Constructs a block booking for the specified court and time spans with the specified name.
    *
    * @param court the 1-based number of the booked court.
    * @param courtSpan the number of courts per time slot
    * @param slot the 1-based time slot of the booked court.
    * @param slotSpan the number of time slots per court
-   * @param players the names of the players, separated by a forward slash, e.g. A.Shabana/J.Power
+   * @param name the name of the booking, e.g. Team Training
    */
-  public Booking(Integer court, Integer courtSpan, Integer slot, Integer slotSpan, String players) {
+  public Booking(Integer court, Integer courtSpan, Integer slot, Integer slotSpan, String name) {
     this.court = court;
     this.courtSpan = courtSpan;
     this.slot = slot;
     this.slotSpan = slotSpan;
-    this.players = players;
+    this.name = name;
   }
 
   @Override
@@ -208,20 +182,18 @@ public class Booking {
 
     return Objects.equals(this.date, other.date) && Objects.equals(this.court, other.court)
         && Objects.equals(this.courtSpan, other.courtSpan) && Objects.equals(this.slot, other.slot)
-        && Objects.equals(this.slotSpan, other.slotSpan)
-        && Objects.equals(this.players, other.players);
+        && Objects.equals(this.slotSpan, other.slotSpan) && Objects.equals(this.name, other.name);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(this.date, this.court, this.courtSpan, this.slot, this.slotSpan,
-        this.players);
+    return Objects.hash(this.date, this.court, this.courtSpan, this.slot, this.slotSpan, this.name);
   }
 
   @Override
   public String toString() {
     return com.google.common.base.MoreObjects.toStringHelper(this).addValue(this.court)
-        .addValue(this.courtSpan).addValue(this.slot).addValue(this.slotSpan)
-        .addValue(this.players).addValue(this.date).toString();
+        .addValue(this.courtSpan).addValue(this.slot).addValue(this.slotSpan).addValue(this.name)
+        .addValue(this.date).toString();
   }
 }

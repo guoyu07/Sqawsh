@@ -241,8 +241,8 @@ public class CourtAndTimeSlotChooserPage extends SquashBasePage<CourtAndTimeSlot
     return Range.closed(1, 5).contains(court);
   }
 
-  public void bookCourt(Integer court, java.time.LocalTime time, String player1, String player2,
-      String password, boolean expectBookingToSucceed) throws Exception {
+  public void bookCourt(Integer court, java.time.LocalTime time, String name, String password,
+      boolean expectBookingToSucceed) throws Exception {
 
     // Find correct reservation button to book this court at this time
     List<java.time.LocalTime> startTimes = getAllPossibleBookingStartTimes();
@@ -264,7 +264,7 @@ public class CourtAndTimeSlotChooserPage extends SquashBasePage<CourtAndTimeSlot
     reservationButton.get().click();
     CourtReservationPage reservationPage = new CourtReservationPage((SharedDriver) driver).get(
         true, getCachedWebElement(), Optional.empty());
-    reservationPage.submitBookingDetails(player1, player2, password, expectBookingToSucceed);
+    reservationPage.submitBookingDetails(name, password, expectBookingToSucceed);
   }
 
   public void cancelCourt(Integer court, LocalTime time, LocalDate date, String password,

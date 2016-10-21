@@ -66,14 +66,14 @@
 </style>
 </head>
 <body>
-<h2>You are cancelling the $util.urlDecode($input.params('players')) booking of court $input.params('court') for $util.urlDecode($input.params('slotLong')) on $util.urlDecode($input.params('dateLong'))</h2>
+<h2>You are cancelling the $util.urlDecode($input.params('name')) booking of court $input.params('court') for $util.urlDecode($input.params('slotLong')) on $util.urlDecode($input.params('dateLong'))</h2>
 <form class="cancellation-form" action=https://${context.apiId}.execute-api.${region}.amazonaws.com/Squash/bookings method="POST" autocomplete="off">
 <label>Password:<input type="password" name="password" required placeholder="enter password"></label>
 ## Include parameters here so we can make the cancellation correctly
 <input type=hidden name=redirectUrl value="http://${squashWebsiteBucket}.s3-website-${region}.amazonaws.com?selectedDate=${util.urlDecode($input.params('date'))}.html">
 <input type=hidden name=apiGatewayBaseUrl value="https://${context.apiId}.execute-api.${region}.amazonaws.com/${context.stage}">
 <input type=hidden name=putOrDelete value="DELETE">
-<input type=hidden name=players value="$util.urlDecode($input.params('players'))">
+<input type=hidden name=name value="$util.urlDecode($input.params('name'))">
 <input type=hidden name=court value="$util.urlDecode($input.params('court'))">
 <input type=hidden name=courtSpan value="1">
 <input type=hidden name=slot value="$util.urlDecode($input.params('slot'))">

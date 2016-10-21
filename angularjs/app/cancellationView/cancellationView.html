@@ -51,7 +51,7 @@ limitations under the License.-->
   }
 </style>
 <form novalidate class="cancellation-form" ng-submit="ctrl.submitCancellation(cancellationForm)" name="cancellationForm" ng-cloak>
-<h2>You are cancelling the {{ctrl.players}} booking of court {{ctrl.activeCourt}} for {{ctrl.activeSlot | date:'shortTime'}} on {{ctrl.activeDate | date:'fullDate'}}</h2>
+<h2>You are cancelling the {{ctrl.activeName}} booking of court {{ctrl.activeCourt}} for {{ctrl.activeSlot | date:'shortTime'}} on {{ctrl.activeDate | date:'fullDate'}}</h2>
 <div class="form-box">
 Password:<br>
 <input type="password" ng-model="ctrl.password" placeholder="enter password" name="password" required>

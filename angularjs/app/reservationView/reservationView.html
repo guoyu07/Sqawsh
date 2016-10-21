@@ -53,27 +53,15 @@ limitations under the License.-->
 <form novalidate class="reservation-form" ng-submit="ctrl.submitReservation(reservationForm)" name="reservationForm" ng-cloak>
 <h2>You are reserving court {{ctrl.activeCourt}} for {{ctrl.activeSlot | date:'shortTime'}} on {{ctrl.activeDate | date:'fullDate'}}</h2>
 <div class="form-box">
-  Your name:<br>
-<input type="text" ng-model="ctrl.player1" ng-model-options="{ updateOn: 'blur' }" ng-maxlength=12 placeholder="e.g. {{ctrl.famousPlayer1}}" ng-pattern="/^[a-zA-Z]\.[a-zA-Z]+$/" name="player1" autocapitalize="off" autocorrect="off" required>
-<span class="error" ng-show="reservationForm.player1.$error.pattern && reservationForm.$submitted">
-  Should be Initial.Surname
+  Players names:<br>
+<input type="text" ng-model="ctrl.name" ng-model-options="{ updateOn: 'blur' }" ng-maxlength=30 placeholder="e.g. {{ctrl.famousPlayer1}}/{{ctrl.famousPlayer2}}" ng-pattern="/^[a-zA-Z\.\- \/]+$/" name="name" autocapitalize="off" autocorrect="off" required>
+<span class="error" ng-show="reservationForm.name.$error.pattern && reservationForm.$submitted">
+  Players names must have valid format
 </span>
-<span class="error" ng-show="reservationForm.player1.$error.maxlength && reservationForm.$submitted">
-  12 characters max
+<span class="error" ng-show="reservationForm.name.$error.maxlength && reservationForm.$submitted">
+  30 characters max
 </span>
-<span class="error" ng-show="reservationForm.player1.$error.required && reservationForm.$submitted">
-  Required
-</span>
-<br>
-  Your opponent's name:<br>
-<input type="text" ng-model="ctrl.player2" ng-model-options="{ updateOn: 'blur' }" ng-maxlength=12 placeholder="e.g. {{ctrl.famousPlayer2}}" ng-pattern="/^[a-zA-Z]\.[a-zA-Z]+$/" name="player2" autocapitalize="off" autocorrect="off" required>
-<span class="error" ng-show="reservationForm.player2.$error.pattern && reservationForm.$submitted">
-  Should be Initial.Surname
-</span>
-<span class="error" ng-show="reservationForm.player2.$error.maxlength && reservationForm.$submitted">
-  12 characters max
-</span>
-<span class="error" ng-show="reservationForm.player2.$error.required && reservationForm.$submitted">
+<span class="error" ng-show="reservationForm.name.$error.required && reservationForm.$submitted">
   Required
 </span>
 <div ng-show="ctrl.showAdminUi()">

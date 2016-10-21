@@ -35,8 +35,6 @@ angular.module('squashApp.reservationView', ['ngRoute', 'squashApp.bookingsServi
     self.activeSlot = BookingService.activeSlot
     self.activeSlotIndex = BookingService.activeSlotIndex
     self.activeDate = BookingService.activeDate
-    self.player1 = BookingService.player1
-    self.player2 = BookingService.player2
     self.famousPlayer1 = BookingService.famousPlayer1
     self.famousPlayer2 = BookingService.famousPlayer2
 
@@ -61,7 +59,7 @@ angular.module('squashApp.reservationView', ['ngRoute', 'squashApp.bookingsServi
       self.unauthenticatedBlockBookingError = false
       self.bookingCreationFailed = false
       self.bookingFailed = false
-      BookingService.reserveCourt(self.activeCourt, self.colSpan, self.activeSlotIndex + 1, self.rowSpan, self.activeDate, self.player1, self.player2, self.password)
+      BookingService.reserveCourt(self.activeCourt, self.colSpan, self.activeSlotIndex + 1, self.rowSpan, self.activeDate, self.name, self.password)
         .then(function (result) {
           self.returnToBookings()
           updateUi()

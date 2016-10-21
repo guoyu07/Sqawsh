@@ -760,9 +760,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
         + "\"court\" : $input.json('$.court'),\n" + "\"courtSpan\" : $input.json('$.courtSpan'),\n"
         + "\"slot\" : $input.json('$.slot'),\n" + "\"slotSpan\" : $input.json('$.slotSpan'),\n"
         + "\"date\" : $input.json('$.date'),\n" + "\"password\" : $input.json('$.password'),\n"
-        + "\"player1name\" : $input.json('$.player1name'),\n"
-        + "\"player2name\" : $input.json('$.player2name'),\n"
-        + "\"players\" : $input.json('$.players'),\n"
+        + "\"name\" : $input.json('$.name'),\n"
         + "\"putOrDelete\" : $input.json('$.putOrDelete'),\n"
         + "\"redirectUrl\" : $input.json('$.redirectUrl'),\n"
         + "\"cognitoAuthenticationType\" : \"$context.identity.cognitoAuthenticationType\",\n"
@@ -798,7 +796,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
           .put("method.response.header.access-control-allow-methods", "'GET,OPTIONS'");
 
       // Lambda exception message regex that we want mapped to the 500 response
-      // .*The players names.*|.*password.*
+      // .*The booking name.*|.*password.*
       putIntegration500ResponseRequest
           .setSelectionPattern("Apologies - something has gone wrong. Please try again.");
     } else if (methodName.equals("ValidDatesOPTIONS")) {
@@ -869,7 +867,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       putIntegration500ResponseRequest
           .setSelectionPattern("Apologies - something has gone wrong. Please try again.");
       putIntegration400ResponseRequest
-          .setSelectionPattern("The booking court.*|The booking time.*|The players names.*|The booking date.*|The password is incorrect.*|You must login to manage block bookings.*|Booking creation failed.*|Booking cancellation failed.*");
+          .setSelectionPattern("The booking court.*|The booking time.*|The booking name.*|The booking date.*|The password is incorrect.*|You must login to manage block bookings.*|Booking creation failed.*|Booking cancellation failed.*");
     } else if (methodName.equals("BookingsDELETE")) {
       putMethodRequest.setHttpMethod("DELETE");
       // Set IAM authorisation so ApiGateway provides the Cognito context
@@ -897,7 +895,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       putIntegration500ResponseRequest
           .setSelectionPattern("Apologies - something has gone wrong. Please try again.");
       putIntegration400ResponseRequest
-          .setSelectionPattern("The booking court.*|The booking time.*|The players names.*|The booking date.*|The password is incorrect.*|You must login to manage block bookings.*|Booking creation failed.*|Booking cancellation failed.*");
+          .setSelectionPattern("The booking court.*|The booking time.*|The booking name.*|The booking date.*|The password is incorrect.*|You must login to manage block bookings.*|Booking creation failed.*|Booking cancellation failed.*");
     } else if (methodName.equals("BookingsPOST")) {
       // Redirect to the mutated booking page after creating or cancelling a
       // booking
@@ -970,7 +968,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       putIntegration500ResponseRequest
           .setSelectionPattern("Apologies - something has gone wrong. Please try again.");
       putIntegration400ResponseRequest
-          .setSelectionPattern("The booking court.*|The booking time.*|The players names.*|The booking date.*|The password is incorrect.*|Booking creation failed.*|Booking cancellation failed.*");
+          .setSelectionPattern("The booking court.*|The booking time.*|The booking name.*|The booking date.*|The password is incorrect.*|Booking creation failed.*|Booking cancellation failed.*");
     } else if (methodName.equals("BookingsOPTIONS")) {
       // OPTIONS method is required for CORS.
       putMethodRequest.setHttpMethod("OPTIONS");
@@ -1105,7 +1103,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       methodRequestParameters.put("method.request.querystring.court", Boolean.valueOf("true"));
       methodRequestParameters.put("method.request.querystring.slot", Boolean.valueOf("true"));
       methodRequestParameters.put("method.request.querystring.slotLong", Boolean.valueOf("true"));
-      methodRequestParameters.put("method.request.querystring.players", Boolean.valueOf("true"));
+      methodRequestParameters.put("method.request.querystring.name", Boolean.valueOf("true"));
       methodRequestParameters.put("method.request.querystring.date", Boolean.valueOf("true"));
       methodRequestParameters.put("method.request.querystring.dateLong", Boolean.valueOf("true"));
       putMethodRequest.setRequestParameters(methodRequestParameters);

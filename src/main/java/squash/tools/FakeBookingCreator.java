@@ -140,7 +140,7 @@ public class FakeBookingCreator {
       bookingNode.put("courtSpan", booking.getCourtSpan());
       bookingNode.put("slot", booking.getSlot());
       bookingNode.put("slotSpan", booking.getSlotSpan());
-      bookingNode.put("players", booking.getPlayers());
+      bookingNode.put("name", booking.getName());
       bookingNode.put("date", booking.getDate());
       bookingsNode.add(bookingNode);
     }

@@ -58,7 +58,7 @@
   ## finally we output the JSON for this pair and append a comma if this isn't the last pair
   #set($kvTokenised = $kvPair.split("="))
   ## We exclude all non-alphanumeric characters (except ., /, and -) - except for URLs
-  ## (. is after initial, / is between players names when cancelling, - is in dates)
+  ## (. is after initial, / is between players names, - is in dates)
   #if (!$util.urlDecode($kvTokenised[0]).contains("Url"))
     #if ($kvTokenised.size() == 2 && $kvTokenised[1].length() > 0)
       #set($value = $util.urlDecode($kvTokenised[1]).replaceAll("[^\\.A-Za-z0-9-/]", ""))

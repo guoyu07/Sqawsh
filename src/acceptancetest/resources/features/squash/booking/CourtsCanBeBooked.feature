@@ -53,31 +53,29 @@ Feature: Courts can be booked
       Then I should be taken to the error page
       And court 4 should not be booked at 6:15 PM today
 
-  Scenario: Booking a court with player names in the correct format succeeds
+  Scenario: Booking a court with player names in a valid format succeeds
 
       Given I have navigated to the squash booking page
       And I have viewed bookings for today
 
       # Use player names in correct format
-      When I book court 4 at 6:15 PM today for A.Shabana and J.Power
+      When I book court 4 at 6:15 PM today for A.Shabana/J.Power
       Then I should be taken to the squash booking page
       And court 4 should be booked at 6:15 PM today
 
-  Scenario Outline: Booking a court with player names in an incorrect format fails
+  Scenario Outline: Booking a court with player names in an invalid format fails
 
       Given I have navigated to the squash booking page
       And I have viewed bookings for today
 
-      When I attempt to book court 4 at 6:15 PM today for <player1> and <player2>
+      When I attempt to book court 4 at 6:15 PM today for <players>
       Then I should receive feedback that the booking details were invalid
       And court 4 should not be booked at 6:15 PM today
 
       Examples:
-      |Name                  |  player1  |  player2  |
-      |No surnames           |    Amr    | Jonathan  |
-      |Only one surname      | A.Shabana |   Power   |
-      |Second Name missing   |   Guest   |           |
-      |First Name missing    |           |   League  |
+      |Name               |  players                        |
+      |Names blank        |                                 |
+      |Invalid characters | A.Shabana?                      |
 
   @ignore
   Scenario: Already booked courts cannot be booked again

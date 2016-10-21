@@ -313,11 +313,11 @@ public class PutDeleteBookingRuleOrExclusionLambda {
       throw new Exception("The booking time slot span is outside the valid range (1- (17 - slot))");
     }
 
-    // Verify players length is within allowed range
-    if ((booking.getPlayers().length() == 0) || (booking.getPlayers().length() > 30)) {
-      logger.log("The booking players length is outside the valid range (1- 30): "
-          + booking.getPlayers());
-      throw new Exception("The booking players length is outside the valid range (1- 30)");
+    // Verify name length is within allowed range
+    if ((booking.getName().length() == 0) || (booking.getName().length() > 30)) {
+      logger
+          .log("The booking name length is outside the valid range (1- 30): " + booking.getName());
+      throw new Exception("The booking name length is outside the valid range (1- 30)");
     }
 
     // Verify date is a valid date.

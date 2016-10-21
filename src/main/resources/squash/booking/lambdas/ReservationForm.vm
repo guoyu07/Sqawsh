@@ -68,8 +68,7 @@
 <body>
 <h2>You are reserving court $input.params('court') for $util.urlDecode($input.params('slotLong')) on $util.urlDecode($input.params('dateLong'))</h2>
 <form class="reservation-form" action=https://${context.apiId}.execute-api.${region}.amazonaws.com/Squash/bookings method="POST" autocomplete="off">
-<label>Your name (Initial.Surname):<input type="text" name="player1name" required pattern="^[a-zA-Z]\.[a-zA-Z]+$" placeholder="e.g. A.Shabana"></label>
-<label>Your opponent's name (Initial.Surname):<input type="text" name="player2name" required pattern="^[a-zA-Z]\.[a-zA-Z]+$" placeholder="e.g. J.Power"></label>
+<label>Players names:<input type="text" name="name" required pattern="^[a-zA-Z\.\- \/]+$" maxlength=30 placeholder="e.g. A.Shabana/J.Power"></label>
 <label>Password:<input type="password" name="password" required placeholder="enter password"></label>
 ## Include parameters here so we can make the reservation correctly
 <input type=hidden name=redirectUrl value="http://${squashWebsiteBucket}.s3-website-${region}.amazonaws.com?selectedDate=${util.urlDecode($input.params('date'))}.html">

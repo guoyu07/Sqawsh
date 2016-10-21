@@ -34,9 +34,7 @@ angular.module('squashApp.cancellationView', ['ngRoute', 'squashApp.bookingsServ
     self.activeSlotSpan = BookingService.activeSlotSpan
     self.activeSlotIndex = BookingService.activeSlotIndex
     self.activeDate = BookingService.activeDate
-    self.player1 = BookingService.player1
-    self.player2 = BookingService.player2
-    self.players = BookingService.players
+    self.activeName = BookingService.activeName
 
     self.returnToBookings = function () {
       $location.url('/bookings')
@@ -52,7 +50,7 @@ angular.module('squashApp.cancellationView', ['ngRoute', 'squashApp.bookingsServ
       self.unauthenticatedBlockBookingError = false
       self.bookingCancellationFailed = false
       self.cancellationFailed = false
-      BookingService.cancelCourt(self.activeCourt, self.activeCourtSpan, self.activeSlotIndex + 1, self.activeSlotSpan, self.activeDate, self.players, self.password)
+      BookingService.cancelCourt(self.activeCourt, self.activeCourtSpan, self.activeSlotIndex + 1, self.activeSlotSpan, self.activeDate, self.activeName, self.password)
         .then(function (result) {
           self.returnToBookings()
           updateUi()

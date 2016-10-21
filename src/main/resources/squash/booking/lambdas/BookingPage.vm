@@ -105,7 +105,7 @@
   </form>
 </div>
 
-#macro(tablerow $timeSlotIndex $slotBookedStates $slotIsBlockInterior $slotRowSpan $slotColSpan $playersNames)
+#macro(tablerow $timeSlotIndex $slotBookedStates $slotIsBlockInterior $slotRowSpan $slotColSpan $name)
 #foreach( $slotBookedState in $slotBookedStates )
   #set($court = $foreach.index + 1)
   #if(($slotRowSpan.get($foreach.index) > 1) || ($slotColSpan.get($foreach.index) > 1))
@@ -113,7 +113,7 @@
   #if(!$slotIsBlockInterior.get($foreach.index))
   ## For block bookings, add content only to the top-left cell of the block
   <td class="tableCellBlock" rowspan="$slotRowSpan.get($foreach.index)" colspan="$slotColSpan.get($foreach.index)">
-    $playersNames.get($foreach.index)
+    $name.get($foreach.index)
   </td>
   #end
   #else
@@ -130,12 +130,12 @@
       #set($ind = $timeSlotIndex - 1)
       <input type=hidden name=slotLong value="$timeSlots.get($ind)">
   #if($slotBookedState)
-      <input type=hidden name=players value="$playersNames.get($foreach.index)">
+      <input type=hidden name=name value="$name.get($foreach.index)">
   #end
       <input type=hidden name=date value="$pagesDate">
       <input type=hidden name=dateLong value="$pagesDateLong">
   #if($slotBookedState)
-      <input type="submit" value="$playersNames.get($foreach.index)" class="cancellationButton" data-court="$court" data-time_slot="$timeSlotIndex" type="cancellation">
+      <input type="submit" value="$name.get($foreach.index)" class="cancellationButton" data-court="$court" data-time_slot="$timeSlotIndex" type="cancellation">
   #else
       <input type="submit" value="Reserve" class="reservationButton" data-court="$court" data-time_slot="$timeSlotIndex" type="reservation">
   #end
@@ -172,9 +172,9 @@
         #set($slotIsBlockInterior = $isBlockInterior.get($foreach.index))
         #set($slotRowSpan = $rowSpan.get($foreach.index))
         #set($slotColSpan = $colSpan.get($foreach.index))
-        #set($playersNames = $players.get($foreach.index))
+        #set($name = $names.get($foreach.index))
         #set($slotIndex = $foreach.index + 1)
-        #tablerow($slotIndex $slotBookedStates $slotIsBlockInterior $slotRowSpan $slotColSpan $playersNames)
+        #tablerow($slotIndex $slotBookedStates $slotIsBlockInterior $slotRowSpan $slotColSpan $name)
      <td class="timeLabel">$slot</td>
     </tr>
     #end

@@ -27,9 +27,7 @@ public class PutDeleteBookingLambdaRequest {
   String courtSpan;
   String slot;
   String slotSpan;
-  String players;
-  String player1name;
-  String player2name;
+  String name;
   String date;
   String password;
   String apiGatewayBaseUrl;
@@ -102,43 +100,17 @@ public class PutDeleteBookingLambdaRequest {
     this.slotSpan = slotSpan;
   }
 
-  public String getPlayers() {
-    return players;
+  public String getName() {
+    return name;
   }
 
   /**
-   *  Sets the names of the players for the booking.
+   *  Sets the name for the booking.
    *  
-   *  @see squash.booking.lambdas.core.Booking#setPlayers Booking.
+   *  @see squash.booking.lambdas.core.Booking#setName Booking.
    */
-  public void setPlayers(String players) {
-    this.players = players;
-  }
-
-  public String getPlayer1name() {
-    return player1name;
-  }
-
-  /**
-   *  Sets the name of the first player for the booking.
-   *  
-   *  @see squash.booking.lambdas.core.Booking#setPlayer1Name Booking.
-   */
-  public void setPlayer1name(String player1name) {
-    this.player1name = player1name;
-  }
-
-  public String getPlayer2name() {
-    return player2name;
-  }
-
-  /**
-   *  Sets the name of the second player for the booking.
-   *  
-   *  @see squash.booking.lambdas.core.Booking#setPlayer2Name Booking.
-   */
-  public void setPlayer2name(String player2name) {
-    this.player2name = player2name;
+  public void setName(String name) {
+    this.name = name;
   }
 
   public String getDate() {
@@ -221,8 +193,8 @@ public class PutDeleteBookingLambdaRequest {
   public String toString() {
     return com.google.common.base.MoreObjects.toStringHelper(this).addValue(this.putOrDelete)
         .addValue(this.court).addValue(this.courtSpan).addValue(this.slot).addValue(this.slotSpan)
-        .addValue(this.players).addValue(this.player1name).addValue(this.player2name)
-        .addValue(this.date).addValue(this.apiGatewayBaseUrl).addValue(this.redirectUrl)
-        .addValue(this.cognitoAuthenticationType).addValue(this.cognitoIdentityPoolId).toString();
+        .addValue(this.name).addValue(this.date).addValue(this.apiGatewayBaseUrl)
+        .addValue(this.redirectUrl).addValue(this.cognitoAuthenticationType)
+        .addValue(this.cognitoIdentityPoolId).toString();
   }
 }

@@ -263,7 +263,7 @@ public class RuleManagerTest {
         + bookingRule.getBooking().getCourtSpan().toString() + "-"
         + bookingRule.getBooking().getSlot().toString() + "-"
         + bookingRule.getBooking().getSlotSpan().toString() + "-"
-        + bookingRule.getIsRecurring().toString() + "-" + bookingRule.getBooking().getPlayers();
+        + bookingRule.getIsRecurring().toString() + "-" + bookingRule.getBooking().getName();
   }
 
   @After
@@ -816,7 +816,7 @@ public class RuleManagerTest {
     existingRules.addAll(existingBookingRules);
     // Create a booking rule without exclusions
     BookingRule hyphenatedRule = new BookingRule(existingSaturdayRecurringRuleWithExclusion);
-    hyphenatedRule.getBooking().setPlayers("I.AmHyphen-ated/S.O-am-I");
+    hyphenatedRule.getBooking().setName("I.AmHyphen-ated/S.O-am-I");
     existingRules.remove(existingSaturdayRecurringRuleWithExclusion);
     existingRules.add(hyphenatedRule);
     expectOptimisticPersisterToReturnVersionedAttributes(2, existingRules);
@@ -1251,7 +1251,7 @@ public class RuleManagerTest {
     // Create a booking rule that the rule manager does not return
     BookingRule nonExistentRule = new BookingRule(existingSaturdayRecurringRuleWithExclusion);
     // Tweak so no longer matches an existing rule
-    nonExistentRule.getBooking().setPlayers("A.NewPlayer/B.NewPlayer");
+    nonExistentRule.getBooking().setName("A.NewPlayer/B.NewPlayer");
 
     // ACT
     Optional<BookingRule> updatedRule = ruleManager.deleteRuleExclusion(

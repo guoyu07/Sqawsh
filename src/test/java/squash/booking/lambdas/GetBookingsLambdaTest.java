@@ -50,9 +50,7 @@ public class GetBookingsLambdaTest {
   Context mockContext;
   List<Booking> expectedBookings;
   LambdaLogger mockLogger;
-  String player1Name;
-  String player2Name;
-  String playersNames;
+  String name;
   Integer court;
   Integer slot;
   Booking booking;
@@ -96,12 +94,10 @@ public class GetBookingsLambdaTest {
     });
 
     // Set up some typical bookings data that the tests can use
-    player1Name = "A.Playera";
-    player2Name = "B.Playerb";
-    playersNames = player1Name + "/" + player2Name;
+    name = "A.Playera/B.Playerb";
     court = 5;
     slot = 3;
-    booking = new Booking(court, slot, playersNames);
+    booking = new Booking(court, slot, name);
     bookings = new ArrayList<>();
     bookings.add(booking);
     redirectUrl = "redirectUrl.html";

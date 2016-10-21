@@ -54,8 +54,8 @@ describe('squashApp.bookingView module', function () {
 
   describe('BookingViewCtrl controller cellIsAtBookingTopLeft function', function () {
     it('should return false if there are no booked courts', inject(function ($rootScope) {
-      // Reset bookedPlayers to its uninitialised state
-      bookingViewCtrl.bookedPlayers = undefined
+      // Reset bookingNames to its uninitialised state
+      bookingViewCtrl.bookingNames = undefined
 
       // Trigger the promise chain
       $rootScope.$apply()
@@ -107,8 +107,8 @@ describe('squashApp.bookingView module', function () {
 
   describe('BookingViewCtrl controller isBlockBooking function', function () {
     it('should return false if there are no booked courts', inject(function ($rootScope) {
-      // Reset bookedPlayers to its uninitialised state
-      bookingViewCtrl.bookedPlayers = undefined
+      // Reset bookingNames to its uninitialised state
+      bookingViewCtrl.bookingNames = undefined
 
       // Trigger the promise chain
       $rootScope.$apply()
@@ -146,8 +146,8 @@ describe('squashApp.bookingView module', function () {
     // three arguments: the court, the court index, and the array of all court numbers.
 
     it('should return function that returns true if there are no booked courts', inject(function ($rootScope) {
-      // Reset bookedPlayers to its uninitialised state
-      bookingViewCtrl.bookedPlayers = undefined
+      // Reset bookingNames to its uninitialised state
+      bookingViewCtrl.bookingNames = undefined
 
       // Trigger the promise chain
       $rootScope.$apply()
@@ -257,13 +257,13 @@ describe('squashApp.bookingView module', function () {
   })
 
   describe('BookingViewCtrl controller bookingText function', function () {
-    it('should return the players names for courts with a single booking', inject(function ($rootScope) {
+    it('should return the booking name for courts with a single booking', inject(function ($rootScope) {
       // Trigger the promise chain
       $rootScope.$apply()
 
       expect(bookingViewCtrl.bookingText(2, 1)).toBe('R.Ashour/J.Power')
     }))
-    it('should return the players names for courts at top left of block bookings', inject(function ($rootScope) {
+    it('should return the booking name for courts at top left of block bookings', inject(function ($rootScope) {
       // Trigger the promise chain
       $rootScope.$apply()
 
@@ -278,15 +278,15 @@ describe('squashApp.bookingView module', function () {
   })
 
   describe('BookingViewCtrl controller tooltip function', function () {
-    // Controls tooltips - for players names that might be too long to fit within a
+    // Controls tooltips - for booking names that might be too long to fit within a
     // table cell, a tooltip is handy, but for unreserved courts it is just noise.
-    it('should return the players names for courts with a single booking', inject(function ($rootScope) {
+    it('should return the booking name for courts with a single booking', inject(function ($rootScope) {
       // Trigger the promise chain
       $rootScope.$apply()
 
       expect(bookingViewCtrl.tooltip(2, 1)).toBe('R.Ashour/J.Power')
     }))
-    it('should return the players names for courts at top left of block bookings', inject(function ($rootScope) {
+    it('should return the booking name for courts at top left of block bookings', inject(function ($rootScope) {
       // Trigger the promise chain
       $rootScope.$apply()
 
@@ -366,7 +366,7 @@ describe('squashApp.bookingView module', function () {
 
       // Trigger the promise chain
       $rootScope.$apply()
-      expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'players': 'R.Ashour/J.Power'}, {'court': 3, 'courtSpan': 3, 'slot': 2, 'slotSpan': 3, 'players': 'A.Block/B.Ooking'}])
+      expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'name': 'R.Ashour/J.Power'}, {'court': 3, 'courtSpan': 3, 'slot': 2, 'slotSpan': 3, 'name': 'A.Block/B.Ooking'}])
       expect(bookingService.getCachedBookings).toHaveBeenCalledWith(jasmine.objectContaining({
         selectedDate: '2016-04-23'
       }))
@@ -389,7 +389,7 @@ describe('squashApp.bookingView module', function () {
         selectedDate: '2016-04-23'
       }))
       expect(bookingService.getBookings.calls.count()).toEqual(1)
-      expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'players': 'R.Ashour/J.Power'}, {'court': 3, 'courtSpan': 3, 'slot': 2, 'slotSpan': 3, 'players': 'A.Block/B.Ooking'}])
+      expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'name': 'R.Ashour/J.Power'}, {'court': 3, 'courtSpan': 3, 'slot': 2, 'slotSpan': 3, 'name': 'A.Block/B.Ooking'}])
 
       // Now change the selectedDate
       bookingViewCtrl.selectedDate = '2016-04-24'
@@ -403,7 +403,7 @@ describe('squashApp.bookingView module', function () {
       expect(bookingService.getCachedBookings.calls.count()).toEqual(2)
       // Because the date has changed, the bookings should not have changed
       $rootScope.$apply()
-      expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'players': 'R.Ashour/J.Power'}, {'court': 3, 'courtSpan': 3, 'slot': 2, 'slotSpan': 3, 'players': 'A.Block/B.Ooking'}])
+      expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'name': 'R.Ashour/J.Power'}, {'court': 3, 'courtSpan': 3, 'slot': 2, 'slotSpan': 3, 'name': 'A.Block/B.Ooking'}])
 
       // Repeat but with the date now agreeing - so bookings should now be updated
       bookingViewCtrl.selectedDate = '2016-04-24'
@@ -414,16 +414,16 @@ describe('squashApp.bookingView module', function () {
       expect(bookingService.getCachedBookings.calls.count()).toEqual(3)
       // Because the date has not changed, the bookings should have changed
       $rootScope.$apply()
-      expect(bookingViewCtrl.bookings).toEqual([{'court': 3, 'courtSpan': 1, 'slot': 1, 'slotSpan': 1, 'players': 'R.Ashour/G.Gaultier'}, {'court': 1, 'courtSpan': 2, 'slot': 1, 'slotSpan': 1, 'players': 'A.Nother/B.Lock'}])
+      expect(bookingViewCtrl.bookings).toEqual([{'court': 3, 'courtSpan': 1, 'slot': 1, 'slotSpan': 1, 'name': 'R.Ashour/G.Gaultier'}, {'court': 1, 'courtSpan': 2, 'slot': 1, 'slotSpan': 1, 'name': 'A.Nother/B.Lock'}])
     }))
 
-    it('should set the bookedPlayers array based on the bookings from the bookings service', inject(function ($rootScope) {
+    it('should set the bookingNames array based on the bookings from the bookings service', inject(function ($rootScope) {
       // Checks we use the returned bookings correctly
-      expect(bookingViewCtrl.bookedPlayers).toBeUndefined()
+      expect(bookingViewCtrl.bookingNames).toBeUndefined()
 
       // Trigger the promise chain
       $rootScope.$apply()
-      expect(bookingViewCtrl.bookedPlayers[2][1]).toEqual('R.Ashour/J.Power')
+      expect(bookingViewCtrl.bookingNames[2][1]).toEqual('R.Ashour/J.Power')
     }))
 
     it('should set the initialLoadSucceeded flag once bookings have been loaded', inject(function ($rootScope) {
@@ -466,7 +466,7 @@ describe('squashApp.bookingView module', function () {
 
       // ASSERT
       // Expect the bookings to be those from the backend
-      expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'players': 'R.Ashour/J.Power'}, {'court': 3, 'courtSpan': 3, 'slot': 2, 'slotSpan': 3, 'players': 'A.Block/B.Ooking'}])
+      expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'name': 'R.Ashour/J.Power'}, {'court': 3, 'courtSpan': 3, 'slot': 2, 'slotSpan': 3, 'name': 'A.Block/B.Ooking'}])
       expect(bookingViewCtrl.loadFailure).toBe(false)
       expect(bookingService.getBookings).toHaveBeenCalledWith(jasmine.objectContaining({
         selectedDate: '2016-04-23'
@@ -508,7 +508,7 @@ describe('squashApp.bookingView module', function () {
 
       // ASSERT
       // Expect the bookings to be those from the backend
-      expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'players': 'R.Ashour/J.Power'}, {'court': 3, 'courtSpan': 3, 'slot': 2, 'slotSpan': 3, 'players': 'A.Block/B.Ooking'}])
+      expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'name': 'R.Ashour/J.Power'}, {'court': 3, 'courtSpan': 3, 'slot': 2, 'slotSpan': 3, 'name': 'A.Block/B.Ooking'}])
       expect(bookingViewCtrl.loadFailure).toBe(false)
       expect(bookingService.getBookings).toHaveBeenCalledWith(jasmine.objectContaining({
         selectedDate: '2016-04-23'
@@ -552,7 +552,7 @@ describe('squashApp.bookingView module', function () {
 
       // ASSERT
       // Expect the bookings to be those from the cache
-      expect(bookingViewCtrl.bookings).toEqual([{'court': 1, 'courtSpan': 1, 'slot': 2, 'slotSpan': 1, 'players': 'H.Ashour/H.AckerTDog'}, {'court': 1, 'courtSpan': 1, 'slot': 3, 'slotSpan': 2, 'players': 'A.Booking/B.Lock'}])
+      expect(bookingViewCtrl.bookings).toEqual([{'court': 1, 'courtSpan': 1, 'slot': 2, 'slotSpan': 1, 'name': 'H.Ashour/H.AckerTDog'}, {'court': 1, 'courtSpan': 1, 'slot': 3, 'slotSpan': 2, 'name': 'A.Booking/B.Lock'}])
       expect(bookingViewCtrl.loadFailure).toBe(false)
       expect(bookingService.getCachedBookings).toHaveBeenCalledWith(jasmine.objectContaining({
         selectedDate: '2016-04-23'
@@ -630,7 +630,7 @@ describe('squashApp.bookingView module', function () {
         selectedDate: '2016-04-24'
       }))
       expect(bookingService.getBookings.calls.count()).toEqual(2)
-      expect(bookingViewCtrl.bookings).toEqual([{'court': 3, 'courtSpan': 1, 'slot': 1, 'slotSpan': 1, 'players': 'R.Ashour/G.Gaultier'}, {'court': 1, 'courtSpan': 2, 'slot': 1, 'slotSpan': 1, 'players': 'A.Nother/B.Lock'}])
+      expect(bookingViewCtrl.bookings).toEqual([{'court': 3, 'courtSpan': 1, 'slot': 1, 'slotSpan': 1, 'name': 'R.Ashour/G.Gaultier'}, {'court': 1, 'courtSpan': 2, 'slot': 1, 'slotSpan': 1, 'name': 'A.Nother/B.Lock'}])
     }))
 
     it('should set the loadFailure flag if the BookingsService getBookings returns any error other than an invalid-date error', inject(function ($rootScope, $location, $controller, $q) {
@@ -694,7 +694,7 @@ describe('squashApp.bookingView module', function () {
       }))
       // Set the date away from the default, so we can verify a bookings change
       bookingViewCtrl.selectedDate = '2016-04-24'
-      expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'players': 'R.Ashour/J.Power'}, {'court': 3, 'courtSpan': 3, 'slot': 2, 'slotSpan': 3, 'players': 'A.Block/B.Ooking'}])
+      expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'name': 'R.Ashour/J.Power'}, {'court': 3, 'courtSpan': 3, 'slot': 2, 'slotSpan': 3, 'name': 'A.Block/B.Ooking'}])
 
       // ACT
       bookingViewCtrl.selectedDateChanged()
@@ -704,7 +704,7 @@ describe('squashApp.bookingView module', function () {
 
       // ASSERT
       // Expect the bookings to be those from the backend
-      expect(bookingViewCtrl.bookings).toEqual([{'court': 3, 'courtSpan': 1, 'slot': 1, 'slotSpan': 1, 'players': 'R.Ashour/G.Gaultier'}, {'court': 1, 'courtSpan': 2, 'slot': 1, 'slotSpan': 1, 'players': 'A.Nother/B.Lock'}])
+      expect(bookingViewCtrl.bookings).toEqual([{'court': 3, 'courtSpan': 1, 'slot': 1, 'slotSpan': 1, 'name': 'R.Ashour/G.Gaultier'}, {'court': 1, 'courtSpan': 2, 'slot': 1, 'slotSpan': 1, 'name': 'A.Nother/B.Lock'}])
       expect(bookingViewCtrl.loadFailure).toBe(false)
       expect(bookingService.getCachedBookings).toHaveBeenCalledWith(jasmine.objectContaining({
         selectedDate: '2016-04-24'
@@ -734,7 +734,7 @@ describe('squashApp.bookingView module', function () {
       }))
       // Set the date away from the default, so we can verify a bookings change
       bookingViewCtrl.selectedDate = '2016-04-24'
-      expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'players': 'R.Ashour/J.Power'}, {'court': 3, 'courtSpan': 3, 'slot': 2, 'slotSpan': 3, 'players': 'A.Block/B.Ooking'}])
+      expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'name': 'R.Ashour/J.Power'}, {'court': 3, 'courtSpan': 3, 'slot': 2, 'slotSpan': 3, 'name': 'A.Block/B.Ooking'}])
 
       // ACT
       bookingViewCtrl.selectedDateChanged()
@@ -744,7 +744,7 @@ describe('squashApp.bookingView module', function () {
 
       // ASSERT
       // Expect the bookings to be those from the cache
-      expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'courtSpan': 1, 'slot': 4, 'slotSpan': 1, 'players': 'J.Khan/J.Barrington'}, {'court': 1, 'courtSpan': 3, 'slot': 5, 'slotSpan': 1, 'players': 'A.Different/B.Ooking'}])
+      expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'courtSpan': 1, 'slot': 4, 'slotSpan': 1, 'name': 'J.Khan/J.Barrington'}, {'court': 1, 'courtSpan': 3, 'slot': 5, 'slotSpan': 1, 'name': 'A.Different/B.Ooking'}])
       expect(bookingViewCtrl.loadFailure).toBe(false)
       expect(bookingService.getCachedBookings).toHaveBeenCalledWith(jasmine.objectContaining({
         selectedDate: '2016-04-24'
@@ -806,7 +806,7 @@ describe('squashApp.bookingView module', function () {
       expect(bookingService.getBookings).not.toHaveBeenCalledWith(jasmine.objectContaining({
         selectedDate: '2016-04-24'
       }))
-      expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'players': 'R.Ashour/J.Power'}, {'court': 3, 'courtSpan': 3, 'slot': 2, 'slotSpan': 3, 'players': 'A.Block/B.Ooking'}])
+      expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'name': 'R.Ashour/J.Power'}, {'court': 3, 'courtSpan': 3, 'slot': 2, 'slotSpan': 3, 'name': 'A.Block/B.Ooking'}])
 
       bookingViewCtrl.incrementOrDecrementDate(1)
       $rootScope.$apply()
@@ -815,7 +815,7 @@ describe('squashApp.bookingView module', function () {
       expect(bookingService.getBookings).toHaveBeenCalledWith(jasmine.objectContaining({
         selectedDate: '2016-04-24'
       }))
-      expect(bookingViewCtrl.bookings).toEqual([{'court': 3, 'courtSpan': 1, 'slot': 1, 'slotSpan': 1, 'players': 'R.Ashour/G.Gaultier'}, {'court': 1, 'courtSpan': 2, 'slot': 1, 'slotSpan': 1, 'players': 'A.Nother/B.Lock'}])
+      expect(bookingViewCtrl.bookings).toEqual([{'court': 3, 'courtSpan': 1, 'slot': 1, 'slotSpan': 1, 'name': 'R.Ashour/G.Gaultier'}, {'court': 1, 'courtSpan': 2, 'slot': 1, 'slotSpan': 1, 'name': 'A.Nother/B.Lock'}])
 
       // Stepping again should be noop, as we are already on the last valid date
       bookingViewCtrl.incrementOrDecrementDate(1)
@@ -830,7 +830,7 @@ describe('squashApp.bookingView module', function () {
       expect(bookingService.getBookings).not.toHaveBeenCalledWith(jasmine.objectContaining({
         selectedDate: '2016-04-24'
       }))
-      expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'players': 'R.Ashour/J.Power'}, {'court': 3, 'courtSpan': 3, 'slot': 2, 'slotSpan': 3, 'players': 'A.Block/B.Ooking'}])
+      expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'name': 'R.Ashour/J.Power'}, {'court': 3, 'courtSpan': 3, 'slot': 2, 'slotSpan': 3, 'name': 'A.Block/B.Ooking'}])
 
       // Advance the date - ready for a step backwards...and trigger update
       bookingViewCtrl.selectedDate = '2016-04-24'
@@ -839,7 +839,7 @@ describe('squashApp.bookingView module', function () {
       expect(bookingService.getBookings).toHaveBeenCalledWith(jasmine.objectContaining({
         selectedDate: '2016-04-24'
       }))
-      expect(bookingViewCtrl.bookings).toEqual([{'court': 3, 'courtSpan': 1, 'slot': 1, 'slotSpan': 1, 'players': 'R.Ashour/G.Gaultier'}, {'court': 1, 'courtSpan': 2, 'slot': 1, 'slotSpan': 1, 'players': 'A.Nother/B.Lock'}])
+      expect(bookingViewCtrl.bookings).toEqual([{'court': 3, 'courtSpan': 1, 'slot': 1, 'slotSpan': 1, 'name': 'R.Ashour/G.Gaultier'}, {'court': 1, 'courtSpan': 2, 'slot': 1, 'slotSpan': 1, 'name': 'A.Nother/B.Lock'}])
 
       // Step backwards
       bookingViewCtrl.incrementOrDecrementDate(-1)
@@ -849,7 +849,7 @@ describe('squashApp.bookingView module', function () {
       expect(bookingService.getBookings).toHaveBeenCalledWith(jasmine.objectContaining({
         selectedDate: '2016-04-23'
       }))
-      expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'players': 'R.Ashour/J.Power'}, {'court': 3, 'courtSpan': 3, 'slot': 2, 'slotSpan': 3, 'players': 'A.Block/B.Ooking'}])
+      expect(bookingViewCtrl.bookings).toEqual([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'name': 'R.Ashour/J.Power'}, {'court': 3, 'courtSpan': 3, 'slot': 2, 'slotSpan': 3, 'name': 'A.Block/B.Ooking'}])
 
       // Stepping again should be noop, as we are already on the first valid date
       bookingViewCtrl.incrementOrDecrementDate(-1)
@@ -921,7 +921,7 @@ describe('squashApp.bookingView module', function () {
       bookingViewCtrl.timeSlots[timeSlotIndex] = 8
       bookingViewCtrl.rowSpan = function (index1, index2) { return 22 }
       bookingViewCtrl.selectedDate = '2016-08-30'
-      bookingViewCtrl.bookingText = function (index1, index2) { return 'Players names' }
+      bookingViewCtrl.bookingText = function (index1, index2) { return 'Booking name' }
       spyOn(bookingService, 'getTwoFamousPlayers').and.returnValue(['F.Perry', 'I.Nastase'])
 
       // Trigger the promise chain
@@ -934,9 +934,7 @@ describe('squashApp.bookingView module', function () {
       expect(bookingService.activeSlotSpan).toBe(22)
       expect(bookingService.activeSlotIndex).toBe(5)
       expect(bookingService.activeDate).toBe('2016-08-30')
-      expect(bookingService.player1).toBe('')
-      expect(bookingService.player2).toBe('')
-      expect(bookingService.players).toBe('Players names')
+      expect(bookingService.activeName).toBe('Booking name')
       expect(bookingService.famousPlayer1).toBe('F.Perry')
       expect(bookingService.famousPlayer2).toBe('I.Nastase')
     }))

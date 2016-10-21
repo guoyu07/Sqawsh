@@ -133,17 +133,17 @@ public class BookingSteps implements En {
           java.time.LocalTime time = new StepArgumentTransforms.LocalTimeConverter()
               .transform(timeS);
 
-          attemptToBookCourt(court, time, java.time.LocalDate.now(), "A.Shabana", "J.Power",
-              password, attemptOrNot.equals("attempt to ") ? false : true);
+          attemptToBookCourt(court, time, java.time.LocalDate.now(), "A.Shabana/J.Power", password,
+              attemptOrNot.equals("attempt to ") ? false : true);
         });
 
     When(
-        "^I (attempt to |)book court (\\d) at (\\d{1,2}:\\d{1,2} (?:AM|PM)) today for (.*) and (.*)$",
-        (String attemptOrNot, Integer court, String timeS, String player1, String player2) -> {
+        "^I (attempt to |)book court (\\d) at (\\d{1,2}:\\d{1,2} (?:AM|PM)) today for (.*)$",
+        (String attemptOrNot, Integer court, String timeS, String name) -> {
           java.time.LocalTime time = new StepArgumentTransforms.LocalTimeConverter()
               .transform(timeS);
 
-          attemptToBookCourt(court, time, java.time.LocalDate.now(), player1, player2, "pAssw0rd",
+          attemptToBookCourt(court, time, java.time.LocalDate.now(), name, "pAssw0rd",
               attemptOrNot.equals("attempt to ") ? false : true);
         });
 
@@ -153,7 +153,7 @@ public class BookingSteps implements En {
           java.time.LocalTime time = new StepArgumentTransforms.LocalTimeConverter()
               .transform(timeS);
 
-          attemptToBookCourt(court, time, java.time.LocalDate.now(), "A.Shabana", "J.Power",
+          attemptToBookCourt(court, time, java.time.LocalDate.now(), "A.Shabana/J.Power",
               "pAssw0rd", true);
         });
 
@@ -164,8 +164,7 @@ public class BookingSteps implements En {
               .transform(timeS);
 
           attemptToBookCourt(court, time, todayOrNot.equals(" today") ? java.time.LocalDate.now()
-              : this.courtAndTimeSlotChooserPage.getDate(), "A.Shabana", "J.Power", "pAssw0rd",
-              true);
+              : this.courtAndTimeSlotChooserPage.getDate(), "A.Shabana/J.Power", "pAssw0rd", true);
         });
 
     Then(
@@ -265,8 +264,7 @@ public class BookingSteps implements En {
   }
 
   private void attemptToBookCourt(Integer court, java.time.LocalTime time,
-      java.time.LocalDate date, String player1, String player2, String password,
-      boolean expectBookingToSucceed) {
+      java.time.LocalDate date, String name, String password, boolean expectBookingToSucceed) {
     assertTrue("Expect bookings page to be loaded before calling this method",
         this.courtAndTimeSlotChooserPage.isLoaded());
     assertTrue("Court number is not valid: " + court.toString(),
@@ -282,7 +280,7 @@ public class BookingSteps implements En {
         !this.courtAndTimeSlotChooserPage.isCourtBookedAtTime(court, time));
 
     try {
-      this.courtAndTimeSlotChooserPage.bookCourt(court, time, player1, player2, password,
+      this.courtAndTimeSlotChooserPage.bookCourt(court, time, name, password,
           expectBookingToSucceed);
     } catch (Exception e) {
       fail(e.getMessage());

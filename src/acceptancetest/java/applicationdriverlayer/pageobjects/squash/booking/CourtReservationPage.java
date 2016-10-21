@@ -38,11 +38,8 @@ import java.util.Optional;
  */
 public class CourtReservationPage extends SquashBasePage<CourtReservationPage> {
 
-  @FindBy(how = How.CSS, css = "input[name = 'player1name']")
-  public WebElement player1NameTextBox;
-
-  @FindBy(how = How.CSS, css = "input[name = 'player2name']")
-  public WebElement player2NameTextBox;
+  @FindBy(how = How.CSS, css = "input[name = 'name']")
+  public WebElement playersNamesTextBox;
 
   @FindBy(how = How.CSS, css = "input[name = 'password']")
   public WebElement passwordTextBox;
@@ -62,7 +59,7 @@ public class CourtReservationPage extends SquashBasePage<CourtReservationPage> {
     new WebDriverWait(driver, explicitWaitTimeoutSeconds).until(ExpectedConditions
         .visibilityOfElementLocated(By.className("reservation-form")));
     new WebDriverWait(driver, explicitWaitTimeoutSeconds).until(ExpectedConditions
-        .visibilityOfElementLocated(By.cssSelector("input[name = 'player2name']")));
+        .visibilityOfElementLocated(By.cssSelector("input[name = 'name']")));
   }
 
   @Override
@@ -79,10 +76,8 @@ public class CourtReservationPage extends SquashBasePage<CourtReservationPage> {
     return invalidInputElements.size() > 0;
   }
 
-  public void submitBookingDetails(String player1, String player2, String password,
-      boolean expectBookingToSucceed) {
-    player1NameTextBox.sendKeys(player1);
-    player2NameTextBox.sendKeys(player2);
+  public void submitBookingDetails(String name, String password, boolean expectBookingToSucceed) {
+    playersNamesTextBox.sendKeys(name);
     passwordTextBox.sendKeys(password);
     submitReservationButton.click();
 
