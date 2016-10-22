@@ -71,7 +71,7 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
    * 
    * <p>Keys suppling names of other AWS lambda functions that log to CloudwatchLogs:
    * <ul>
-   *    <li>AngularjsAppCustomResourceLambdaName.</li>
+   *    <li>SquashAngularjsAppCustomResourceLambdaName.</li>
    *    <li>ValidDatesLambdaName.</li>
    *    <li>BookingsGETLambdaName.</li>
    *    <li>BookingRulesGETLambdaName.</li>
@@ -79,7 +79,7 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
    *    <li>BookingRuleOrExclusionPUTDELETELambdaName.</li>
    *    <li>SquashApiGatewayCustomResourceLambdaName.</li>
    *    <li>SquashSettingsCustomResourceLambdaName.</li>
-   *    <li>SquashBookingsHtmlCustomResourceLambdaName.</li>
+   *    <li>SquashNoScriptAppCustomResourceLambdaName.</li>
    *    <li>SquashCognitoCustomResourceLambdaName.</li>
    *    <li>SquashScheduledCloudwatchEventCustomResourceLambdaName.</li>
    *    <li>UpdateBookingsLambdaName.</li>
@@ -111,8 +111,8 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
     logger.log("Logging custom input parameters to custom resource request");
     @SuppressWarnings("unchecked")
     Map<String, Object> resourceProps = (Map<String, Object>) request.get("ResourceProperties");
-    String angularjsAppCustomResourceLambdaName = (String) resourceProps
-        .get("AngularjsAppCustomResourceLambdaName");
+    String squashAngularjsAppCustomResourceLambdaName = (String) resourceProps
+        .get("SquashAngularjsAppCustomResourceLambdaName");
     String applyBookingRulesLambdaName = (String) resourceProps.get("ApplyBookingRulesLambdaName");
     String validDatesLambdaName = (String) resourceProps.get("ValidDatesLambdaName");
     String bookingsGETLambdaName = (String) resourceProps.get("BookingsGETLambdaName");
@@ -124,8 +124,8 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
         .get("SquashApiGatewayCustomResourceLambdaName");
     String squashSettingsCustomResourceLambdaName = (String) resourceProps
         .get("SquashSettingsCustomResourceLambdaName");
-    String squashBookingsHtmlCustomResourceLambdaName = (String) resourceProps
-        .get("SquashBookingsHtmlCustomResourceLambdaName");
+    String squashNoScriptAppCustomResourceLambdaName = (String) resourceProps
+        .get("SquashNoScriptAppCustomResourceLambdaName");
     String squashCognitoCustomResourceLambdaName = (String) resourceProps
         .get("SquashCognitoCustomResourceLambdaName");
     String squashScheduledCloudwatchEventCustomResourceLambdaName = (String) resourceProps
@@ -137,7 +137,8 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
     String revision = (String) resourceProps.get("Revision");
 
     // Log out our custom request parameters
-    logger.log("AngularjsAppCustomResourceLambdaName: " + angularjsAppCustomResourceLambdaName);
+    logger.log("SquashAngularjsAppCustomResourceLambdaName: "
+        + squashAngularjsAppCustomResourceLambdaName);
     logger.log("ApplyBookingRulesLambdaName: " + applyBookingRulesLambdaName);
     logger.log("ValidDatesLambdaName: " + validDatesLambdaName);
     logger.log("BookingsGETLambdaName: " + bookingsGETLambdaName);
@@ -148,8 +149,8 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
     logger.log("SquashApiGatewayCustomResourceLambdaName: "
         + squashApiGatewayCustomResourceLambdaName);
     logger.log("SquashSettingsCustomResourceLambdaName: " + squashSettingsCustomResourceLambdaName);
-    logger.log("SquashBookingsHtmlCustomResourceLambdaName: "
-        + squashBookingsHtmlCustomResourceLambdaName);
+    logger.log("SquashNoScriptAppCustomResourceLambdaName: "
+        + squashNoScriptAppCustomResourceLambdaName);
     logger.log("SquashCognitoCustomResourceLambdaName: " + squashCognitoCustomResourceLambdaName);
     logger.log("SquashScheduledCloudwatchEventCustomResourceLambdaName: "
         + squashScheduledCloudwatchEventCustomResourceLambdaName);
@@ -207,11 +208,11 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
 
         // Add in the lambdas which have already run and created their log
         // groups
-        lambdaNames.add(angularjsAppCustomResourceLambdaName);
+        lambdaNames.add(squashAngularjsAppCustomResourceLambdaName);
         lambdaNames.add(squashApiGatewayCustomResourceLambdaName);
         lambdaNames.add(squashSettingsCustomResourceLambdaName);
         lambdaNames.add(squashCognitoCustomResourceLambdaName);
-        lambdaNames.add(squashBookingsHtmlCustomResourceLambdaName);
+        lambdaNames.add(squashNoScriptAppCustomResourceLambdaName);
         lambdaNames.add(squashScheduledCloudwatchEventCustomResourceLambdaName);
         for (String lambdaName : lambdaNames) {
           logger.log("Setting log retention period for log group: " + lambdaName);

@@ -16,7 +16,6 @@
 
 package squash.deployment.lambdas;
 
-import squash.booking.lambdas.GetBookingsLambda;
 import squash.booking.lambdas.UpdateBookingsLambda;
 import squash.booking.lambdas.UpdateBookingsLambdaRequest;
 import squash.booking.lambdas.UpdateBookingsLambdaResponse;
@@ -25,7 +24,6 @@ import squash.deployment.lambdas.utils.ExceptionUtils;
 import squash.deployment.lambdas.utils.IS3TransferManager;
 import squash.deployment.lambdas.utils.LambdaInputLogger;
 import squash.deployment.lambdas.utils.S3TransferManager;
-import squash.deployment.lambdas.utils.TransferUtils;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
@@ -33,36 +31,24 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.DeleteVersionRequest;
 import com.amazonaws.services.s3.model.ListVersionsRequest;
-import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.VersionListing;
 import com.amazonaws.services.s3.transfer.TransferManager;
-import com.google.common.io.CharStreams;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
 import java.util.Map;
 
 /**
- * AWS Cloudformation custom resource to upload the initial website content.
+ * AWS Cloudformation custom resource to upload the initial noscript website content.
  * 
- * <p>The website content is created and deleted by Cloudformation
+ * <p>The javascript-disabled website content is created and deleted by Cloudformation
  *    using a custom resource backed by this lambda function.
  *    
- * <p>It substitutes some stack-creation-time strings in the Bookings.html
- *    version of the site (i.e. the actual Cognito identity pool id, the
- *    AWS region, the base URL of the ApiGateway api, and the website bucket
- *    name). It then uploads Bookings.html, a booking page, and a bookings
- *    json file for each bookable day to the website.
+ * <p>It uploads a booking page, and a bookings json file for each bookable day to the website.
  * 
  * @author robinsteel19@outlook.com (Robin Steel)
  */
-public class BookingsHtmlCustomResourceLambda implements
-    RequestHandler<Map<String, Object>, Object> {
+public class NoScriptAppCustomResourceLambda implements RequestHandler<Map<String, Object>, Object> {
 
   /**
    * Returns an IS3TransferManager.
@@ -74,14 +60,13 @@ public class BookingsHtmlCustomResourceLambda implements
   }
 
   /**
-   * Implementation for the AWS Lambda function backing the BookingsHtml custom resource.
+   * Implementation for the AWS Lambda function backing the NoScriptApp custom resource.
    * 
    * <p>This lambda has the following keys in its request map (in addition
    *    to the standard ones) provided via the Cloudformation stack template:
    * <ul>
    *    <li>WebsiteBucket - name of S3 bucket serving the booking website.</li>
    *    <li>ApiGatewayBaseUrl - base Url of the ApiGateway Api.</li>
-   *    <li>CognitoIdentityPoolId - the id of the Cognito identity pool.</li>
    *    <li>Region - the AWS region in which the Cloudformation stack is created.</li>
    *    <li>Revision - integer incremented to force stack updates to update this resource.</li>
    * </ul>
@@ -98,7 +83,7 @@ public class BookingsHtmlCustomResourceLambda implements
   public Object handleRequest(Map<String, Object> request, Context context) {
 
     LambdaLogger logger = context.getLogger();
-    logger.log("Starting BookingsHtml custom resource handleRequest");
+    logger.log("Starting NoScriptApp custom resource handleRequest");
 
     // Handle standard request parameters
     Map<String, String> standardRequestParameters = LambdaInputLogger.logStandardRequestParameters(
@@ -111,14 +96,12 @@ public class BookingsHtmlCustomResourceLambda implements
     Map<String, Object> resourceProps = (Map<String, Object>) request.get("ResourceProperties");
     String websiteBucket = (String) resourceProps.get("WebsiteBucket");
     String apiGatewayBaseUrl = (String) resourceProps.get("ApiGatewayBaseUrl");
-    String cognitoIdentityPoolId = (String) resourceProps.get("CognitoIdentityPoolId");
     String region = (String) resourceProps.get("Region");
     String revision = (String) resourceProps.get("Revision");
 
     // Log out our custom request parameters
     logger.log("WebsiteBucket: " + websiteBucket);
     logger.log("ApiGatewayBaseUrl: " + apiGatewayBaseUrl);
-    logger.log("CognitoIdentityPoolId: " + cognitoIdentityPoolId);
     logger.log("Region: " + region);
     logger.log("Revision: " + revision);
 
@@ -143,49 +126,7 @@ public class BookingsHtmlCustomResourceLambda implements
 
       if (requestType.equals("Create") || requestType.equals("Update")) {
 
-        // Temporary location for the modified HTML
-        String htmlOutputPath = "/tmp/bookings.html";
-
-        // Get the unmodified html file from our resources
-        try (InputStreamReader streamReader = new InputStreamReader(
-            GetBookingsLambda.class.getResourceAsStream("/squash/booking/html/bookings.html"),
-            "UTF-8")) {
-          logger.log("Reading bookings.html from resources");
-          String html = CharStreams.toString(streamReader);
-          logger.log("HTML read from resources: " + html);
-
-          // Modify it to insert the cognito pool id, region, base url, and
-          // website bucket name.
-          logger
-              .log("Inserting Cognito pool id, region, ApiGatewayBaseUrl, and website bucket name into bookings.html");
-          String modifiedHtml = html.replaceAll("comSquashIdentityPoolId = 'stringtobereplaced'",
-              "comSquashIdentityPoolId = '" + cognitoIdentityPoolId + "'");
-          modifiedHtml = modifiedHtml.replaceAll(
-              "comSquashApiGatewayBaseUrl = 'stringtobereplaced'", "comSquashApiGatewayBaseUrl = '"
-                  + apiGatewayBaseUrl + "'");
-          modifiedHtml = modifiedHtml.replaceAll("comSquashRegion = 'stringtobereplaced'",
-              "comSquashRegion = '" + region + "'");
-          logger.log("Modified HTML: " + modifiedHtml);
-
-          try (PrintWriter htmlWriter = new PrintWriter(htmlOutputPath)) {
-            htmlWriter.println(modifiedHtml);
-          }
-          logger.log("Written modified HTML to file: " + htmlOutputPath);
-        } catch (IOException e) {
-          logger.log("Exception caught modifying bookings HTML file: " + e.getMessage());
-          throw e;
-        }
-
-        // Upload the modified html file to S3
-        logger.log("Uploading modified bookings HTML to S3");
-        File modifiedFile = new File(htmlOutputPath);
-        PutObjectRequest putObjectRequest = new PutObjectRequest(websiteBucket, "bookings.html",
-            modifiedFile);
-        putObjectRequest.setCannedAcl(CannedAccessControlList.PublicRead);
-        TransferUtils.waitForS3Transfer(getS3TransferManager().upload(putObjectRequest), logger);
-        logger.log("Uploaded modified bookings HTML to S3 successfully");
-
-        // Also upload 21 initial bookings pages and index page to the S3 bucket
+        // Upload 21 initial bookings pages and index page to the S3 bucket
         UpdateBookingsLambdaRequest updateBookingsLambdaRequest = new UpdateBookingsLambdaRequest();
         updateBookingsLambdaRequest.setApiGatewayBaseUrl(apiGatewayBaseUrl);
         UpdateBookingsLambda updateBookingsLambda = new UpdateBookingsLambda();
@@ -213,8 +154,7 @@ public class BookingsHtmlCustomResourceLambda implements
               .stream()
               .filter(
               // Maybe a bit slack, but '20' is to include e.g. 2015-10-04.html
-                  k -> (k.getKey().startsWith("20") || k.getKey().equals("today.html") || k
-                      .getKey().equals("bookings.html")))
+                  k -> (k.getKey().startsWith("20") || k.getKey().equals("today.html")))
               .forEach(
                   k -> {
                     logger.log("About to delete version: " + k.getVersionId()
@@ -240,7 +180,7 @@ public class BookingsHtmlCustomResourceLambda implements
       ExceptionUtils.logAmazonClientException(ace, logger);
       return null;
     } catch (Exception e) {
-      logger.log("Exception caught in BookingsHtml Lambda: " + e.getMessage());
+      logger.log("Exception caught in NoScriptApp Lambda: " + e.getMessage());
       return null;
     } finally {
       // Send response to CloudFormation

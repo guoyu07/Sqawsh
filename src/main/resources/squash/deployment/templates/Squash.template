@@ -292,7 +292,7 @@
       }
     },
 
-    "SquashBookingsHtmlCustomResourceLambdaExecutionRole": {
+    "SquashNoScriptAppCustomResourceLambdaExecutionRole": {
       "Metadata" : { "Comment1" : "Role assumed by AWS Lambda service to execute the lambda",
                      "Comment2" : "that deploys the booking pages to the S3 website bucket."},
       "Type": "AWS::IAM::Role",
@@ -363,7 +363,7 @@
       }
     },
 
-    "AngularjsAppCustomResourceLambdaExecutionRole": {
+    "SquashAngularjsAppCustomResourceLambdaExecutionRole": {
       "Metadata" : { "Comment1" : "Role assumed by AWS Lambda service to execute the lambda",
                      "Comment2" : "that deploys the Angularjs app to the S3 website bucket."},
       "Type": "AWS::IAM::Role",
@@ -1177,7 +1177,7 @@
       "DependsOn": ["SquashSettingsCustomResourceLambda", "SquashSimpleDBDomain", "WebsiteBucket", "DatabaseBackupBucket", "DatabaseBackupSNSTopic"]
     },
 
-    "AngularjsAppCustomResourceLambda": {
+    "SquashAngularjsAppCustomResourceLambda": {
       "Type": "AWS::Lambda::Function",
       "Metadata" : { "Comment1" : "Lambda to manage our custom resource to upload the Angularjs app to the website.",
                      "Comment2" : "This first modifies the angularjs app so that it contains various values that are",
@@ -1191,17 +1191,17 @@
         "Runtime": "java8",
         "MemorySize" : 1024,
         "Timeout": "60",
-        "Role": { "Fn::GetAtt" : ["AngularjsAppCustomResourceLambdaExecutionRole", "Arn"] }
+        "Role": { "Fn::GetAtt" : ["SquashAngularjsAppCustomResourceLambdaExecutionRole", "Arn"] }
       },
-      "DependsOn": ["AngularjsAppCustomResourceLambdaExecutionRole"]
+      "DependsOn": ["SquashAngularjsAppCustomResourceLambdaExecutionRole"]
     },
 
-    "AngularjsAppCustomResource" : {
+    "SquashAngularjsAppCustomResource" : {
       "Metadata" : { "Comment" : "Lambda-backed custom resource to upload the Angularjs app to the website." },
       "Type" : "Custom::AngularjsApp",
       "Version" : "1.0",
       "Properties" : {
-        "ServiceToken": { "Fn::GetAtt" : ["AngularjsAppCustomResourceLambda", "Arn"] },
+        "ServiceToken": { "Fn::GetAtt" : ["SquashAngularjsAppCustomResourceLambda", "Arn"] },
         "WebsiteBucket" : {"Ref" : "WebsiteBucketName"},
         "AngularjsZipBucket" : {"Ref" : "LambdaZipsBucketName"},
         "CognitoIdentityPoolId": { "Fn::GetAtt" : ["SquashCognitoCustomResource", "CognitoIdentityPoolId"] },
@@ -1212,7 +1212,7 @@
         "Region" : { "Ref" : "AWS::Region" },
         "Revision" : {"Ref" : "LambdaZipsRevision"}
       },
-      "DependsOn": ["AngularjsAppCustomResourceLambda", "SquashCognitoCustomResource", "WebsiteBucket", "SquashApiGatewayCustomResource"]
+      "DependsOn": ["SquashAngularjsAppCustomResourceLambda", "SquashCognitoCustomResource", "WebsiteBucket", "SquashApiGatewayCustomResource"]
     },
 
     "SquashSimpleDBDomain" : {
@@ -1249,7 +1249,7 @@
       "Version" : "1.0",
       "Properties" : {
         "ServiceToken": { "Fn::GetAtt" : ["SquashLogGroupsCustomResourceLambda", "Arn"] },
-        "AngularjsAppCustomResourceLambdaName" : { "Ref" : "AngularjsAppCustomResourceLambda" },
+        "SquashAngularjsAppCustomResourceLambdaName" : { "Ref" : "SquashAngularjsAppCustomResourceLambda" },
         "ApplyBookingRulesLambdaName" : { "Ref" : "ApplyBookingRulesLambda" },
         "ValidDatesLambdaName" : { "Ref" : "ValidDatesGETLambda" },
         "BookingsGETLambdaName" : { "Ref" : "BookingsGETLambda" },
@@ -1258,7 +1258,7 @@
         "BookingRuleOrExclusionPUTDELETELambdaName" : { "Ref" : "BookingRuleOrExclusionPUTDELETELambda" },
         "SquashApiGatewayCustomResourceLambdaName" : { "Ref" : "SquashApiGatewayCustomResourceLambda" },
         "SquashSettingsCustomResourceLambdaName" : { "Ref" : "SquashSettingsCustomResourceLambda" },
-        "SquashBookingsHtmlCustomResourceLambdaName" : { "Ref" : "SquashBookingsHtmlCustomResourceLambda" },
+        "SquashNoScriptAppCustomResourceLambdaName" : { "Ref" : "SquashNoScriptAppCustomResourceLambda" },
         "SquashCognitoCustomResourceLambdaName" : { "Ref" : "SquashCognitoCustomResourceLambda" },
         "SquashScheduledCloudwatchEventCustomResourceLambdaName" : { "Ref" : "SquashScheduledCloudwatchEventCustomResourceLambda" },
         "UpdateBookingsLambdaName" : { "Ref" : "UpdateBookingsLambda" },
@@ -1277,7 +1277,8 @@
         "BookingRuleOrExclusionPUTDELETELambda",
         "SquashApiGatewayCustomResource",
         "SquashSettingsCustomResource",
-        "SquashBookingsHtmlCustomResource",
+        "SquashAngularjsAppCustomResourceLambda",
+        "SquashNoScriptAppCustomResource",
         "SquashCognitoCustomResource",
         "SquashScheduledCloudwatchEventCustomResource"
       ]
@@ -1364,38 +1365,36 @@
       "DependsOn": ["SquashScheduledCloudwatchEventCustomResourceRole", "SquashApiGatewayCustomResourceLambda", "WebsiteBucket", "SquashApiGatewayCustomResource"]
     },
 
-    "SquashBookingsHtmlCustomResourceLambda": {
+    "SquashNoScriptAppCustomResourceLambda": {
       "Type": "AWS::Lambda::Function",
-      "Metadata" : { "Comment1" : "Lambda to deploy the booking pages to the website bucket. This first modifies",
-                     "Comment2" : "bookings.html to insert the Cognito identity pool id, region, and website name." },
+      "Metadata" : { "Comment1" : "Lambda to deploy the booking pages to the website bucket." },
       "Properties": {
         "Code": {
           "S3Bucket" : {"Ref" : "LambdaZipsBucketName"},
           "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsFolderName"}, "/", {"Ref" : "AWS::StackId"}, {"Ref" : "LambdaZipsKeyNameBase"}, "Modified", {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
         },
-        "Handler": "squash.deployment.lambdas.BookingsHtmlCustomResourceLambda::handleRequest",
+        "Handler": "squash.deployment.lambdas.NoScriptAppCustomResourceLambda::handleRequest",
         "Runtime": "java8",
         "MemorySize" : 1024,
         "Timeout": "60",
-        "Role": { "Fn::GetAtt" : ["SquashBookingsHtmlCustomResourceLambdaExecutionRole", "Arn"] }
+        "Role": { "Fn::GetAtt" : ["SquashNoScriptAppCustomResourceLambdaExecutionRole", "Arn"] }
       },
-      "DependsOn": ["SquashBookingsHtmlCustomResourceLambdaExecutionRole", "SquashSettingsCustomResource", "SquashApiGatewayCustomResource"]
+      "DependsOn": ["SquashNoScriptAppCustomResourceLambdaExecutionRole", "SquashSettingsCustomResource", "SquashApiGatewayCustomResource"]
     },
 
-    "SquashBookingsHtmlCustomResource" : {
-      "Metadata" : { "Comment1" : "Lambda to deploy the booking pages to the website bucket. This first modifies",
-                     "Comment2" : "bookings.html to insert the Cognito identity pool id, region, and website name." },
-      "Type" : "Custom::SquashBookingsHtml",
+    "SquashNoScriptAppCustomResource" : {
+      "Metadata" : { "Comment1" : "Lambda to deploy the booking pages to the website bucket." },
+      "Type" : "Custom::SquashNoScriptApp",
       "Version" : "1.0",
       "Properties" : {
-        "ServiceToken": { "Fn::GetAtt" : ["SquashBookingsHtmlCustomResourceLambda", "Arn"] },
+        "ServiceToken": { "Fn::GetAtt" : ["SquashNoScriptAppCustomResourceLambda", "Arn"] },
         "WebsiteBucket" : {"Ref" : "WebsiteBucketName"},
         "ApiGatewayBaseUrl" : { "Fn::GetAtt" : ["SquashApiGatewayCustomResource", "ApiGatewayBaseUrl"] },
         "CognitoIdentityPoolId" : { "Fn::GetAtt" : ["SquashCognitoCustomResource", "CognitoIdentityPoolId"] },
         "Region" : { "Ref" : "AWS::Region" },
         "Revision" : {"Ref" : "LambdaZipsRevision"}
       },
-      "DependsOn": ["SquashBookingsHtmlCustomResourceLambda", "SquashCognitoCustomResource", "SquashSettingsCustomResource", "SquashApiGatewayCustomResource"]
+      "DependsOn": ["SquashNoScriptAppCustomResourceLambda", "SquashCognitoCustomResource", "SquashSettingsCustomResource", "SquashApiGatewayCustomResource"]
     },
 
     "SquashCognitoCustomResourceLambda": {
@@ -1442,18 +1441,11 @@
   "Outputs" : {
     "SquashWebsite" : {
       "Description" : "URL of Squash website (ok even when javascript disabled)",
-      "Value" : { "Fn::GetAtt" : [ "SquashBookingsHtmlCustomResource", "WebsiteURL" ] }
-    },
-    "SquashWebsiteJs" : {
-      "Description" : "URL of Squash website (original Javascript version)",
-      "Value" : {"Fn::Join" : ["/", [
-                  { "Fn::GetAtt" : [ "WebsiteBucket", "WebsiteURL" ] },
-                  "bookings.html"
-                ]]}
+      "Value" : { "Fn::GetAtt" : [ "SquashNoScriptAppCustomResource", "WebsiteURL" ] }
     },
     "SquashWebsiteAngularjs" : {
       "Description" : "URL of Squash website using Angularjs",
-      "Value" : { "Fn::GetAtt" : [ "AngularjsAppCustomResource", "WebsiteURL" ] }
+      "Value" : { "Fn::GetAtt" : [ "SquashAngularjsAppCustomResource", "WebsiteURL" ] }
     }
   }
 }

@@ -61,7 +61,7 @@
   ## (. is after initial, / is between players names, - is in dates)
   #if (!$util.urlDecode($kvTokenised[0]).contains("Url"))
     #if ($kvTokenised.size() == 2 && $kvTokenised[1].length() > 0)
-      #set($value = $util.urlDecode($kvTokenised[1]).replaceAll("[^\\.A-Za-z0-9-/]", ""))
+      #set($value = $util.urlDecode($kvTokenised[1]).replaceAll("[^\\.A-Za-z0-9-/ ]", ""))
     #else
       #set($value = "")
     #end
