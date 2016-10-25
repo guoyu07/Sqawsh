@@ -775,7 +775,7 @@
                   ":",
                   { "Ref" : "AWS::AccountId" },
                   ":",
-                  {"Fn::GetAtt" : ["DatabaseBackupSNSTopic", "TopicName"]}
+                  {"Fn::GetAtt" : ["AdminSNSTopic", "TopicName"]}
                 ]]}]
               }]
             }
@@ -859,7 +859,7 @@
         "Handler": "squash.booking.lambdas.ApplyBookingRulesLambda::applyBookingRules",
         "Runtime": "java8",
         "MemorySize" : 1024,
-        "Timeout": "60",
+        "Timeout": "120",
         "Role": { "Fn::GetAtt" : ["BookingsAndBookingRulesLambdaExecutionRole", "Arn"] }
       },
       "DependsOn": ["BookingsAndBookingRulesLambdaExecutionRole", "SquashSettingsCustomResource"]
@@ -961,7 +961,7 @@
         "Handler": "squash.booking.lambdas.UpdateBookingsLambda::updateBookings",
         "Runtime": "java8",
         "MemorySize" : 1024,
-        "Timeout": "60",
+        "Timeout": "120",
         "Role": { "Fn::GetAtt" : ["BookingsAndBookingRulesLambdaExecutionRole", "Arn"] }
       },
       "DependsOn": ["BookingsAndBookingRulesLambdaExecutionRole", "SquashSettingsCustomResource"]
@@ -1052,10 +1052,12 @@
       }
     },
  
-    "DatabaseBackupSNSTopic" : {
+    "AdminSNSTopic" : {
       "Metadata" : {
-        "Comment" : "Allows subscribing an email address to receive backup snapshots of the bookings and booking rules database.",
-        "Comment" : "(Primary backup is to S3 - but email can provide extra independent backup, just in case...)"},
+        "Comment" : "Allows subscribing an email address to receive notifications of errors and backup snapshots",
+        "Comment" : "of the bookings and booking rules database.(Primary backup is to S3 - but email can provide",
+        "Comment" : "extra independent backup, just in case...)"
+      },
       "Type" : "AWS::SNS::Topic",
       "Properties" : {
         "Subscription" : [
@@ -1167,14 +1169,14 @@
         "CognitoIdentityPoolId": { "Fn::GetAtt" : ["SquashCognitoCustomResource", "CognitoIdentityPoolId"] },
         "WebsiteBucket" : {"Ref" : "WebsiteBucketName"},
         "DatabaseBackupBucket" : {"Ref" : "DatabaseBackupBucketName"},
-        "DatabaseBackupSNSTopic" : {"Ref" : "DatabaseBackupSNSTopic"},
+        "AdminSNSTopic" : {"Ref" : "AdminSNSTopic"},
         "LambdaZipsBucket" : {"Ref" : "LambdaZipsBucketName"},
         "S3InputKey" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsFolderName"}, "/", {"Ref" : "LambdaZipsKeyNameBase"}, {"Ref" : "LambdaZipsRevision"}, ".zip"]]},
         "S3OutputKey" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsFolderName"}, "/", {"Ref" : "AWS::StackId"}, {"Ref" : "LambdaZipsKeyNameBase"}, "Modified", {"Ref" : "LambdaZipsRevision"}, ".zip"]]},
         "Region" : { "Ref" : "AWS::Region" },
         "Revision" : {"Ref" : "LambdaZipsRevision"}
       },
-      "DependsOn": ["SquashSettingsCustomResourceLambda", "SquashSimpleDBDomain", "WebsiteBucket", "DatabaseBackupBucket", "DatabaseBackupSNSTopic"]
+      "DependsOn": ["SquashSettingsCustomResourceLambda", "SquashSimpleDBDomain", "WebsiteBucket", "DatabaseBackupBucket", "AdminSNSTopic"]
     },
 
     "SquashAngularjsAppCustomResourceLambda": {

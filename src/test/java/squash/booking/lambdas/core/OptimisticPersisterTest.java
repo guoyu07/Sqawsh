@@ -18,11 +18,10 @@ package squash.booking.lambdas.core;
 
 import static org.junit.Assert.assertTrue;
 
-import squash.booking.lambdas.core.OptimisticPersister;
-
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.jmock.Expectations;
 import org.jmock.Mockery;
+import org.jmock.Sequence;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -685,6 +684,33 @@ public class OptimisticPersisterTest {
   }
 
   @Test
+  public void testDeleteThrowsIfTheSimpledbConditionalCheckFailsThreeTimesRunning()
+      throws Exception {
+
+    // SimpleDB can throw a conditional check failed exception if two database
+    // writes happen to get interleaved. Almost always, a retry
+    // should fix this, and we allow up to three tries. This tests that if
+    // simpledb throws three times running, then the persister gives up and also
+    // throws.
+
+    testDelete(true, Optional.of(new Exception("Database put failed - conditional check failed")),
+        true, 3);
+  }
+
+  @Test
+  public void testDeleteDoesNotThrowIfTheSimpledbConditionalCheckFailsOnlyOnce() throws Exception {
+
+    // SimpleDB can throw a conditional check failed exception if two database
+    // writes happen to get interleaved. Almost always, a retry
+    // should fix this, and we allow up to three tries. This tests that if
+    // simpledb throws once, but then succeeds, the persister does not throw.
+    // (It should also succeed if simpledb throws twice and then succeeds - but
+    // we don't test this.)
+
+    testDelete(false, Optional.empty(), true, 2);
+  }
+
+  @Test
   public void testDeleteWorksEvenWhenTheMaximumNumberOfAttributesAlreadyExists() throws Exception {
     // Deletion is currently a 2-stage process (to ensure the deletion is
     // concurrency-safe). This tests that this 2-stage process is followed.
@@ -697,6 +723,15 @@ public class OptimisticPersisterTest {
 
   private void testDelete(Boolean expectToThrow, Optional<Exception> exceptionToThrow,
       Boolean doInitialise) throws Exception {
+    testDelete(expectToThrow, exceptionToThrow, doInitialise, 1);
+  }
+
+  private void testDelete(Boolean expectToThrow, Optional<Exception> exceptionToThrow,
+      Boolean doInitialise, int numCalls) throws Exception {
+
+    // This has become really horrible. Cause of trouble is difficulty of
+    // deleting an attribute from simpleDb whilst also incrementing the version
+    // number - necessitating a 2-stage process. Maybe I'm missing something...
 
     // ARRANGE
     if (exceptionToThrow.isPresent() && expectToThrow) {
@@ -712,14 +747,33 @@ public class OptimisticPersisterTest {
         testItemName);
     simpleDBRequest.setConsistentRead(true);
     GetAttributesResult getAttributesResult = new GetAttributesResult();
+    GetAttributesResult getAttributesResult2 = new GetAttributesResult();
+    GetAttributesResult getAttributesResult3 = new GetAttributesResult();
     Set<Attribute> allAttributesCopy = new HashSet<>();
+    Set<Attribute> allAttributesCopy2 = new HashSet<>();
+    Set<Attribute> allAttributesCopy3 = new HashSet<>();
     allAttributesCopy.addAll(allAttributes);
+    allAttributesCopy2.addAll(allAttributes);
+    allAttributesCopy3.addAll(allAttributes);
     getAttributesResult.setAttributes(allAttributesCopy);
+    getAttributesResult2.setAttributes(allAttributesCopy2);
+    getAttributesResult3.setAttributes(allAttributesCopy3);
     mockery.checking(new Expectations() {
       {
-        // Two calls as inactivating the attribute also does a get.
-        exactly(1).of(mockSimpleDBClient).getAttributes(with(equal(simpleDBRequest)));
+        // Initial get of attributes. We need copies here as code being tested
+        // removes the version attribute each time.
+        oneOf(mockSimpleDBClient).getAttributes(with(equal(simpleDBRequest)));
         will(returnValue(getAttributesResult));
+        if (numCalls == 2) {
+          oneOf(mockSimpleDBClient).getAttributes(with(equal(simpleDBRequest)));
+          will(returnValue(getAttributesResult2));
+        }
+        if (numCalls == 3) {
+          oneOf(mockSimpleDBClient).getAttributes(with(equal(simpleDBRequest)));
+          will(returnValue(getAttributesResult2));
+          oneOf(mockSimpleDBClient).getAttributes(with(equal(simpleDBRequest)));
+          will(returnValue(getAttributesResult3));
+        }
       }
     });
 
@@ -746,9 +800,29 @@ public class OptimisticPersisterTest {
     PutAttributesRequest simpleDBPutRequest = new PutAttributesRequest(testSimpleDBDomainName,
         testItemName, replaceableAttributes, updateCondition);
 
+    final Sequence retrySequence = mockery.sequence("retry");
     mockery.checking(new Expectations() {
       {
-        oneOf(mockSimpleDBClient).putAttributes(with(equal(simpleDBPutRequest)));
+        // Put the inactive attribute
+        if (numCalls > 1) {
+          // This must be a conditional-check-failed test
+
+          // Initial calls will always throw... It just so happens that when we
+          // test with numCalls == 3, we also want all three calls to throw.
+          AmazonServiceException ase = new AmazonServiceException("");
+          ase.setErrorCode("ConditionalCheckFailed");
+          exactly(numCalls == 3 ? 3 : numCalls - 1).of(mockSimpleDBClient).putAttributes(
+              with(equal(simpleDBPutRequest)));
+          will(throwException(ase));
+          inSequence(retrySequence);
+          // ...but final call will not throw unless numCalls is 3
+          if (numCalls != 3) {
+            oneOf(mockSimpleDBClient).putAttributes(with(equal(simpleDBPutRequest)));
+            inSequence(retrySequence);
+          }
+        } else {
+          oneOf(mockSimpleDBClient).putAttributes(with(equal(simpleDBPutRequest)));
+        }
       }
     });
 
@@ -756,11 +830,25 @@ public class OptimisticPersisterTest {
     // version-number attribute.
     GetAttributesResult secondGetAttributesResult = new GetAttributesResult();
     secondGetAttributesResult.setAttributes(allAttributes);
+    GetAttributesResult secondGetAttributesResult2 = new GetAttributesResult();
+    secondGetAttributesResult2.setAttributes(allAttributes);
+    GetAttributesResult secondGetAttributesResult3 = new GetAttributesResult();
+    secondGetAttributesResult3.setAttributes(allAttributes);
     mockery.checking(new Expectations() {
       {
-        // Two calls as inactivating the attribute also does a get.
-        exactly(1).of(mockSimpleDBClient).getAttributes(with(equal(simpleDBRequest)));
+        // Get as part of the put to create the inactive attribute
+        oneOf(mockSimpleDBClient).getAttributes(with(equal(simpleDBRequest)));
         will(returnValue(secondGetAttributesResult));
+        if (numCalls == 2) {
+          oneOf(mockSimpleDBClient).getAttributes(with(equal(simpleDBRequest)));
+          will(returnValue(secondGetAttributesResult2));
+        }
+        if (numCalls == 3) {
+          oneOf(mockSimpleDBClient).getAttributes(with(equal(simpleDBRequest)));
+          will(returnValue(secondGetAttributesResult2));
+          oneOf(mockSimpleDBClient).getAttributes(with(equal(simpleDBRequest)));
+          will(returnValue(secondGetAttributesResult3));
+        }
       }
     });
 
@@ -778,7 +866,10 @@ public class OptimisticPersisterTest {
         testSimpleDBDomainName, testItemName, attributesToDelete, deleteUpdateCondition);
     mockery.checking(new Expectations() {
       {
-        oneOf(mockSimpleDBClient).deleteAttributes(with(equal(simpleDBDeleteRequest)));
+        // We always have only one of these calls - unless all three put calls
+        // throw Conditional-check-failed exceptions.
+        exactly(numCalls == 3 ? 0 : 1).of(mockSimpleDBClient).deleteAttributes(
+            with(equal(simpleDBDeleteRequest)));
         if (exceptionToThrow.isPresent()) {
           will(throwException(exceptionToThrow.get()));
         }

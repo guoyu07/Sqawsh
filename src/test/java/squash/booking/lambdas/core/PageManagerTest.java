@@ -16,6 +16,7 @@
 
 package squash.booking.lambdas.core;
 
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.Assert.assertTrue;
 
 import squash.deployment.lambdas.utils.IS3TransferManager;
@@ -38,6 +39,7 @@ import com.amazonaws.services.s3.model.CopyObjectRequest;
 import com.amazonaws.services.s3.model.DeleteObjectRequest;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.transfer.Transfer;
+import com.amazonaws.services.sns.AmazonSNS;
 import com.google.common.io.CharStreams;
 
 import java.io.File;
@@ -63,6 +65,8 @@ public class PageManagerTest {
   List<String> validDates;
   squash.booking.lambdas.core.PageManagerTest.TestPageManager pageManager;
 
+  String adminSnsTopicArn;
+
   String apiGatewayBaseUrl;
   String websiteBucketName;
 
@@ -73,6 +77,7 @@ public class PageManagerTest {
   IS3TransferManager mockTransferManager;
   IBookingManager mockBookingManager;
   AmazonS3 mockS3Client;
+  AmazonSNS mockSNSClient;
 
   Integer court;
   Integer courtSpan;
@@ -133,6 +138,8 @@ public class PageManagerTest {
     bookings.add(booking);
 
     apiGatewayBaseUrl = "apiGatewayBaseUrl";
+    adminSnsTopicArn = "adminSnsTopicArn";
+    pageManager.setAdminSnsTopicArn(adminSnsTopicArn);
   }
 
   private void initialisePageManager() throws Exception {
@@ -149,6 +156,8 @@ public class PageManagerTest {
 
   // Define a test page manager with some overrides to facilitate testing
   public class TestPageManager extends PageManager {
+    private AmazonSNS snsClient;
+    private String adminSnsTopicArn;
     private LocalDate currentLocalDate;
     private String websiteBucket;
     private IS3TransferManager transferManager;
@@ -166,8 +175,24 @@ public class PageManagerTest {
       websiteBucket = websiteBucketName;
     }
 
+    public void setSNSClient(AmazonSNS snsClient) {
+      this.snsClient = snsClient;
+    }
+
+    @Override
+    public AmazonSNS getSNSClient() {
+      return snsClient;
+    }
+
+    public void setAdminSnsTopicArn(String adminSnsTopicArn) {
+      this.adminSnsTopicArn = adminSnsTopicArn;
+    }
+
     @Override
     public String getStringProperty(String propertyName) {
+      if (propertyName.equals("adminsnstopicarn")) {
+        return adminSnsTopicArn;
+      }
       if (propertyName.equals("s3websitebucketname")) {
         return websiteBucket;
       }
@@ -416,7 +441,66 @@ public class PageManagerTest {
     });
     pageManager.setS3TransferManager(mockTransferManager);
 
+    mockSNSClient = mockery.mock(AmazonSNS.class);
+    mockery.checking(new Expectations() {
+      {
+        ignoring(mockSNSClient);
+      }
+    });
+    pageManager.setSNSClient(mockSNSClient);
+
     // ACT - this should throw
+    pageManager.refreshAllPages(validDates, apiGatewayBaseUrl);
+  }
+
+  @Test
+  public void testRefreshAllPagesNotifiesTheSnsTopicWhenItThrows() throws Exception {
+    // It is useful for the admin user to be notified whenever the refreshing
+    // of booking pages does not succeed - so that they can update the pages
+    // manually instead. This tests that whenever the page manager catches an
+    // exception while refreshing pages, it notifies the admin SNS topic.
+
+    // ARRANGE
+    thrown.expect(Exception.class);
+    String message = "Exception caught while copying booking page to S3";
+    thrown.expectMessage(message);
+
+    initialisePageManager();
+
+    // Make S3 throw:
+    // Transfer interface is implemented by Uploads, Downloads, and Copies
+    Transfer mockTransfer = mockery.mock(Transfer.class);
+    mockery.checking(new Expectations() {
+      {
+        allowing(mockTransfer).isDone();
+        will(returnValue(true));
+        allowing(mockTransfer).waitForCompletion();
+      }
+    });
+    mockTransferManager = mockery.mock(IS3TransferManager.class);
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockTransferManager).upload(with(any(PutObjectRequest.class)));
+        will(throwException(new AmazonServiceException("Grrr...")));
+        // Should throw before copy is called
+        never(mockTransferManager).copy(with(any(CopyObjectRequest.class)));
+      }
+    });
+    pageManager.setS3TransferManager(mockTransferManager);
+
+    // Set up mock SNS client to expect a notification
+    mockSNSClient = mockery.mock(AmazonSNS.class);
+    String partialMessage = "Apologies - but there was an error refreshing the booking pages in S3";
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockSNSClient).publish(with(equal(adminSnsTopicArn)),
+            with(startsWith(partialMessage)),
+            with(equal("Sqawsh booking pages in S3 failed to refresh")));
+      }
+    });
+    pageManager.setSNSClient(mockSNSClient);
+
+    // ACT - this should throw - and notify the SNS topic
     pageManager.refreshAllPages(validDates, apiGatewayBaseUrl);
   }
 

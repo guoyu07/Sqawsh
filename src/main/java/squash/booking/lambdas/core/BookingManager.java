@@ -16,21 +16,31 @@
 
 package squash.booking.lambdas.core;
 
+import squash.deployment.lambdas.utils.RetryHelper;
+
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
+import com.amazonaws.AmazonServiceException;
+import com.amazonaws.regions.Region;
+import com.amazonaws.regions.Regions;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.simpledb.model.Attribute;
 import com.amazonaws.services.simpledb.model.ReplaceableAttribute;
+import com.amazonaws.services.sns.AmazonSNS;
+import com.amazonaws.services.sns.AmazonSNSClient;
 import com.google.common.collect.Sets;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * Manages all bookings.
@@ -44,6 +54,8 @@ import java.util.Set;
 public class BookingManager implements IBookingManager {
 
   private Integer maxNumberOfBookingsPerDay = 100;
+  private Region region;
+  private String adminSnsTopicArn;
   private IOptimisticPersister optimisticPersister;
   private LambdaLogger logger;
   private Boolean initialised = false;
@@ -51,6 +63,8 @@ public class BookingManager implements IBookingManager {
   @Override
   public final void initialise(LambdaLogger logger) throws IOException {
     this.logger = logger;
+    adminSnsTopicArn = getStringProperty("adminsnstopicarn");
+    region = Region.getRegion(Regions.fromName(getStringProperty("region")));
     initialised = true;
   }
 
@@ -65,53 +79,62 @@ public class BookingManager implements IBookingManager {
 
     // Get today's bookings (and version number), via consistent read:
     String itemName = bookingToCreate.getDate();
-    ImmutablePair<Optional<Integer>, List<Booking>> versionedBookings = getVersionedBookings(itemName);
 
-    // Check that the court(s) we're booking is/are currently free
-    // Get individual booked courts as (court, slot) pairs
-    Set<ImmutablePair<Integer, Integer>> bookedCourts = new HashSet<>();
-    versionedBookings.right.forEach((booking) -> {
-      addBookingToSet(booking, bookedCourts);
-    });
+    // We retry the creation of the booking if necessary if we get a
+    // ConditionalCheckFailed exception, i.e. if someone else modifies
+    // the database between us reading and writing it.
+    return RetryHelper
+        .DoWithRetries(
+            () -> {
+              ImmutablePair<Optional<Integer>, List<Booking>> versionedBookings = getVersionedBookings(itemName);
 
-    // Get courts we're trying to book as (court, slot) pairs
-    Set<ImmutablePair<Integer, Integer>> courtsToBook = new HashSet<>();
-    addBookingToSet(bookingToCreate, courtsToBook);
+              // Check that the court(s) we're booking is/are currently free
+              // Get individual booked courts as (court, slot) pairs
+              Set<ImmutablePair<Integer, Integer>> bookedCourts = new HashSet<>();
+              versionedBookings.right.forEach((booking) -> {
+                addBookingToSet(booking, bookedCourts);
+              });
 
-    // Does the new booking clash with existing bookings?
-    boolean bookingClashes = Boolean
-        .valueOf(Sets.intersection(courtsToBook, bookedCourts).size() > 0);
+              // Get courts we're trying to book as (court, slot) pairs
+              Set<ImmutablePair<Integer, Integer>> courtsToBook = new HashSet<>();
+              addBookingToSet(bookingToCreate, courtsToBook);
 
-    if (bookingClashes) {
-      // Case of trying to book an already-booked slot - this
-      // probably means either:
-      // - more than one person was trying to book the slot at once, or
-      // - not all courts in our block booking are free
-      logger
-          .log("Cannot book courts which are already booked, so throwing a 'Booking creation failed' exception");
-      throw new Exception("Booking creation failed");
-    }
+              // Does the new booking clash with existing bookings?
+              boolean bookingClashes = Boolean.valueOf(Sets
+                  .intersection(courtsToBook, bookedCourts).size() > 0);
 
-    logger.log("Required courts are currently free - so proceeding to make booking");
+              if (bookingClashes) {
+                // Case of trying to book an already-booked slot - this
+                // probably means either:
+                // - more than one person was trying to book the slot at once,
+                // or
+                // - not all courts in our block booking are free
+                logger
+                    .log("Cannot book courts which are already booked, so throwing a 'Booking creation failed' exception");
+                throw new Exception("Booking creation failed");
+              }
 
-    // Do a conditional put - so we don't overwrite someone else's booking
-    String attributeName = getAttributeNameFromBooking(bookingToCreate);
-    String attributeValue = bookingToCreate.getName();
-    logger.log("ItemName: " + itemName);
-    logger.log("AttributeName: " + attributeName);
-    logger.log("AttributeValue: " + attributeValue);
-    ReplaceableAttribute bookingAttribute = new ReplaceableAttribute();
-    bookingAttribute.setName(attributeName);
-    bookingAttribute.setValue(attributeValue);
+              logger.log("Required courts are currently free - so proceeding to make booking");
 
-    getOptimisticPersister().put(itemName, versionedBookings.left, bookingAttribute);
-    logger.log("Created booking in database");
+              // Do a conditional put - so we don't overwrite someone else's
+              // booking
+              String attributeName = getAttributeNameFromBooking(bookingToCreate);
+              String attributeValue = bookingToCreate.getName();
+              logger.log("ItemName: " + itemName);
+              logger.log("AttributeName: " + attributeName);
+              logger.log("AttributeValue: " + attributeValue);
+              ReplaceableAttribute bookingAttribute = new ReplaceableAttribute();
+              bookingAttribute.setName(attributeName);
+              bookingAttribute.setValue(attributeValue);
 
-    // Add the booking we've just made to the pre-existing ones.
-    List<Booking> bookings = versionedBookings.right;
-    bookings.add(bookingToCreate);
-
-    return bookings;
+              getOptimisticPersister().put(itemName, versionedBookings.left, bookingAttribute);
+              logger.log("Created booking in database");
+              // Add the booking we've just made to the pre-existing ones.
+              List<Booking> bookings = versionedBookings.right;
+              bookings.add(bookingToCreate);
+              return bookings;
+            }, Exception.class, Optional.of("Database put failed - conditional check failed"),
+            logger);
   }
 
   private void addBookingToSet(Booking booking, Set<ImmutablePair<Integer, Integer>> bookedCourts) {
@@ -225,12 +248,23 @@ public class BookingManager implements IBookingManager {
       throw new IllegalStateException("The booking manager has not been initialised");
     }
 
-    // Remove the previous day's bookings from database
-    String yesterdaysDate = getCurrentLocalDate().minusDays(1).format(
-        DateTimeFormatter.ofPattern("yyyy-MM-dd"));
-    logger.log("About to remove bookings from database for yesterday, i.e. : " + yesterdaysDate);
-    getOptimisticPersister().deleteAllAttributes(yesterdaysDate);
-    logger.log("Removed yesterday's bookings from database");
+    try {
+      // Remove the previous day's bookings from database
+      String yesterdaysDate = getCurrentLocalDate().minusDays(1).format(
+          DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+      logger.log("About to remove bookings from database for yesterday, i.e. : " + yesterdaysDate);
+      getOptimisticPersister().deleteAllAttributes(yesterdaysDate);
+      logger.log("Removed yesterday's bookings from database");
+    } catch (Exception exception) {
+      logger.log("Exception caught while deleting yesterday's bookings - so notifying sns topic");
+      getSNSClient()
+          .publish(
+              adminSnsTopicArn,
+              "Apologies - but there was an error deleting yesterday's bookings from the database. Please check that the database is not accumulating stale data. The error message was: "
+                  + exception.getMessage(), "Sqawsh bookings for yesterday failed to delete");
+      // Rethrow
+      throw exception;
+    }
   }
 
   @Override
@@ -245,11 +279,56 @@ public class BookingManager implements IBookingManager {
     logger.log("Found " + bookings.size() + " bookings to delete");
     logger.log("About to delete all bookings");
     for (Booking booking : bookings) {
-      deleteBooking(booking);
-      // sleep to avoid Too Many Requests errors
-      Thread.sleep(500);
+      RetryHelper.DoWithRetries(() -> deleteBooking(booking), AmazonServiceException.class,
+          Optional.of("429"), logger);
     }
     logger.log("Deleted all bookings");
+  }
+
+  public void validateBooking(Booking booking) throws Exception {
+
+    logger.log("Validating booking");
+
+    int court = booking.getCourt();
+    if ((court < 1) || (court > 5)) {
+      logger.log("The booking court number is outside the valid range (1-5)");
+      throw new Exception("The booking court number is outside the valid range (1-5)");
+    }
+    if ((booking.getCourtSpan() < 1) || (booking.getCourtSpan() > (6 - court))) {
+      logger.log("The booking court span is outside the valid range (1-(6-court))");
+      throw new Exception("The booking court span is outside the valid range (1-(6-court))");
+    }
+
+    int slot = booking.getSlot();
+    if ((slot < 1) || (slot > 16)) {
+      logger.log("The booking time slot is outside the valid range (1-16)");
+      throw new Exception("The booking time slot is outside the valid range (1-16)");
+    }
+    if ((booking.getSlotSpan() < 1) || (booking.getSlotSpan() > (17 - slot))) {
+      logger.log("The booking time slot span is outside the valid range (1- (17 - slot))");
+      throw new Exception("The booking time slot span is outside the valid range (1- (17 - slot))");
+    }
+
+    // The booking name must not be empty. Could be stricter here?
+    Pattern regex = Pattern.compile("^[a-z0-9A-Z\\. /-]*$");
+    if (!regex.matcher(booking.getName()).matches() || (booking.getName().trim().length() == 0)
+        || (booking.getName().length() > 30)) {
+      logger.log("The booking must have a valid non-empty name");
+      throw new Exception("The booking name must have a valid format");
+    }
+  }
+
+  /**
+   * Returns an SNS client.
+   *
+   * <p>This method is provided so unit tests can mock out SNS.
+   */
+  protected AmazonSNS getSNSClient() {
+
+    // Use a getter here so unit tests can substitute a mock client
+    AmazonSNS client = new AmazonSNSClient();
+    client.setRegion(region);
+    return client;
   }
 
   /**
@@ -279,5 +358,26 @@ public class BookingManager implements IBookingManager {
     // This gets the correct local date no matter what the user's device
     // system time may say it is, and no matter where in AWS we run.
     return BookingsUtilities.getCurrentLocalDate();
+  }
+
+  /**
+   * Returns a named property from the SquashCustomResource settings file.
+   */
+  protected String getStringProperty(String propertyName) throws IOException {
+    // Use a getter here so unit tests can substitute a mock value.
+    // We get the value from a settings file so that
+    // CloudFormation can substitute the actual value when the
+    // stack is created, by replacing the settings file.
+
+    Properties properties = new Properties();
+    try (InputStream stream = BookingManager.class
+        .getResourceAsStream("/squash/booking/lambdas/SquashCustomResource.settings")) {
+      properties.load(stream);
+    } catch (IOException e) {
+      logger.log("Exception caught reading SquashCustomResource.settings properties file: "
+          + e.getMessage());
+      throw e;
+    }
+    return properties.getProperty(propertyName);
   }
 }

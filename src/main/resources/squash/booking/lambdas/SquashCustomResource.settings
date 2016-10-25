@@ -2,5 +2,5 @@ simpledbdomainname=stringtobereplaced
 cognitoidentitypoolid=stringtobereplaced
 s3websitebucketname=stringtobereplaced
 databasebackupbucketname=stringtobereplaced
-databasebackupsnstopicarn=stringtobereplaced
+adminsnstopicarn=stringtobereplaced
 region=stringtobereplaced

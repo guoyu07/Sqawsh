@@ -16,6 +16,7 @@
 
 package squash.booking.lambdas.core;
 
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -23,15 +24,18 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.jmock.Expectations;
 import org.jmock.Mockery;
+import org.jmock.Sequence;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
+import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.simpledb.model.Attribute;
 import com.amazonaws.services.simpledb.model.ReplaceableAttribute;
+import com.amazonaws.services.sns.AmazonSNS;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -53,12 +57,14 @@ public class RuleManagerTest {
   LocalDate fakeCurrentSaturdayDate;
   String fakeCurrentSaturdayDateString;
   squash.booking.lambdas.core.RuleManagerTest.TestRuleManager ruleManager;
+  private String adminSnsTopicArn;
 
   // Mocks
   Mockery mockery = new Mockery();
   LambdaLogger mockLogger;
   IBookingManager mockBookingManager;
   IOptimisticPersister mockOptimisticPersister;
+  AmazonSNS mockSNSClient;
 
   // Create some example booking rules to test with
   BookingRule existingThursdayNonRecurringRule;
@@ -124,6 +130,8 @@ public class RuleManagerTest {
     ruleManager = new squash.booking.lambdas.core.RuleManagerTest.TestRuleManager();
     ruleManager.setOptimisticPersister(mockOptimisticPersister);
     ruleManager.setCurrentLocalDate(fakeCurrentSaturdayDate);
+    adminSnsTopicArn = "adminSnsTopicArn";
+    ruleManager.setAdminSnsTopicArn(adminSnsTopicArn);
 
     ruleItemName = "BookingRulesAndExclusions";
   }
@@ -143,11 +151,22 @@ public class RuleManagerTest {
 
   private void expectOptimisticPersisterToReturnVersionedAttributes(int expectedVersion)
       throws Exception {
-    expectOptimisticPersisterToReturnVersionedAttributes(expectedVersion, existingBookingRules);
+    expectOptimisticPersisterToReturnVersionedAttributes(expectedVersion, existingBookingRules, 1);
+  }
+
+  private void expectOptimisticPersisterToReturnVersionedAttributes(int expectedVersion,
+      int numCalls) throws Exception {
+    expectOptimisticPersisterToReturnVersionedAttributes(expectedVersion, existingBookingRules,
+        numCalls);
   }
 
   private void expectOptimisticPersisterToReturnVersionedAttributes(int expectedVersion,
       List<BookingRule> bookingRules) throws Exception {
+    expectOptimisticPersisterToReturnVersionedAttributes(expectedVersion, bookingRules, 1);
+  }
+
+  private void expectOptimisticPersisterToReturnVersionedAttributes(int expectedVersion,
+      List<BookingRule> bookingRules, int numCalls) throws Exception {
 
     // Set up attributes to be returned from the database's booking rule item
     Set<Attribute> attributes = new HashSet<>();
@@ -160,7 +179,7 @@ public class RuleManagerTest {
     }
     mockery.checking(new Expectations() {
       {
-        oneOf(mockOptimisticPersister).get(with(equal(ruleItemName)));
+        exactly(numCalls).of(mockOptimisticPersister).get(with(equal(ruleItemName)));
         will(returnValue(new ImmutablePair<>(Optional.of(expectedVersion), attributes)));
       }
     });
@@ -273,7 +292,9 @@ public class RuleManagerTest {
 
   // Define a test rule manager with some overrides to facilitate testing
   public class TestRuleManager extends RuleManager {
+    private AmazonSNS snsClient;
     private LocalDate currentLocalDate;
+    private String adminSnsTopicArn;
 
     public void setOptimisticPersister(IOptimisticPersister optimisticPersister) {
       this.optimisticPersister = optimisticPersister;
@@ -282,6 +303,15 @@ public class RuleManagerTest {
     @Override
     public IOptimisticPersister getOptimisticPersister() {
       return optimisticPersister;
+    }
+
+    public void setSNSClient(AmazonSNS snsClient) {
+      this.snsClient = snsClient;
+    }
+
+    @Override
+    public AmazonSNS getSNSClient() {
+      return snsClient;
     }
 
     public void setCurrentLocalDate(LocalDate localDate) {
@@ -295,6 +325,21 @@ public class RuleManagerTest {
 
     public void setMaxNumberOfDatesToExclude(int maxNumberOfDatesToExclude) {
       this.maxNumberOfDatesToExclude = maxNumberOfDatesToExclude;
+    }
+
+    public void setAdminSnsTopicArn(String adminSnsTopicArn) {
+      this.adminSnsTopicArn = adminSnsTopicArn;
+    }
+
+    @Override
+    public String getStringProperty(String propertyName) {
+      if (propertyName.equals("adminsnstopicarn")) {
+        return adminSnsTopicArn;
+      }
+      if (propertyName.equals("region")) {
+        return "eu-west-1";
+      }
+      return null;
     }
   }
 
@@ -337,6 +382,8 @@ public class RuleManagerTest {
 
   @Test
   public void testCreateRuleThrowsWhenTheOptimisticPersisterThrows() throws Exception {
+    // N.B. This applies except when the optimistic persister throws a
+    // conditional check failed exclusion, which is covered by other tests.
 
     // ARRANGE
     thrown.expect(Exception.class);
@@ -360,6 +407,87 @@ public class RuleManagerTest {
 
     // ACT
     doTestCreateRuleClashesOrNotWithExistingRule(nonClashingRule, true);
+  }
+
+  @Test
+  public void testCreateRuleThrowsIfTheOptimisticPersisterThrowsAConditionalCheckFailedExceptionThreeTimesRunning()
+      throws Exception {
+    // The optimistic persister can throw a conditional check failed exclusion
+    // if two database writes happen to get interleaved. Almost always, a retry
+    // should fix this, and we allow up to three tries. This tests that if all
+    // three tries fail then the rule manager will give up and throw.
+
+    // ARRANGE
+    thrown.expect(Exception.class);
+    String message = "Database put failed - conditional check failed";
+    thrown.expectMessage(message);
+    int versionToUse = 1; // Arbitrary
+    expectOptimisticPersisterToReturnVersionedAttributes(versionToUse, 3);
+
+    initialiseRuleManager();
+
+    // Set up a rule to create that does not clash with existing rules
+    BookingRule nonClashingRule = new BookingRule(existingThursdayNonRecurringRule);
+    // Change day-of-week so it no longer clashes
+    String existingDate = nonClashingRule.getBooking().getDate();
+    String newDate = LocalDate.parse(existingDate, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+        .minusDays(1).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+    nonClashingRule.getBooking().setDate(newDate); // Wednesday
+    mockery.checking(new Expectations() {
+      {
+        // All three tries throw
+        exactly(3).of(mockOptimisticPersister).put(with(equal(ruleItemName)), with(anything()),
+            with(anything()));
+        will(throwException(new Exception(message)));
+      }
+    });
+
+    // ACT
+    // This should throw - albeit after three tries internally
+    ruleManager.createRule(nonClashingRule);
+  }
+
+  @Test
+  public void testCreateRuleDoesNotThrowIfTheOptimisticPersisterThrowsAConditionalCheckFailedExceptionOnlyTwice()
+      throws Exception {
+    // The optimistic persister can throw a conditional check failed exclusion
+    // if two database writes happen to get interleaved. Almost always, a retry
+    // should fix this, and we allow up to three tries. This tests that if we
+    // throw twice but the third try succeeds, then the rule manager does not
+    // throw.
+
+    // ARRANGE
+    int versionToUse = 1; // Arbitrary
+    expectOptimisticPersisterToReturnVersionedAttributes(versionToUse, 3);
+    initialiseRuleManager();
+
+    // Set up a rule to create that does not clash with existing rules
+    BookingRule nonClashingRule = new BookingRule(existingThursdayNonRecurringRule);
+    // Change day-of-week so it no longer clashes
+    String existingDate = nonClashingRule.getBooking().getDate();
+    String newDate = LocalDate.parse(existingDate, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+        .minusDays(1).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+    nonClashingRule.getBooking().setDate(newDate); // Wednesday
+
+    final Sequence retrySequence = mockery.sequence("retry");
+    mockery.checking(new Expectations() {
+      {
+        // Two failures...
+        exactly(2).of(mockOptimisticPersister).put(with(equal(ruleItemName)), with(anything()),
+            with(anything()));
+        will(throwException(new Exception("Database put failed - conditional check failed")));
+        inSequence(retrySequence);
+        // ... but third attempt succeeds
+        oneOf(mockOptimisticPersister).put(with(equal(ruleItemName)), with(anything()),
+            with(anything()));
+        will(returnValue(2));
+        inSequence(retrySequence);
+      }
+    });
+
+    // ACT
+    // This should _not_ throw - we are allowed three tries
+    ruleManager.createRule(nonClashingRule);
   }
 
   @Test
@@ -904,6 +1032,87 @@ public class RuleManagerTest {
   }
 
   @Test
+  public void testDeleteAllBookingRulesThrowsIfTheRuleManagerThrowsTooManyRequestsExceptionsThreeTimesRunning()
+      throws Exception {
+    // The rule manager can throw a TooManyRequests exception
+    // if there are many booking rules being deleted. If this happens we should
+    // pause for a short time and then continue deleting. We allow up to three
+    // attempts to delete each booking rule before giving up. This tests that
+    // if all three tries fail then the rule manager will give up and throw.
+
+    // ARRANGE
+    thrown.expect(Exception.class);
+    String message = "Boom!";
+    thrown.expectMessage(message);
+
+    // ACT
+    initialiseRuleManager();
+
+    // Tweak rules to have just one rule - that's all we need here
+    existingBookingRules = new ArrayList<>();
+    existingBookingRules.add(existingThursdayNonRecurringRule);
+    expectOptimisticPersisterToReturnVersionedAttributes(2); // 2 arbitrary
+
+    // Set up mock optimistic persister to throw too many requests errors
+    // Configure the TooManyRequests error (429)
+    AmazonServiceException ase = new AmazonServiceException(message);
+    ase.setErrorCode("429");
+    mockery.checking(new Expectations() {
+      {
+        // All three tries throw
+        exactly(3).of(mockOptimisticPersister).delete(with(equal(ruleItemName)), with(anything()));
+        will(throwException(ase));
+      }
+    });
+    ruleManager.setOptimisticPersister(mockOptimisticPersister);
+
+    // ACT
+    // This should throw - albeit after three tries
+    ruleManager.deleteAllBookingRules();
+  }
+
+  @Test
+  public void testDeleteAllBookingRulesDoesNotThrowIfTheRuleManagerThrowsTooManyRequestsExceptionsOnlyTwice()
+      throws Exception {
+    // The rule manager can throw a TooManyRequests exception
+    // if there are many booking rules being deleted. If this happens we should
+    // pause for a short time and then continue deleting. We allow up to three
+    // attempts to delete each booking rule before giving up. This tests that
+    // if we throw twice but the third try succeeds, then the rule manager
+    // does not throw.
+
+    // ARRANGE
+    String message = "Boom!";
+
+    // ACT
+    initialiseRuleManager();
+
+    // Tweak rules to have just one rule - that's all we need here
+    existingBookingRules = new ArrayList<>();
+    existingBookingRules.add(existingThursdayNonRecurringRule);
+    expectOptimisticPersisterToReturnVersionedAttributes(2); // 2 arbitrary
+
+    // Set up mock optimistic persister to throw too many requests errors
+    // Configure the TooManyRequests error (429)
+    AmazonServiceException ase = new AmazonServiceException(message);
+    ase.setErrorCode("429");
+    mockery.checking(new Expectations() {
+      {
+        // Throw twice...
+        exactly(2).of(mockOptimisticPersister).delete(with(equal(ruleItemName)), with(anything()));
+        will(throwException(ase));
+        // ...but succeed on the third try
+        oneOf(mockOptimisticPersister).delete(with(equal(ruleItemName)), with(anything()));
+      }
+    });
+    ruleManager.setOptimisticPersister(mockOptimisticPersister);
+
+    // ACT
+    // This should _not_ throw - we are allowed three tries
+    ruleManager.deleteAllBookingRules();
+  }
+
+  @Test
   public void testDeleteAllBookingRulesCallsTheOptimisticPersisterCorrectly() throws Exception {
 
     // ARRANGE
@@ -984,6 +1193,8 @@ public class RuleManagerTest {
 
   @Test
   public void testAddRuleExclusionThrowsWhenTheOptimisticPersisterThrows() throws Exception {
+    // N.B. This applies except when the optimistic persister throws a
+    // conditional check failed exclusion, which is covered by other tests.
 
     // ARRANGE
     thrown.expect(Exception.class);
@@ -1007,6 +1218,79 @@ public class RuleManagerTest {
 
     // ACT
     // This should throw
+    ruleManager.addRuleExclusion(exclusionDate, existingFridayRecurringRuleWithoutExclusions);
+  }
+
+  @Test
+  public void testAddRuleExclusionThrowsIfTheOptimisticPersisterThrowsAConditionalCheckFailedExceptionThreeTimesRunning()
+      throws Exception {
+    // The optimistic persister can throw a conditional check failed exclusion
+    // if two database writes happen to get interleaved. Almost always, a retry
+    // should fix this, and we allow up to three tries. This tests that if all
+    // three tries fail then the rule manager will give up and throw.
+
+    // ARRANGE
+    thrown.expect(Exception.class);
+    String message = "Database put failed - conditional check failed";
+    thrown.expectMessage(message);
+
+    initialiseRuleManager();
+    expectOptimisticPersisterToReturnVersionedAttributes(2, 3); // 2 arbitrary
+
+    mockery.checking(new Expectations() {
+      {
+        // All three tries throw
+        exactly(3).of(mockOptimisticPersister).put(with(equal(ruleItemName)), with(anything()),
+            with(anything()));
+        will(throwException(new Exception(message)));
+      }
+    });
+
+    String existingDate = existingFridayRecurringRuleWithoutExclusions.getBooking().getDate();
+    String exclusionDate = LocalDate.parse(existingDate, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+        .plusWeeks(1).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+
+    // ACT
+    // This should throw - albeit after three tries internally
+    ruleManager.addRuleExclusion(exclusionDate, existingFridayRecurringRuleWithoutExclusions);
+  }
+
+  @Test
+  public void testAddRuleExclusionDoesNotThrowIfTheOptimisticPersisterThrowsAConditionalCheckFailedExceptionOnlyTwice()
+      throws Exception {
+    // The optimistic persister can throw a conditional check failed exclusion
+    // if two database writes happen to get interleaved. Almost always, a retry
+    // should fix this, and we allow up to three tries. This tests that if we
+    // throw twice but the third try succeeds, then the rule manager does not
+    // throw.
+
+    // ARRANGE
+
+    initialiseRuleManager();
+    expectOptimisticPersisterToReturnVersionedAttributes(2, 3); // 2 arbitrary
+
+    final Sequence retrySequence = mockery.sequence("retry");
+    mockery.checking(new Expectations() {
+      {
+        // Two failures...
+        exactly(2).of(mockOptimisticPersister).put(with(equal(ruleItemName)), with(anything()),
+            with(anything()));
+        will(throwException(new Exception("Database put failed - conditional check failed")));
+        inSequence(retrySequence);
+        // ... but third attempt succeeds
+        oneOf(mockOptimisticPersister).put(with(equal(ruleItemName)), with(anything()),
+            with(anything()));
+        will(returnValue(2));
+        inSequence(retrySequence);
+      }
+    });
+
+    String existingDate = existingFridayRecurringRuleWithoutExclusions.getBooking().getDate();
+    String exclusionDate = LocalDate.parse(existingDate, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+        .plusWeeks(1).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+
+    // ACT
+    // This should _not_ throw - we are allowed three tries internally
     ruleManager.addRuleExclusion(exclusionDate, existingFridayRecurringRuleWithoutExclusions);
   }
 
@@ -1207,6 +1491,8 @@ public class RuleManagerTest {
 
   @Test
   public void testDeleteRuleExclusionThrowsWhenTheOptimisticPersisterThrows() throws Exception {
+    // N.B. This applies except when the optimistic persister throws a
+    // conditional check failed exclusion, which is covered by other tests.
 
     // ARRANGE
     thrown.expect(Exception.class);
@@ -1226,6 +1512,75 @@ public class RuleManagerTest {
 
     // ACT
     // This should throw
+    ruleManager.deleteRuleExclusion(
+        existingSaturdayRecurringRuleWithExclusion.getDatesToExclude()[0],
+        existingSaturdayRecurringRuleWithExclusion);
+  }
+
+  @Test
+  public void testDeleteRuleExclusionThrowsIfTheOptimisticPersisterThrowsAConditionalCheckFailedExceptionThreeTimesRunning()
+      throws Exception {
+    // The optimistic persister can throw a conditional check failed exclusion
+    // if two database writes happen to get interleaved. Almost always, a retry
+    // should fix this, and we allow up to three tries. This tests that if all
+    // three tries fail then the rule manager will give up and throw.
+
+    // ARRANGE
+    thrown.expect(Exception.class);
+    String message = "Database put failed - conditional check failed";
+    thrown.expectMessage(message);
+
+    initialiseRuleManager();
+    expectOptimisticPersisterToReturnVersionedAttributes(2, 3); // 2 arbitrary
+    ;
+    mockery.checking(new Expectations() {
+      {
+        // All three tries throw
+        exactly(3).of(mockOptimisticPersister).put(with(equal(ruleItemName)), with(anything()),
+            with(anything()));
+        will(throwException(new Exception(message)));
+      }
+    });
+
+    // ACT
+    // This should throw - albeit after three tries internally
+    ruleManager.deleteRuleExclusion(
+        existingSaturdayRecurringRuleWithExclusion.getDatesToExclude()[0],
+        existingSaturdayRecurringRuleWithExclusion);
+  }
+
+  @Test
+  public void testDeleteRuleExclusionDoesNotThrowIfTheOptimisticPersisterThrowsAConditionalCheckFailedExceptionOnlyTwice()
+      throws Exception {
+    // The optimistic persister can throw a conditional check failed exclusion
+    // if two database writes happen to get interleaved. Almost always, a retry
+    // should fix this, and we allow up to three tries. This tests that if we
+    // throw twice but the third try succeeds, then the rule manager does not
+    // throw.
+
+    // ARRANGE
+
+    initialiseRuleManager();
+    expectOptimisticPersisterToReturnVersionedAttributes(2, 3); // 2 arbitrary
+
+    final Sequence retrySequence = mockery.sequence("retry");
+    mockery.checking(new Expectations() {
+      {
+        // Two failures...
+        exactly(2).of(mockOptimisticPersister).put(with(equal(ruleItemName)), with(anything()),
+            with(anything()));
+        will(throwException(new Exception("Database put failed - conditional check failed")));
+        inSequence(retrySequence);
+        // ... but third attempt succeeds
+        oneOf(mockOptimisticPersister).put(with(equal(ruleItemName)), with(anything()),
+            with(anything()));
+        will(returnValue(2));
+        inSequence(retrySequence);
+      }
+    });
+
+    // ACT
+    // This should _not_ throw - as we're allowed three tries
     ruleManager.deleteRuleExclusion(
         existingSaturdayRecurringRuleWithExclusion.getDatesToExclude()[0],
         existingSaturdayRecurringRuleWithExclusion);
@@ -1354,6 +1709,15 @@ public class RuleManagerTest {
       }
     });
 
+    // Set up mock SNS client
+    mockSNSClient = mockery.mock(AmazonSNS.class);
+    mockery.checking(new Expectations() {
+      {
+        ignoring(mockSNSClient);
+      }
+    });
+    ruleManager.setSNSClient(mockSNSClient);
+
     // ACT
     // This should throw
     ruleManager.applyRules(existingSaturdayRecurringRuleWithExclusion.getBooking().getDate());
@@ -1377,8 +1741,55 @@ public class RuleManagerTest {
       }
     });
 
+    // Set up mock SNS client
+    mockSNSClient = mockery.mock(AmazonSNS.class);
+    mockery.checking(new Expectations() {
+      {
+        ignoring(mockSNSClient);
+      }
+    });
+    ruleManager.setSNSClient(mockSNSClient);
+
     // ACT
     // This should throw
+    ruleManager.applyRules(existingSaturdayRecurringRuleWithExclusion.getBooking().getDate());
+  }
+
+  @Test
+  public void testApplyRulesNotifiesTheSnsTopicWhenItThrows() throws Exception {
+    // It is useful for the admin user to be notified whenever the application
+    // of booking rules does not succeed - so that they can apply rule bookings
+    // manually instead. This tests that whenever the rule manager catches an
+    // exception while applying rules, it notifies the admin SNS topic.
+
+    // ARRANGE
+    thrown.expect(Exception.class);
+    String message = "Test BookingManager exception";
+    thrown.expectMessage(message);
+
+    initialiseRuleManager();
+    expectOptimisticPersisterToReturnVersionedAttributes(42);
+
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockBookingManager).createBooking(with(anything()));
+        will(throwException(new Exception(message)));
+      }
+    });
+
+    // Set up mock SNS client to expect a notification
+    mockSNSClient = mockery.mock(AmazonSNS.class);
+    String partialMessage = "Apologies - but there was an error applying the booking rules";
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockSNSClient).publish(with(equal(adminSnsTopicArn)),
+            with(startsWith(partialMessage)), with(equal("Sqawsh booking rules failed to apply")));
+      }
+    });
+    ruleManager.setSNSClient(mockSNSClient);
+
+    // ACT
+    // This should throw - and notify the SNS topic
     ruleManager.applyRules(existingSaturdayRecurringRuleWithExclusion.getBooking().getDate());
   }
 

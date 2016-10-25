@@ -44,6 +44,13 @@ public interface IBookingManager {
   List<Booking> createBooking(Booking booking) throws Exception;
 
   /**
+   * Validates a court booking.
+   * 
+   * @throws Exception when the booking is invalid.
+   */
+  void validateBooking(Booking booking) throws Exception;
+
+  /**
    * Returns all court bookings for a given date.
    * 
    * @param date the date in YYYY-MM-DD format.

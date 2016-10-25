@@ -39,7 +39,6 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.regex.Pattern;
 
 /**
  * AWS Lambda function to create or delete a court booking.
@@ -157,8 +156,10 @@ public class PutDeleteBookingLambda {
       Booking booking = convertBookingRequest(request);
       String password = request.getPassword();
       String apiGatewayBaseUrl = request.getApiGatewayBaseUrl();
-      validateBookingParameters(booking, request.getCognitoIdentityPoolId(),
+      checkAuthenticationAndDate(booking, request.getCognitoIdentityPoolId(),
           request.getCognitoAuthenticationType(), password, logger);
+      IBookingManager bookingManager = getBookingManager(logger);
+      bookingManager.validateBooking(booking);
       logger.log("Validated booking parameters");
 
       String putOrDelete = request.getPutOrDelete();
@@ -295,10 +296,10 @@ public class PutDeleteBookingLambda {
     return booking;
   }
 
-  private void validateBookingParameters(Booking booking, String cognitoIdentityPoolId,
+  private void checkAuthenticationAndDate(Booking booking, String cognitoIdentityPoolId,
       String authenticationType, String password, LambdaLogger logger) throws Exception {
 
-    logger.log("Validating booking parameters");
+    logger.log("Checking authentication and date");
 
     // Check user is authenticated with the correct pool if a block booking is
     // being mutated.
@@ -316,32 +317,10 @@ public class PutDeleteBookingLambda {
       }
     }
 
-    int court = booking.getCourt();
-    if ((court < 1) || (court > 5)) {
-      logger.log("The booking court number is outside the valid range (1-5)");
-      throw new Exception("The booking court number is outside the valid range (1-5)");
-    }
-    if ((booking.getCourtSpan() < 1) || (booking.getCourtSpan() > (6 - court))) {
-      logger.log("The booking court span is outside the valid range (1-(6-court))");
-      throw new Exception("The booking court span is outside the valid range (1-(6-court))");
-    }
-
-    int slot = booking.getSlot();
-    if ((slot < 1) || (slot > 16)) {
-      logger.log("The booking time slot is outside the valid range (1-16)");
-      throw new Exception("The booking time slot is outside the valid range (1-16)");
-    }
-    if ((booking.getSlotSpan() < 1) || (booking.getSlotSpan() > (17 - slot))) {
-      logger.log("The booking time slot span is outside the valid range (1- (17 - slot))");
-      throw new Exception("The booking time slot span is outside the valid range (1- (17 - slot))");
-    }
-
-    // The booking name must not be empty. Could be stricter here?
-    Pattern regex = Pattern.compile("^[a-zA-Z\\. /-]*$");
-    if (!regex.matcher(booking.getName()).matches() || (booking.getName().trim().length() == 0)
-        || (booking.getName().length() > 30)) {
-      logger.log("The booking must have a valid non-empty name");
-      throw new Exception("The booking name must have a valid format");
+    // Verify password is correct
+    if (!password.equals("pAssw0rd")) {
+      logger.log("The password is incorrect");
+      throw new Exception("The password is incorrect");
     }
 
     // Verify date is valid
@@ -349,12 +328,6 @@ public class PutDeleteBookingLambda {
     if (!validDatesList.contains(booking.getDate())) {
       logger.log("The booking date is outside the valid range");
       throw new Exception("The booking date is outside the valid range");
-    }
-
-    // Verify password is correct
-    if (!password.equals("pAssw0rd")) {
-      logger.log("The password is incorrect");
-      throw new Exception("The password is incorrect");
     }
   }
 

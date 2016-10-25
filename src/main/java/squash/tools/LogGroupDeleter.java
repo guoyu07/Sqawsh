@@ -16,6 +16,9 @@
 
 package squash.tools;
 
+import squash.deployment.lambdas.utils.RetryHelper;
+
+import com.amazonaws.AmazonServiceException;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.logs.AWSLogs;
@@ -26,6 +29,7 @@ import com.amazonaws.services.logs.model.DescribeLogGroupsResult;
 import com.amazonaws.services.logs.model.LogGroup;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Helper to clean up CloudwatchLogs by removing all log groups.
@@ -62,10 +66,10 @@ public class LogGroupDeleter {
         (logGroup) -> {
           DeleteLogGroupRequest deleteLogGroupRequest = new DeleteLogGroupRequest(logGroup
               .getLogGroupName());
-          client.deleteLogGroup(deleteLogGroupRequest);
-          // sleep to avoid Too Many Requests errors
           try {
-            Thread.sleep(100);
+            RetryHelper.DoWithRetries(() -> client.deleteLogGroup(deleteLogGroupRequest),
+                AmazonServiceException.class, Optional.of("429"), (logString) -> {
+                });
           } catch (Exception e) {
             e.printStackTrace();
           }

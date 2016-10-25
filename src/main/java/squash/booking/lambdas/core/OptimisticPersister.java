@@ -16,6 +16,8 @@
 
 package squash.booking.lambdas.core;
 
+import squash.deployment.lambdas.utils.RetryHelper;
+
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import com.amazonaws.AmazonServiceException;
@@ -136,7 +138,10 @@ public class OptimisticPersister implements IOptimisticPersister {
 
     SelectRequest selectRequest = new SelectRequest();
     // N.B. Think if results are paged, second and subsequent pages will always
-    // be eventually-consistent only.
+    // be eventually-consistent only. This is currently used only to back up the
+    // database - so being eventually-consistent is good enough - after all -
+    // even if we were fully consistent, someone could still add a new booking
+    // right after our call anyway.
     selectRequest.setConsistentRead(true);
     // Query all items in the domain
     selectRequest.setSelectExpression("select * from `" + simpleDbDomainName + "`");
@@ -236,7 +241,7 @@ public class OptimisticPersister implements IOptimisticPersister {
         // this to a database put failed exception.
         logger.log("Caught AmazonServiceException for ConditionalCheckFailed whilst creating"
             + " attribute(s) so throwing as 'Database put failed' instead");
-        throw new Exception("Database put failed");
+        throw new Exception("Database put failed - conditional check failed");
       }
       throw ase;
     }
@@ -257,58 +262,68 @@ public class OptimisticPersister implements IOptimisticPersister {
 
     AmazonSimpleDB client = getSimpleDBClient();
 
-    // Get existing attributes (and version number), via consistent read:
-    ImmutablePair<Optional<Integer>, Set<Attribute>> versionedAttributes = get(itemName);
+    // We retry the delete if necessary if we get a
+    // ConditionalCheckFailed exception, i.e. if someone else modifies the
+    // database between us reading and writing it.
+    RetryHelper
+        .DoWithRetries(() -> {
+          try {
+            // Get existing attributes (and version number), via consistent
+            // read:
+            ImmutablePair<Optional<Integer>, Set<Attribute>> versionedAttributes = get(itemName);
 
-    if (!versionedAttributes.left.isPresent()) {
-      logger
-          .log("A version number attribute did not exist - this means no attributes exist, so we have nothing to delete.");
-      return;
-    }
-    if (!versionedAttributes.right.contains(attribute)) {
-      logger.log("The attribute did not exist - so we have nothing to delete.");
-      return;
-    }
+            if (!versionedAttributes.left.isPresent()) {
+              logger
+                  .log("A version number attribute did not exist - this means no attributes exist, so we have nothing to delete.");
+              return null;
+            }
+            if (!versionedAttributes.right.contains(attribute)) {
+              logger.log("The attribute did not exist - so we have nothing to delete.");
+              return null;
+            }
 
-    // Since it seems impossible to update the version number while deleting an
-    // attribute, we first mark the attribute as inactive, and then delete it.
-    ReplaceableAttribute inactiveAttribute = new ReplaceableAttribute();
-    inactiveAttribute.setName(attribute.getName());
-    inactiveAttribute.setValue("Inactive" + attribute.getValue());
-    inactiveAttribute.setReplace(true);
-    put(itemName, versionedAttributes.left, inactiveAttribute);
+            // Since it seems impossible to update the version number while
+            // deleting an attribute, we first mark the attribute as inactive,
+            // and then delete it.
+            ReplaceableAttribute inactiveAttribute = new ReplaceableAttribute();
+            inactiveAttribute.setName(attribute.getName());
+            inactiveAttribute.setValue("Inactive" + attribute.getValue());
+            inactiveAttribute.setReplace(true);
+            put(itemName, versionedAttributes.left, inactiveAttribute);
 
-    // Now we can safely delete the attribute, as other readers will now ignore
-    // it.
-    UpdateCondition updateCondition = new UpdateCondition();
-    updateCondition.setName(inactiveAttribute.getName());
-    updateCondition.setValue(inactiveAttribute.getValue());
-    // Update will proceed unless the attribute no longer exists
-    updateCondition.setExists(true);
+            // Now we can safely delete the attribute, as other readers will now
+            // ignore it.
+            UpdateCondition updateCondition = new UpdateCondition();
+            updateCondition.setName(inactiveAttribute.getName());
+            updateCondition.setValue(inactiveAttribute.getValue());
+            // Update will proceed unless the attribute no longer exists
+            updateCondition.setExists(true);
 
-    Attribute attributeToDelete = new Attribute();
-    attributeToDelete.setName(inactiveAttribute.getName());
-    attributeToDelete.setValue(inactiveAttribute.getValue());
-    List<Attribute> attributesToDelete = new ArrayList<>();
-    attributesToDelete.add(attributeToDelete);
-    DeleteAttributesRequest simpleDBDeleteRequest = new DeleteAttributesRequest(simpleDbDomainName,
-        itemName, attributesToDelete, updateCondition);
-    try {
-      client.deleteAttributes(simpleDBDeleteRequest);
-    } catch (AmazonServiceException ase) {
-      if (ase.getErrorCode().contains("AttributeDoesNotExist")) {
-        // Case of trying to delete an attribute that no longer exists -
-        // that's ok
-        // - it probably just means more than one person was trying to delete
-        // the attribute at once. So swallow this exception
-        logger
-            .log("Caught AmazonServiceException for AttributeDoesNotExist whilst deleting attribute so"
-                + " swallowing and continuing");
-      } else {
-        throw ase;
-      }
-    }
-    logger.log("Deleted attribute from simpledb");
+            Attribute attributeToDelete = new Attribute();
+            attributeToDelete.setName(inactiveAttribute.getName());
+            attributeToDelete.setValue(inactiveAttribute.getValue());
+            List<Attribute> attributesToDelete = new ArrayList<>();
+            attributesToDelete.add(attributeToDelete);
+            DeleteAttributesRequest simpleDBDeleteRequest = new DeleteAttributesRequest(
+                simpleDbDomainName, itemName, attributesToDelete, updateCondition);
+            client.deleteAttributes(simpleDBDeleteRequest);
+            logger.log("Deleted attribute from simpledb");
+            return null;
+          } catch (AmazonServiceException ase) {
+            if (ase.getErrorCode().contains("AttributeDoesNotExist")) {
+              // Case of trying to delete an attribute that no longer exists -
+              // that's ok - it probably just means more than one person was
+              // trying to delete the attribute at once. So swallow this
+              // exception
+              logger
+                  .log("Caught AmazonServiceException for AttributeDoesNotExist whilst deleting attribute so"
+                      + " swallowing and continuing");
+              return null;
+            } else {
+              throw ase;
+            }
+          }
+        }, Exception.class, Optional.of("Database put failed - conditional check failed"), logger);
   }
 
   @Override

@@ -17,11 +17,13 @@
 package squash.booking.lambdas.core;
 
 import squash.deployment.lambdas.utils.IS3TransferManager;
+import squash.deployment.lambdas.utils.RetryHelper;
 import squash.deployment.lambdas.utils.S3TransferManager;
 import squash.deployment.lambdas.utils.TransferUtils;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
+import com.amazonaws.AmazonServiceException;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
@@ -45,7 +47,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 
 /**
@@ -61,7 +68,7 @@ public class BackupManager implements IBackupManager {
   private IBookingManager bookingManager;
   private Region region;
   private String databaseBackupBucketName;
-  private String databaseBackupSnsTopicArn;
+  private String adminSnsTopicArn;
   private ObjectMapper mapper;
   private LambdaLogger logger;
   private Boolean initialised = false;
@@ -73,7 +80,7 @@ public class BackupManager implements IBackupManager {
     this.bookingManager = bookingManager;
     this.logger = logger;
     databaseBackupBucketName = getStringProperty("databasebackupbucketname");
-    databaseBackupSnsTopicArn = getStringProperty("databasebackupsnstopicarn");
+    adminSnsTopicArn = getStringProperty("adminsnstopicarn");
     region = Region.getRegion(Regions.fromName(getStringProperty("region")));
 
     // Prepare to serialise bookings and booking rules as JSON.
@@ -112,8 +119,8 @@ public class BackupManager implements IBackupManager {
     logger.log("Backed up single booking mutation to S3 bucket: " + backupString);
 
     // Backup to the SNS topic
-    logger.log("Backing up single booking mutation to SNS topic: " + databaseBackupSnsTopicArn);
-    getSNSClient().publish(databaseBackupSnsTopicArn, backupString, "Sqawsh single booking backup");
+    logger.log("Backing up single booking mutation to SNS topic: " + adminSnsTopicArn);
+    getSNSClient().publish(adminSnsTopicArn, backupString, "Sqawsh single booking backup");
   }
 
   @Override
@@ -144,10 +151,8 @@ public class BackupManager implements IBackupManager {
     logger.log("Backed up single booking rule mutation to S3 bucket: " + backupString);
 
     // Backup to the SNS topic
-    logger
-        .log("Backing up single booking rule mutation to SNS topic: " + databaseBackupSnsTopicArn);
-    getSNSClient().publish(databaseBackupSnsTopicArn, backupString,
-        "Sqawsh single booking rule backup");
+    logger.log("Backing up single booking rule mutation to SNS topic: " + adminSnsTopicArn);
+    getSNSClient().publish(adminSnsTopicArn, backupString, "Sqawsh single booking rule backup");
   }
 
   @Override
@@ -198,9 +203,8 @@ public class BackupManager implements IBackupManager {
     logger.log("Backed up all bookings and booking rules to S3 bucket: " + backupString);
 
     // Backup to the SNS topic
-    logger.log("Backing up all bookings and booking rules to SNS topic: "
-        + databaseBackupSnsTopicArn);
-    getSNSClient().publish(databaseBackupSnsTopicArn, backupString,
+    logger.log("Backing up all bookings and booking rules to SNS topic: " + adminSnsTopicArn);
+    getSNSClient().publish(adminSnsTopicArn, backupString,
         "Sqawsh all-bookings and booking rules backup");
 
     return new ImmutablePair<>(bookings, bookingRules);
@@ -231,10 +235,11 @@ public class BackupManager implements IBackupManager {
     logger.log("About to restore the provided bookings to the database");
     logger.log("Got " + bookings.size() + " bookings to restore");
     for (Booking booking : bookings) {
-      // FIXME this should do some validation
-      bookingManager.createBooking(booking);
-      // sleep to avoid Too Many Requests error
-      Thread.sleep(500);
+      validateDates(Arrays.asList(booking.getDate()));
+      bookingManager.validateBooking(booking);
+
+      RetryHelper.DoWithRetries(() -> bookingManager.createBooking(booking),
+          AmazonServiceException.class, Optional.of("429"), logger);
     }
     logger.log("Restored all bookings to the database");
 
@@ -242,12 +247,35 @@ public class BackupManager implements IBackupManager {
     logger.log("About to restore the provided booking rules to the database");
     logger.log("Got " + bookingRules.size() + " booking rules to restore");
     for (BookingRule bookingRule : bookingRules) {
-      // FIXME this should do some validation
-      ruleManager.createRule(bookingRule);
-      // sleep to avoid Too Many Requests error
-      Thread.sleep(500);
+      // Verify dates are valid dates.
+      List<String> datesToCheck = new ArrayList<>();
+      datesToCheck.add(bookingRule.getBooking().getDate());
+      Arrays.stream(bookingRule.getDatesToExclude()).forEach(
+          (dateToExclude) -> datesToCheck.add(dateToExclude));
+      validateDates(datesToCheck);
+      bookingManager.validateBooking(bookingRule.getBooking());
+
+      RetryHelper.DoWithRetries(() -> ruleManager.createRule(bookingRule),
+          AmazonServiceException.class, Optional.of("429"), logger);
+
     }
     logger.log("Restored all booking rules to the database");
+  }
+
+  private void validateDates(List<String> datesToCheck) throws Exception {
+    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+    sdf.setLenient(false);
+    if (datesToCheck.stream().filter((dateToCheck) -> {
+      try {
+        sdf.parse(dateToCheck);
+      } catch (ParseException e) {
+        logger.log("The date has an invalid format: " + dateToCheck);
+        return true;
+      }
+      return false;
+    }).count() > 0) {
+      throw new Exception("One of the dates has an invalid format");
+    }
   }
 
   /**

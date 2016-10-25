@@ -200,208 +200,97 @@ public class PutDeleteBookingLambdaTest {
   }
 
   @Test
-  public void testCreateBookingThrowsIfCourtBelowValidRange() throws Exception {
-
-    doTestPutDeleteBookingThrowsIfParameterInvalid(
-        "0", // Invalid
-        courtSpan.toString(), slot.toString(), slotSpan.toString(), name, fakeCurrentDateString,
-        password, "authenticated", putDeleteBookingLambda.getCognitoIdentityPoolId(),
-        apiGatewayBaseUrl, redirectUrl,
+  public void testCreateBookingThrowsIfCourtOutsideValidRange() throws Exception {
+    doTestCreateBookingTransformsExceptionIfBookingValidationThrows(
+        "The booking court number is outside the valid range (1-5)",
         "The booking court number is outside the valid range (1-5). Please try again.redirectUrl",
         true);
   }
 
   @Test
-  public void testCreateBookingThrowsIfCourtAboveValidRange() throws Exception {
-
-    doTestPutDeleteBookingThrowsIfParameterInvalid(
-        "6", // Invalid
-        courtSpan.toString(), slot.toString(), slotSpan.toString(), name, fakeCurrentDateString,
-        password, "authenticated", putDeleteBookingLambda.getCognitoIdentityPoolId(),
-        apiGatewayBaseUrl, redirectUrl,
-        "The booking court number is outside the valid range (1-5). Please try again.redirectUrl",
-        true);
-  }
-
-  @Test
-  public void testCreateBookingThrowsIfCourtSpanBelowValidRange() throws Exception {
-
-    doTestPutDeleteBookingThrowsIfParameterInvalid(
-        court.toString(),
-        "0", // Invalid
-        slot.toString(),
-        slotSpan.toString(),
-        name,
-        fakeCurrentDateString,
-        password,
-        "authenticated",
-        putDeleteBookingLambda.getCognitoIdentityPoolId(),
-        apiGatewayBaseUrl,
-        redirectUrl,
+  public void testCreateBookingThrowsIfCourtSpanOutsideValidRange() throws Exception {
+    doTestCreateBookingTransformsExceptionIfBookingValidationThrows(
+        "The booking court span is outside the valid range (1-(6-court))",
         "The booking court span is outside the valid range (1-(6-court)). Please try again.redirectUrl",
         true);
   }
 
   @Test
-  public void testCreateBookingThrowsIfCourtSpanAboveValidRange() throws Exception {
-
-    Integer invalidCourtSpan = 6 - court + 1;
-    doTestPutDeleteBookingThrowsIfParameterInvalid(
-        court.toString(),
-        invalidCourtSpan.toString(), // Invalid
-        slot.toString(),
-        slotSpan.toString(),
-        name,
-        fakeCurrentDateString,
-        password,
-        "authenticated",
-        putDeleteBookingLambda.getCognitoIdentityPoolId(),
-        apiGatewayBaseUrl,
-        redirectUrl,
-        "The booking court span is outside the valid range (1-(6-court)). Please try again.redirectUrl",
-        true);
-  }
-
-  @Test
-  public void testCreateBookingThrowsIfTimeSlotBelowValidRange() throws Exception {
-
-    doTestPutDeleteBookingThrowsIfParameterInvalid(
-        court.toString(),
-        courtSpan.toString(),
-        "0", // Invalid
-        slotSpan.toString(), name, fakeCurrentDateString, password, "authenticated",
-        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, redirectUrl,
+  public void testCreateBookingThrowsIfTimeSlotOutsideValidRange() throws Exception {
+    doTestCreateBookingTransformsExceptionIfBookingValidationThrows(
+        "The booking time slot is outside the valid range (1-16)",
         "The booking time slot is outside the valid range (1-16). Please try again.redirectUrl",
         true);
   }
 
   @Test
-  public void testCreateBookingThrowsIfTimeSlotAboveValidRange() throws Exception {
-
-    doTestPutDeleteBookingThrowsIfParameterInvalid(
-        court.toString(),
-        courtSpan.toString(),
-        "17", // Invalid
-        slotSpan.toString(), name, fakeCurrentDateString, password, "authenticated",
-        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, redirectUrl,
-        "The booking time slot is outside the valid range (1-16). Please try again.redirectUrl",
-        true);
-  }
-
-  @Test
-  public void testCreateBookingThrowsIfTimeSlotSpanBelowValidRange() throws Exception {
-
-    doTestPutDeleteBookingThrowsIfParameterInvalid(
-        court.toString(),
-        courtSpan.toString(),
-        slot.toString(),
-        "0", // Invalid
-        name,
-        fakeCurrentDateString,
-        password,
-        "authenticated",
-        putDeleteBookingLambda.getCognitoIdentityPoolId(),
-        apiGatewayBaseUrl,
-        redirectUrl,
+  public void testCreateBookingThrowsIfTimeSlotSpanOutsideValidRange() throws Exception {
+    doTestCreateBookingTransformsExceptionIfBookingValidationThrows(
+        "The booking time slot span is outside the valid range (1- (17 - slot))",
         "The booking time slot span is outside the valid range (1- (17 - slot)). Please try again.redirectUrl",
         true);
   }
 
   @Test
-  public void testCreateBookingThrowsIfTimeSlotSpanAboveValidRange() throws Exception {
-
-    Integer invalidSlotSpan = 17 - slot + 1;
-    doTestPutDeleteBookingThrowsIfParameterInvalid(
-        court.toString(),
-        courtSpan.toString(),
-        slot.toString(),
-        invalidSlotSpan.toString(), // Invalid
-        name,
-        fakeCurrentDateString,
-        password,
-        "authenticated",
-        putDeleteBookingLambda.getCognitoIdentityPoolId(),
-        apiGatewayBaseUrl,
-        redirectUrl,
-        "The booking time slot span is outside the valid range (1- (17 - slot)). Please try again.redirectUrl",
+  public void testCreateBookingThrowsIfNameInvalid() throws Exception {
+    doTestCreateBookingTransformsExceptionIfBookingValidationThrows(
+        "The booking name must have a valid format",
+        "The booking name must have a valid format e.g. J.Power/A.Shabana. Please try again.redirectUrl",
         true);
   }
 
-  @Test
-  public void testCreateBookingDoesNotThrowIfBookingNameOnLengthLimit() throws Exception {
+  private void doTestCreateBookingTransformsExceptionIfBookingValidationThrows(
+      String validationExceptionMessage, String tweakedExceptionMessage, Boolean create)
+      throws Exception {
+    // If booking validation fails, we should throw an appropriately tweaked
+    // exception.
 
     // ARRANGE
-    // Don't care about manager calls in this test
+    thrown.expect(Exception.class);
+    thrown.expectMessage(tweakedExceptionMessage);
+
+    // Try to mutate a booking when booking validation fails - which should
+    // throw. The values set here are mainly arbitrary - important point is that
+    // the booking validation throws.
+    PutDeleteBookingLambdaRequest request = new PutDeleteBookingLambdaRequest();
+    request.setPutOrDelete(create ? "PUT" : "DELETE");
+    request.setCourt("1");
+    request.setCourtSpan("2");
+    request.setSlot("3");
+    request.setSlotSpan("4");
+    request.setName("Arbitrary");
+    request.setDate(validDates.get(0));
+    request.setPassword("pAssw0rd");
+    request.setCognitoAuthenticationType("authenticated");
+    request.setCognitoIdentityPoolId(putDeleteBookingLambda.getCognitoIdentityPoolId());
+    request.setApiGatewayBaseUrl(apiGatewayBaseUrl);
+    request.setRedirectUrl(redirectUrl);
+
+    // Setup the booking manager validation call to throw
     mockery.checking(new Expectations() {
       {
-        ignoring(putDeleteBookingLambda.getBookingManager(mockLogger));
-        ignoring(putDeleteBookingLambda.getPageManager(mockLogger));
-        ignoring(putDeleteBookingLambda.getBackupManager(mockLogger));
+        oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).validateBooking(
+            with(anything()));
+        will(throwException(new Exception(validationExceptionMessage)));
+        // Should not get as far as called create or delete
+        never(putDeleteBookingLambda.getBookingManager(mockLogger)).createBooking(with(anything()));
+        never(putDeleteBookingLambda.getBookingManager(mockLogger)).deleteBooking(with(anything()));
+      }
+    });
+    // The backup manager should not be called
+    mockery.checking(new Expectations() {
+      {
+        never(putDeleteBookingLambda.getBackupManager(mockLogger)).backupSingleBooking(
+            with(anything()), with(anything()));
+        never(putDeleteBookingLambda.getBackupManager(mockLogger)).backupSingleBookingRule(
+            with(anything()), with(anything()));
+        never(putDeleteBookingLambda.getBackupManager(mockLogger))
+            .backupAllBookingsAndBookingRules();
       }
     });
 
-    // ACT and ASSERT
-    // Use a name on the 30-character limit - it should not throw
-    doTestCreateBooking(fakeCurrentDateString, "Booking name length on limit s", court.toString(),
-        "1", slot.toString(), "1", password, "unauthenticated",
-        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, false);
-  }
-
-  @Test
-  public void testCreateBookingThrowsIfBookingNameInWrongFormat_TooLong() throws Exception {
-
-    doTestPutDeleteBookingThrowsIfParameterInvalid(
-        court.toString(),
-        courtSpan.toString(),
-        slot.toString(),
-        slotSpan.toString(),
-        "A name longer than the thirty character limit", // Invalid - too long
-        fakeCurrentDateString,
-        password,
-        "authenticated",
-        putDeleteBookingLambda.getCognitoIdentityPoolId(),
-        apiGatewayBaseUrl,
-        redirectUrl,
-        "The booking name must have a valid format e.g. J.Power/A.Shabana. Please try again.redirectUrl",
-        true);
-  }
-
-  @Test
-  public void testCreateBookingThrowsIfBookingNameInWrongFormat_InvalidCharacter() throws Exception {
-
-    doTestPutDeleteBookingThrowsIfParameterInvalid(
-        court.toString(),
-        courtSpan.toString(),
-        slot.toString(),
-        slotSpan.toString(),
-        "Playera/?", // Invalid - ? is not allowed
-        fakeCurrentDateString,
-        password,
-        "authenticated",
-        putDeleteBookingLambda.getCognitoIdentityPoolId(),
-        apiGatewayBaseUrl,
-        redirectUrl,
-        "The booking name must have a valid format e.g. J.Power/A.Shabana. Please try again.redirectUrl",
-        true);
-  }
-
-  @Test
-  public void testCreateBookingThrowsIfBookingNameInWrongFormat_EmptyName() throws Exception {
-
-    doTestPutDeleteBookingThrowsIfParameterInvalid(
-        court.toString(),
-        courtSpan.toString(),
-        slot.toString(),
-        slotSpan.toString(),
-        "", // Invalid - name empty
-        fakeCurrentDateString,
-        password,
-        "authenticated",
-        putDeleteBookingLambda.getCognitoIdentityPoolId(),
-        apiGatewayBaseUrl,
-        redirectUrl,
-        "The booking name must have a valid format e.g. J.Power/A.Shabana. Please try again.redirectUrl",
-        true);
+    // ACT
+    putDeleteBookingLambda.createOrDeleteBooking(request, mockContext);
   }
 
   @Test
@@ -519,6 +408,8 @@ public class PutDeleteBookingLambdaTest {
     // The booking manager should not be called
     mockery.checking(new Expectations() {
       {
+        never(putDeleteBookingLambda.getBookingManager(mockLogger)).validateBooking(
+            with(anything()));
         never(putDeleteBookingLambda.getBookingManager(mockLogger)).createBooking(with(anything()));
         never(putDeleteBookingLambda.getBookingManager(mockLogger)).deleteBooking(with(anything()));
       }
@@ -572,6 +463,8 @@ public class PutDeleteBookingLambdaTest {
     bookings.add(booking);
     mockery.checking(new Expectations() {
       {
+        oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).validateBooking(
+            with(equal(booking)));
         oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).createBooking(
             with(equal(booking)));
         will(returnValue(bookings));
@@ -624,6 +517,8 @@ public class PutDeleteBookingLambdaTest {
       {
         // The BookingManager returns the bookings that are passed to
         // refreshPage.
+        oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).validateBooking(
+            with(anything()));
         oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).createBooking(with(anything()));
         will(returnValue(bookings));
         oneOf(putDeleteBookingLambda.getPageManager(mockLogger)).refreshPage(fakeCurrentDateString,
@@ -674,6 +569,8 @@ public class PutDeleteBookingLambdaTest {
     bookings.add(booking);
     mockery.checking(new Expectations() {
       {
+        allowing(putDeleteBookingLambda.getBookingManager(mockLogger)).validateBooking(
+            with(anything()));
         oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).createBooking(
             with(equal(booking)));
         will(returnValue(bookings));
@@ -699,6 +596,8 @@ public class PutDeleteBookingLambdaTest {
     // Set up a test booking
     mockery.checking(new Expectations() {
       {
+        allowing(putDeleteBookingLambda.getBookingManager(mockLogger)).validateBooking(
+            with(any(Booking.class)));
         oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).createBooking(
             with(any(Booking.class)));
         will(throwException(new Exception("Booking creation failed")));
@@ -797,133 +696,42 @@ public class PutDeleteBookingLambdaTest {
   }
 
   // Repeat tests for Deleting bookings:
-
   @Test
-  public void testDeleteBookingThrowsIfCourtBelowValidRange() throws Exception {
-
-    doTestPutDeleteBookingThrowsIfParameterInvalid(
-        "0", // Invalid
-        courtSpan.toString(), slot.toString(), slotSpan.toString(), name, fakeCurrentDateString,
-        password, "authenticated", putDeleteBookingLambda.getCognitoIdentityPoolId(),
-        apiGatewayBaseUrl, redirectUrl,
-        "The booking court number is outside the valid range (1-5)", false);
-  }
-
-  @Test
-  public void testDeleteBookingThrowsIfCourtAboveValidRange() throws Exception {
-
-    doTestPutDeleteBookingThrowsIfParameterInvalid(
-        "6", // Invalid
-        courtSpan.toString(), slot.toString(), slotSpan.toString(), name, fakeCurrentDateString,
-        password, "authenticated", putDeleteBookingLambda.getCognitoIdentityPoolId(),
-        apiGatewayBaseUrl, redirectUrl,
-        "The booking court number is outside the valid range (1-5)", false);
-  }
-
-  @Test
-  public void testDeleteBookingThrowsIfCourtSpanBelowValidRange() throws Exception {
-
-    doTestPutDeleteBookingThrowsIfParameterInvalid(
-        court.toString(),
-        "0", // Invalid
-        slot.toString(), slotSpan.toString(), name, fakeCurrentDateString, password,
-        "authenticated", putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl,
-        redirectUrl, "The booking court span is outside the valid range (1-(6-court))", false);
-  }
-
-  @Test
-  public void testDeleteBookingThrowsIfCourtSpanAboveValidRange() throws Exception {
-
-    Integer invalidCourtSpan = 6 - court + 1;
-    doTestPutDeleteBookingThrowsIfParameterInvalid(
-        court.toString(),
-        invalidCourtSpan.toString(), // Invalid
-        slot.toString(), slotSpan.toString(), name, fakeCurrentDateString, password,
-        "authenticated", putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl,
-        redirectUrl, "The booking court span is outside the valid range (1-(6-court))", false);
-  }
-
-  @Test
-  public void testDeleteBookingThrowsIfTimeSlotBelowValidRange() throws Exception {
-
-    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(),
-        courtSpan.toString(),
-        "0", // Invalid
-        slotSpan.toString(), name, fakeCurrentDateString, password, "authenticated",
-        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, redirectUrl,
-        "The booking time slot is outside the valid range (1-16)", false);
-  }
-
-  @Test
-  public void testDeleteBookingThrowsIfTimeSlotAboveValidRange() throws Exception {
-
-    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(),
-        courtSpan.toString(),
-        "17", // Invalid
-        slotSpan.toString(), name, fakeCurrentDateString, password, "authenticated",
-        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, redirectUrl,
-        "The booking time slot is outside the valid range (1-16)", false);
-  }
-
-  @Test
-  public void testDeleteBookingThrowsIfTimeSlotSpanBelowValidRange() throws Exception {
-
-    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(),
-        courtSpan.toString(),
-        slot.toString(),
-        "0", // Invalid
-        name, fakeCurrentDateString, password, "authenticated",
-        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, redirectUrl,
-        "The booking time slot span is outside the valid range (1- (17 - slot))", false);
-  }
-
-  @Test
-  public void testDeleteBookingThrowsIfTimeSlotSpanAboveValidRange() throws Exception {
-
-    Integer invalidSlotSpan = 17 - slot + 1;
-    doTestPutDeleteBookingThrowsIfParameterInvalid(court.toString(),
-        courtSpan.toString(),
-        slot.toString(),
-        invalidSlotSpan.toString(), // Invalid
-        name, fakeCurrentDateString, password, "authenticated",
-        putDeleteBookingLambda.getCognitoIdentityPoolId(), apiGatewayBaseUrl, redirectUrl,
-        "The booking time slot span is outside the valid range (1- (17 - slot))", false);
-  }
-
-  @Test
-  public void testDeleteBookingThrowsIfBookingNameInWrongFormat_InvalidCharacter() throws Exception {
-
-    doTestPutDeleteBookingThrowsIfParameterInvalid(
-        court.toString(),
-        courtSpan.toString(),
-        slot.toString(),
-        slotSpan.toString(),
-        "Playera/B?Player", // Invalid - ? is not allowed
-        fakeCurrentDateString,
-        password,
-        "authenticated",
-        putDeleteBookingLambda.getCognitoIdentityPoolId(),
-        apiGatewayBaseUrl,
-        redirectUrl,
-        "The booking name must have a valid format e.g. J.Power/A.Shabana. Please try again.redirectUrl",
+  public void testDeleteBookingThrowsIfCourtOutsideValidRange() throws Exception {
+    doTestCreateBookingTransformsExceptionIfBookingValidationThrows(
+        "The booking court number is outside the valid range (1-5)",
+        "The booking court number is outside the valid range (1-5). Please try again.redirectUrl",
         false);
   }
 
   @Test
-  public void testDeleteBookingThrowsIfBookingNameInWrongFormat_EmptyName() throws Exception {
+  public void testDeleteBookingThrowsIfCourtSpanOutsideValidRange() throws Exception {
+    doTestCreateBookingTransformsExceptionIfBookingValidationThrows(
+        "The booking court span is outside the valid range (1-(6-court))",
+        "The booking court span is outside the valid range (1-(6-court)). Please try again.redirectUrl",
+        false);
+  }
 
-    doTestPutDeleteBookingThrowsIfParameterInvalid(
-        court.toString(),
-        courtSpan.toString(),
-        slot.toString(),
-        slotSpan.toString(),
-        "", // Invalid - name empty
-        fakeCurrentDateString,
-        password,
-        "authenticated",
-        putDeleteBookingLambda.getCognitoIdentityPoolId(),
-        apiGatewayBaseUrl,
-        redirectUrl,
+  @Test
+  public void testDeleteBookingThrowsIfTimeSlotOutsideValidRange() throws Exception {
+    doTestCreateBookingTransformsExceptionIfBookingValidationThrows(
+        "The booking time slot is outside the valid range (1-16)",
+        "The booking time slot is outside the valid range (1-16). Please try again.redirectUrl",
+        false);
+  }
+
+  @Test
+  public void testDeleteBookingThrowsIfTimeSlotSpanOutsideValidRange() throws Exception {
+    doTestCreateBookingTransformsExceptionIfBookingValidationThrows(
+        "The booking time slot span is outside the valid range (1- (17 - slot))",
+        "The booking time slot span is outside the valid range (1- (17 - slot)). Please try again.redirectUrl",
+        false);
+  }
+
+  @Test
+  public void testDeleteBookingThrowsIfNameInvalid() throws Exception {
+    doTestCreateBookingTransformsExceptionIfBookingValidationThrows(
+        "The booking name must have a valid format",
         "The booking name must have a valid format e.g. J.Power/A.Shabana. Please try again.redirectUrl",
         false);
   }
@@ -1049,6 +857,8 @@ public class PutDeleteBookingLambdaTest {
     bookings.add(booking);
     mockery.checking(new Expectations() {
       {
+        oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).validateBooking(
+            with(equal(booking)));
         oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).deleteBooking(
             with(equal(booking)));
         will(returnValue(bookings));
@@ -1100,6 +910,8 @@ public class PutDeleteBookingLambdaTest {
       {
         // The BookingManager returns the bookings that are passed to
         // refreshPage.
+        oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).validateBooking(
+            with(equal(booking)));
         oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).deleteBooking(with(anything()));
         will(returnValue(bookings));
         oneOf(putDeleteBookingLambda.getPageManager(mockLogger)).refreshPage(fakeCurrentDateString,
@@ -1152,6 +964,8 @@ public class PutDeleteBookingLambdaTest {
       {
         // The BookingManager returns the bookings that are passed to
         // refreshPage.
+        allowing(putDeleteBookingLambda.getBookingManager(mockLogger)).validateBooking(
+            with(equal(booking)));
         oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).deleteBooking(with(anything()));
         will(returnValue(bookings));
         // Not interested in PageManager calls in this test
@@ -1201,6 +1015,8 @@ public class PutDeleteBookingLambdaTest {
     // Set up a test booking
     mockery.checking(new Expectations() {
       {
+        allowing(putDeleteBookingLambda.getBookingManager(mockLogger)).validateBooking(
+            with(any(Booking.class)));
         oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).deleteBooking(
             with(any(Booking.class)));
         will(throwException(new Exception("Booking deletion failed")));

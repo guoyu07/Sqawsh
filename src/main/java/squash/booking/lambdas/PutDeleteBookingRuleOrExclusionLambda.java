@@ -17,7 +17,6 @@
 package squash.booking.lambdas;
 
 import squash.booking.lambdas.core.BackupManager;
-import squash.booking.lambdas.core.Booking;
 import squash.booking.lambdas.core.BookingManager;
 import squash.booking.lambdas.core.BookingRule;
 import squash.booking.lambdas.core.BookingsUtilities;
@@ -39,6 +38,8 @@ import java.io.InputStream;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
@@ -148,9 +149,10 @@ public class PutDeleteBookingRuleOrExclusionLambda {
       logger.log("CreateOrDelete booking rule or exclusion for request: " + request.toString());
 
       logger.log("About to validate booking parameters");
-      Booking booking = request.getBookingRule().getBooking();
-      validateBookingParameters(booking, request.getCognitoIdentityPoolId(),
+      checkAuthenticationAndDates(request.getBookingRule(), request.getCognitoIdentityPoolId(),
           request.getCognitoAuthenticationType(), logger);
+      IBookingManager bookingManager = getBookingManager(logger);
+      bookingManager.validateBooking(request.getBookingRule().getBooking());
       logger.log("Validated booking parameters");
 
       String putOrDelete = request.getPutOrDelete();
@@ -272,10 +274,10 @@ public class PutDeleteBookingRuleOrExclusionLambda {
     return new PutDeleteBookingRuleOrExclusionLambdaResponse();
   }
 
-  private void validateBookingParameters(Booking booking, String cognitoIdentityPoolId,
+  private void checkAuthenticationAndDates(BookingRule bookingRule, String cognitoIdentityPoolId,
       String authenticationType, LambdaLogger logger) throws Exception {
 
-    logger.log("Validating booking parameters");
+    logger.log("Checking authentication and dates");
 
     String validCognitoIdentityPoolId = getStringProperty("cognitoidentitypoolid", logger);
     if ((!cognitoIdentityPoolId.equals(validCognitoIdentityPoolId))
@@ -289,46 +291,24 @@ public class PutDeleteBookingRuleOrExclusionLambda {
           "Attempting to mutate a booking rule without authenticated credentials from the correct Cognito pool");
     }
 
-    int court = booking.getCourt();
-    if ((court < 1) || (court > 5)) {
-      logger.log("The booking court number is outside the valid range (1-5): "
-          + Integer.toString(court));
-      throw new Exception("The booking court number is outside the valid range (1-5)");
-    }
-    if ((booking.getCourtSpan() < 1) || (booking.getCourtSpan() > (6 - court))) {
-      logger.log("The booking court span is outside the valid range (1-(6-court)): "
-          + Integer.toString(booking.getCourtSpan()));
-      throw new Exception("The booking court span is outside the valid range (1-(6-court))");
-    }
+    // Verify dates are valid dates.
+    List<String> datesToCheck = new ArrayList<>();
+    datesToCheck.add(bookingRule.getBooking().getDate());
+    Arrays.stream(bookingRule.getDatesToExclude()).forEach(
+        (dateToExclude) -> datesToCheck.add(dateToExclude));
 
-    int slot = booking.getSlot();
-    if ((slot < 1) || (slot > 16)) {
-      logger.log("The booking time slot is outside the valid range (1-16): "
-          + Integer.toString(slot));
-      throw new Exception("The booking time slot is outside the valid range (1-16)");
-    }
-    if ((booking.getSlotSpan() < 1) || (booking.getSlotSpan() > (17 - slot))) {
-      logger.log("The booking time slot span is outside the valid range (1- (17 - slot)): "
-          + Integer.toString(booking.getSlotSpan()));
-      throw new Exception("The booking time slot span is outside the valid range (1- (17 - slot))");
-    }
-
-    // Verify name length is within allowed range
-    if ((booking.getName().length() == 0) || (booking.getName().length() > 30)) {
-      logger
-          .log("The booking name length is outside the valid range (1- 30): " + booking.getName());
-      throw new Exception("The booking name length is outside the valid range (1- 30)");
-    }
-
-    // Verify date is a valid date.
     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
     sdf.setLenient(false);
-    try {
-      sdf.parse(booking.getDate());
-
-    } catch (ParseException e) {
-      logger.log("The booking date has an invalid format: " + booking.getDate());
-      throw new Exception("The booking date has an invalid format");
+    if (datesToCheck.stream().filter((dateToCheck) -> {
+      try {
+        sdf.parse(dateToCheck);
+      } catch (ParseException e) {
+        logger.log("The date has an invalid format: " + dateToCheck);
+        return true;
+      }
+      return false;
+    }).count() > 0) {
+      throw new Exception("One of the booking rule dates has an invalid format");
     }
   }
 

@@ -16,16 +16,25 @@
 
 package squash.booking.lambdas.core;
 
+import squash.deployment.lambdas.utils.RetryHelper;
+import squash.deployment.lambdas.utils.RetryHelper.ThrowingSupplier;
+
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
+import com.amazonaws.AmazonServiceException;
+import com.amazonaws.regions.Region;
+import com.amazonaws.regions.Regions;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.simpledb.model.Attribute;
 import com.amazonaws.services.simpledb.model.ReplaceableAttribute;
+import com.amazonaws.services.sns.AmazonSNS;
+import com.amazonaws.services.sns.AmazonSNSClient;
 import com.google.common.collect.Sets;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -38,6 +47,7 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.Set;
 import java.util.TimeZone;
 
@@ -54,6 +64,8 @@ public class RuleManager implements IRuleManager {
   private String ruleItemName;
   private Integer maxNumberOfRules = 100;
   protected Integer maxNumberOfDatesToExclude = 30;
+  private Region region;
+  private String adminSnsTopicArn;
   protected IOptimisticPersister optimisticPersister;
   private IBookingManager bookingManager;
   private LambdaLogger logger;
@@ -72,6 +84,9 @@ public class RuleManager implements IRuleManager {
     ruleItemName = "BookingRulesAndExclusions";
     this.optimisticPersister = getOptimisticPersister();
     optimisticPersister.initialise(maxNumberOfRules, logger);
+
+    adminSnsTopicArn = getStringProperty("adminsnstopicarn");
+    region = Region.getRegion(Regions.fromName(getStringProperty("region")));
     initialised = true;
   }
 
@@ -82,52 +97,60 @@ public class RuleManager implements IRuleManager {
       throw new IllegalStateException("The rule manager has not been initialised");
     }
 
-    // Check that non-recurring rule is not for a date in the past.
-    if (!bookingRuleToCreate.getIsRecurring()) {
-      if ((new SimpleDateFormat("yyyy-MM-dd")).parse(bookingRuleToCreate.getBooking().getDate())
-          .before(
-              new SimpleDateFormat("yyyy-MM-dd").parse(getCurrentLocalDate().format(
-                  DateTimeFormatter.ofPattern("yyyy-MM-dd"))))) {
-        logger
-            .log("Cannot add non-recurring booking rule for a date in the past, so throwing a 'Booking rule creation failed' exception");
-        throw new Exception("Booking rule creation failed");
-      }
-    }
+    // We retry the put of the rule if necessary if we get a
+    // ConditionalCheckFailed exception, i.e. if someone else modifies the
+    // database between us reading and writing it.
+    return RetryHelper
+        .DoWithRetries(() -> {
+          Set<BookingRule> bookingRules = null;
 
-    // We should POST or DELETE to the BookingRuleExclusion resource, with a
-    // BookingRule, and an exclusion date. This will call through
-    // to the addBookingRuleExclusion or deleteBookingRuleExclusion methods on
-    // this manager.
-    logger.log("About to create booking rule in simpledb: " + bookingRuleToCreate);
+          // Check that non-recurring rule is not for a date in the past.
+            if (!bookingRuleToCreate.getIsRecurring()) {
+              if ((new SimpleDateFormat("yyyy-MM-dd")).parse(
+                  bookingRuleToCreate.getBooking().getDate()).before(
+                  new SimpleDateFormat("yyyy-MM-dd").parse(getCurrentLocalDate().format(
+                      DateTimeFormatter.ofPattern("yyyy-MM-dd"))))) {
+                logger
+                    .log("Cannot add non-recurring booking rule for a date in the past, so throwing a 'Booking rule creation failed' exception");
+                throw new Exception("Booking rule creation failed");
+              }
+            }
 
-    ImmutablePair<Optional<Integer>, Set<BookingRule>> versionedBookingRules = getVersionedBookingRules();
-    Set<BookingRule> existingBookingRules = versionedBookingRules.right;
+            // We should POST or DELETE to the BookingRuleExclusion resource,
+            // with a BookingRule, and an exclusion date. This will call through
+            // to the addBookingRuleExclusion or deleteBookingRuleExclusion
+            // methods on this manager.
+            logger.log("About to create booking rule in simpledb: " + bookingRuleToCreate);
+            ImmutablePair<Optional<Integer>, Set<BookingRule>> versionedBookingRules = getVersionedBookingRules();
+            bookingRules = versionedBookingRules.right;
 
-    // Check that the rule we're creating does not clash with an existing rule.
-    if (doesRuleClash(bookingRuleToCreate, existingBookingRules)) {
-      logger
-          .log("Cannot create rule as it clashes with existing rule, so throwing a 'Booking rule creation failed - rule would clash' exception");
-      throw new Exception("Booking rule creation failed - rule would clash");
-    }
+            // Check that the rule we're creating does not clash with an
+            // existing rule.
+            if (doesRuleClash(bookingRuleToCreate, bookingRules)) {
+              logger
+                  .log("Cannot create rule as it clashes with existing rule, so throwing a 'Booking rule creation failed - rule would clash' exception");
+              throw new Exception("Booking rule creation failed - rule would clash");
+            }
 
-    logger.log("The new rule does not clash with existing rules - so proceeding to create rule");
+            logger
+                .log("The new rule does not clash with existing rules - so proceeding to create rule");
 
-    String attributeName = getAttributeNameFromBookingRule(bookingRuleToCreate);
-    String attributeValue = "";
-    if (bookingRuleToCreate.getDatesToExclude().length > 0) {
-      attributeValue = StringUtils.join(bookingRuleToCreate.getDatesToExclude(), ",");
-    }
-    logger.log("ItemName: " + ruleItemName);
-    logger.log("AttributeName: " + attributeName);
-    logger.log("AttributeValue: " + attributeValue);
-    ReplaceableAttribute bookingRuleAttribute = new ReplaceableAttribute();
-    bookingRuleAttribute.setName(attributeName);
-    bookingRuleAttribute.setValue(attributeValue);
+            String attributeName = getAttributeNameFromBookingRule(bookingRuleToCreate);
+            String attributeValue = "";
+            if (bookingRuleToCreate.getDatesToExclude().length > 0) {
+              attributeValue = StringUtils.join(bookingRuleToCreate.getDatesToExclude(), ",");
+            }
+            logger.log("ItemName: " + ruleItemName);
+            logger.log("AttributeName: " + attributeName);
+            logger.log("AttributeValue: " + attributeValue);
+            ReplaceableAttribute bookingRuleAttribute = new ReplaceableAttribute();
+            bookingRuleAttribute.setName(attributeName);
+            bookingRuleAttribute.setValue(attributeValue);
 
-    optimisticPersister.put(ruleItemName, versionedBookingRules.left, bookingRuleAttribute);
-
-    existingBookingRules.add(bookingRuleToCreate);
-    return existingBookingRules;
+            optimisticPersister.put(ruleItemName, versionedBookingRules.left, bookingRuleAttribute);
+            bookingRules.add(bookingRuleToCreate);
+            return bookingRules;
+          }, Exception.class, Optional.of("Database put failed - conditional check failed"), logger);
   }
 
   @Override
@@ -163,6 +186,7 @@ public class RuleManager implements IRuleManager {
     optimisticPersister.delete(ruleItemName, attribute);
 
     logger.log("Deleted booking rule.");
+    return;
   }
 
   @Override
@@ -177,9 +201,10 @@ public class RuleManager implements IRuleManager {
     logger.log("Found " + bookingRules.size() + " booking rules to delete");
     logger.log("About to delete all booking rules");
     for (BookingRule bookingRule : bookingRules) {
-      deleteRule(bookingRule);
-      // sleep to avoid Too Many Requests error
-      Thread.sleep(500);
+      RetryHelper.DoWithRetries(() -> {
+        deleteRule(bookingRule);
+        return null;
+      }, AmazonServiceException.class, Optional.of("429"), logger);
     }
     logger.log("Deleted all booking rules");
   }
@@ -195,79 +220,97 @@ public class RuleManager implements IRuleManager {
     logger.log("About to add exclusion for " + dateToExclude + " to booking rule: "
         + bookingRuleToAddExclusionTo.toString());
 
-    ImmutablePair<Optional<Integer>, Set<BookingRule>> versionedBookingRules = getVersionedBookingRules();
-    Set<BookingRule> existingBookingRules = versionedBookingRules.right;
+    // We retry the addition of the exclusion if necessary if we get a
+    // ConditionalCheckFailed exception, i.e. if someone else modifies
+    // the database between us reading and writing it.
+    return RetryHelper
+        .DoWithRetries(
+            (ThrowingSupplier<Optional<BookingRule>>) (() -> {
+              ImmutablePair<Optional<Integer>, Set<BookingRule>> versionedBookingRules = getVersionedBookingRules();
+              Set<BookingRule> existingBookingRules = versionedBookingRules.right;
 
-    // Check the BookingRule we're adding the exclusion to still exists
-    Optional<BookingRule> existingRule = existingBookingRules.stream()
-        .filter(rule -> rule.equals(bookingRuleToAddExclusionTo)).findFirst();
-    if (!existingRule.isPresent()) {
-      logger.log("Trying to add an exclusion to a booking rule that does not exist.");
-      throw new Exception("Booking rule exclusion addition failed");
-    }
+              // Check the BookingRule we're adding the exclusion to still
+              // exists
+              Optional<BookingRule> existingRule = existingBookingRules.stream()
+                  .filter(rule -> rule.equals(bookingRuleToAddExclusionTo)).findFirst();
+              if (!existingRule.isPresent()) {
+                logger.log("Trying to add an exclusion to a booking rule that does not exist.");
+                throw new Exception("Booking rule exclusion addition failed");
+              }
 
-    // Check rule is recurring - we cannot add exclusions to non-recurring rules
-    if (!existingRule.get().getIsRecurring()) {
-      logger.log("Trying to add an exclusion to a non-recurring booking rule.");
-      throw new Exception("Booking rule exclusion addition failed");
-    }
+              // Check rule is recurring - we cannot add exclusions to
+              // non-recurring rules
+              if (!existingRule.get().getIsRecurring()) {
+                logger.log("Trying to add an exclusion to a non-recurring booking rule.");
+                throw new Exception("Booking rule exclusion addition failed");
+              }
 
-    // Check that the rule exclusion we're creating does not exist already.
-    if (ArrayUtils.contains(existingRule.get().getDatesToExclude(), dateToExclude)) {
-      logger.log("An identical booking rule exclusion exists already - so quitting early");
-      return Optional.empty();
-    }
+              // Check that the rule exclusion we're creating does not exist
+              // already.
+              if (ArrayUtils.contains(existingRule.get().getDatesToExclude(), dateToExclude)) {
+                logger
+                    .log("An identical booking rule exclusion exists already - so quitting early");
+                return Optional.empty();
+              }
 
-    // Check the exclusion is for the right day of the week.
-    DayOfWeek dayToExclude = dayOfWeekFromDate(dateToExclude);
-    DayOfWeek dayOfBookingRule = dayOfWeekFromDate(existingRule.get().getBooking().getDate());
-    if (!dayToExclude.equals(dayOfBookingRule)) {
-      logger
-          .log("Exclusion being added and target booking rule are for different days of the week.");
-      throw new Exception("Booking rule exclusion addition failed");
-    }
+              // Check the exclusion is for the right day of the week.
+              DayOfWeek dayToExclude = dayOfWeekFromDate(dateToExclude);
+              DayOfWeek dayOfBookingRule = dayOfWeekFromDate(existingRule.get().getBooking()
+                  .getDate());
+              if (!dayToExclude.equals(dayOfBookingRule)) {
+                logger
+                    .log("Exclusion being added and target booking rule are for different days of the week.");
+                throw new Exception("Booking rule exclusion addition failed");
+              }
 
-    // Check it is not in the past, relative to now, or to the Booking rule
-    // start date.
-    Date bookingRuleStartDate = new SimpleDateFormat("yyyy-MM-dd").parse(existingRule.get()
-        .getBooking().getDate());
-    Date excludedDate = new SimpleDateFormat("yyyy-MM-dd").parse(dateToExclude);
-    if (excludedDate.before(bookingRuleStartDate)) {
-      logger.log("Exclusion being added is before target booking rule start date.");
-      throw new Exception("Booking rule exclusion addition failed");
-    }
-    if (excludedDate.before(new SimpleDateFormat("yyyy-MM-dd").parse(getCurrentLocalDate().format(
-        DateTimeFormatter.ofPattern("yyyy-MM-dd"))))) {
-      logger.log("Exclusion being added is in the past.");
-      throw new Exception("Booking rule exclusion addition failed");
-    }
+              // Check it is not in the past, relative to now, or to the
+              // Booking rule start date.
+              Date bookingRuleStartDate = new SimpleDateFormat("yyyy-MM-dd").parse(existingRule
+                  .get().getBooking().getDate());
+              Date excludedDate = new SimpleDateFormat("yyyy-MM-dd").parse(dateToExclude);
+              if (excludedDate.before(bookingRuleStartDate)) {
+                logger.log("Exclusion being added is before target booking rule start date.");
+                throw new Exception("Booking rule exclusion addition failed");
+              }
+              if (excludedDate.before(new SimpleDateFormat("yyyy-MM-dd")
+                  .parse(getCurrentLocalDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))))) {
+                logger.log("Exclusion being added is in the past.");
+                throw new Exception("Booking rule exclusion addition failed");
+              }
 
-    // Check we'll not exceed the maximum number of dates to exclude (this limit
-    // is here as SimpleDB has a 1024-byte limit for attribute values).
-    Set<String> datesToExclude = Sets.newHashSet(bookingRuleToAddExclusionTo.getDatesToExclude());
-    if (datesToExclude.size() >= maxNumberOfDatesToExclude) {
-      logger.log("The maximum number of booking rule exclusions(" + maxNumberOfDatesToExclude
-          + ") exists already.");
-      throw new Exception("Booking rule exclusion addition failed - too many exclusions");
-    }
+              // Check we'll not exceed the maximum number of dates to exclude
+              // (this limit is here as SimpleDB has a 1024-byte limit for
+              // attribute
+              // values).
+              Set<String> datesToExclude = Sets.newHashSet(bookingRuleToAddExclusionTo
+                  .getDatesToExclude());
+              if (datesToExclude.size() >= maxNumberOfDatesToExclude) {
+                logger.log("The maximum number of booking rule exclusions("
+                    + maxNumberOfDatesToExclude + ") exists already.");
+                throw new Exception("Booking rule exclusion addition failed - too many exclusions");
+              }
 
-    logger.log("Proceeding to add the new rule exclusion");
-    datesToExclude.add(dateToExclude);
-    String attributeName = getAttributeNameFromBookingRule(bookingRuleToAddExclusionTo);
-    String attributeValue = StringUtils.join(datesToExclude, ",");
-    logger.log("ItemName: " + ruleItemName);
-    logger.log("AttributeName: " + attributeName);
-    logger.log("AttributeValue: " + attributeValue);
-    ReplaceableAttribute bookingRuleAttribute = new ReplaceableAttribute();
-    bookingRuleAttribute.setName(attributeName);
-    bookingRuleAttribute.setValue(attributeValue);
-    bookingRuleAttribute.setReplace(true);
+              logger.log("Proceeding to add the new rule exclusion");
+              datesToExclude.add(dateToExclude);
+              String attributeName = getAttributeNameFromBookingRule(bookingRuleToAddExclusionTo);
+              String attributeValue = StringUtils.join(datesToExclude, ",");
+              logger.log("ItemName: " + ruleItemName);
+              logger.log("AttributeName: " + attributeName);
+              logger.log("AttributeValue: " + attributeValue);
+              ReplaceableAttribute bookingRuleAttribute = new ReplaceableAttribute();
+              bookingRuleAttribute.setName(attributeName);
+              bookingRuleAttribute.setValue(attributeValue);
+              bookingRuleAttribute.setReplace(true);
 
-    optimisticPersister.put(ruleItemName, versionedBookingRules.left, bookingRuleAttribute);
-    BookingRule updatedBookingRule = new BookingRule(bookingRuleToAddExclusionTo);
-    updatedBookingRule.setDatesToExclude(datesToExclude.toArray(new String[datesToExclude.size()]));
-    logger.log("Added new rule exclusion");
-    return Optional.of(updatedBookingRule);
+              optimisticPersister.put(ruleItemName, versionedBookingRules.left,
+                  bookingRuleAttribute);
+              BookingRule updatedBookingRule = new BookingRule(bookingRuleToAddExclusionTo);
+              updatedBookingRule.setDatesToExclude(datesToExclude.toArray(new String[datesToExclude
+                  .size()]));
+              logger.log("Added new rule exclusion");
+              return Optional.of(updatedBookingRule);
+            }), Exception.class, Optional.of("Database put failed - conditional check failed"),
+            logger);
   }
 
   @Override
@@ -281,52 +324,66 @@ public class RuleManager implements IRuleManager {
     logger.log("About to delete exclusion for " + dateNotToExclude + " from booking rule: "
         + bookingRuleToDeleteExclusionFrom.toString());
 
-    ImmutablePair<Optional<Integer>, Set<BookingRule>> versionedBookingRules = getVersionedBookingRules();
-    Set<BookingRule> existingBookingRules = versionedBookingRules.right;
+    // We retry the deletion of the exclusion if necessary if we get a
+    // ConditionalCheckFailed exception, i.e. if someone else modifies
+    // the database between us reading and writing it.
+    return RetryHelper
+        .DoWithRetries(
+            (ThrowingSupplier<Optional<BookingRule>>) (() -> {
+              ImmutablePair<Optional<Integer>, Set<BookingRule>> versionedBookingRules = getVersionedBookingRules();
+              Set<BookingRule> existingBookingRules = versionedBookingRules.right;
 
-    // Check the BookingRule we're deleting the exclusion from still exists
-    Optional<BookingRule> existingRule = existingBookingRules.stream()
-        .filter(rule -> rule.equals(bookingRuleToDeleteExclusionFrom)).findFirst();
-    if (!existingRule.isPresent()) {
-      logger
-          .log("Trying to delete an exclusion from a booking rule that does not exist, so swallowing and continuing");
-      return Optional.empty();
-    }
+              // Check the BookingRule we're deleting the exclusion from still
+              // exists
+              Optional<BookingRule> existingRule = existingBookingRules.stream()
+                  .filter(rule -> rule.equals(bookingRuleToDeleteExclusionFrom)).findFirst();
+              if (!existingRule.isPresent()) {
+                logger
+                    .log("Trying to delete an exclusion from a booking rule that does not exist, so swallowing and continuing");
+                return Optional.empty();
+              }
 
-    // Check that the rule exclusion we're deleting still exists.
-    if (!Arrays.asList(existingRule.get().getDatesToExclude()).contains(dateNotToExclude)) {
-      logger.log("The booking rule exclusion being deleted no longer exists - so quitting early");
-      return Optional.empty();
-    }
+              // Check that the rule exclusion we're deleting still exists.
+              if (!Arrays.asList(existingRule.get().getDatesToExclude()).contains(dateNotToExclude)) {
+                logger
+                    .log("The booking rule exclusion being deleted no longer exists - so quitting early");
+                return Optional.empty();
+              }
 
-    // Check deleting this exclusion does not cause a latent rule clash to
-    // manifest. Do by pretending to add this rule again.
-    existingBookingRules.remove(existingRule.get());
-    Set<String> datesToExclude = Sets.newHashSet(bookingRuleToDeleteExclusionFrom
-        .getDatesToExclude());
-    datesToExclude.remove(dateNotToExclude);
-    existingRule.get().setDatesToExclude(datesToExclude.toArray(new String[datesToExclude.size()]));
-    if (doesRuleClash(existingRule.get(), existingBookingRules)) {
-      logger.log("Cannot delete booking rule exclusion as remaining rules would then clash");
-      throw new Exception("Booking rule exclusion deletion failed - latent clash exists");
-    }
+              // Check deleting this exclusion does not cause a latent rule
+              // clash to manifest. Do by pretending to add this rule again.
+              existingBookingRules.remove(existingRule.get());
+              Set<String> datesToExclude = Sets.newHashSet(bookingRuleToDeleteExclusionFrom
+                  .getDatesToExclude());
+              datesToExclude.remove(dateNotToExclude);
+              existingRule.get().setDatesToExclude(
+                  datesToExclude.toArray(new String[datesToExclude.size()]));
+              if (doesRuleClash(existingRule.get(), existingBookingRules)) {
+                logger
+                    .log("Cannot delete booking rule exclusion as remaining rules would then clash");
+                throw new Exception("Booking rule exclusion deletion failed - latent clash exists");
+              }
 
-    logger.log("Proceeding to delete the rule exclusion");
-    String attributeName = getAttributeNameFromBookingRule(bookingRuleToDeleteExclusionFrom);
-    String attributeValue = StringUtils.join(datesToExclude, ",");
-    logger.log("ItemName: " + ruleItemName);
-    logger.log("AttributeName: " + attributeName);
-    logger.log("AttributeValue: " + attributeValue);
-    ReplaceableAttribute bookingRuleAttribute = new ReplaceableAttribute();
-    bookingRuleAttribute.setName(attributeName);
-    bookingRuleAttribute.setValue(attributeValue);
-    bookingRuleAttribute.setReplace(true);
+              logger.log("Proceeding to delete the rule exclusion");
+              String attributeName = getAttributeNameFromBookingRule(bookingRuleToDeleteExclusionFrom);
+              String attributeValue = StringUtils.join(datesToExclude, ",");
+              logger.log("ItemName: " + ruleItemName);
+              logger.log("AttributeName: " + attributeName);
+              logger.log("AttributeValue: " + attributeValue);
+              ReplaceableAttribute bookingRuleAttribute = new ReplaceableAttribute();
+              bookingRuleAttribute.setName(attributeName);
+              bookingRuleAttribute.setValue(attributeValue);
+              bookingRuleAttribute.setReplace(true);
 
-    optimisticPersister.put(ruleItemName, versionedBookingRules.left, bookingRuleAttribute);
-    BookingRule updatedBookingRule = new BookingRule(bookingRuleToDeleteExclusionFrom);
-    updatedBookingRule.setDatesToExclude(datesToExclude.toArray(new String[datesToExclude.size()]));
-    logger.log("Deleted rule exclusion");
-    return Optional.of(updatedBookingRule);
+              optimisticPersister.put(ruleItemName, versionedBookingRules.left,
+                  bookingRuleAttribute);
+              BookingRule updatedBookingRule = new BookingRule(bookingRuleToDeleteExclusionFrom);
+              updatedBookingRule.setDatesToExclude(datesToExclude.toArray(new String[datesToExclude
+                  .size()]));
+              logger.log("Deleted rule exclusion");
+              return Optional.of(updatedBookingRule);
+            }), Exception.class, Optional.of("Database put failed - conditional check failed"),
+            logger);
   }
 
   @Override
@@ -336,43 +393,62 @@ public class RuleManager implements IRuleManager {
       throw new IllegalStateException("The rule manager has not been initialised");
     }
 
-    // Apply rules only if date is not in the past.
-    Boolean applyDateIsInPast = (new SimpleDateFormat("yyyy-MM-dd").parse(date))
-        .before((new SimpleDateFormat("yyyy-MM-dd").parse(getCurrentLocalDate().format(
-            DateTimeFormatter.ofPattern("yyyy-MM-dd")))));
-    if (!applyDateIsInPast) {
-      logger.log("About to apply booking rules for date: " + date);
-      for (BookingRule rule : getRules()) {
-        logger.log("Considering booking rule: " + rule);
-        Boolean ruleIsNonRecurringAndForApplyDate = !rule.getIsRecurring()
-            && rule.getBooking().getDate().equals(date);
-        Boolean ruleIsRecurringAndStartsOnOrBeforeApplyDate = rule.getIsRecurring()
-            && dayOfWeekFromDate(rule.getBooking().getDate()).equals(dayOfWeekFromDate(date))
-            && !((new SimpleDateFormat("yyyy-MM-dd")).parse(date).before((new SimpleDateFormat(
-                "yyyy-MM-dd")).parse(rule.getBooking().getDate())));
-        if (ruleIsNonRecurringAndForApplyDate || ruleIsRecurringAndStartsOnOrBeforeApplyDate) {
-          if (ruleIsRecurringAndStartsOnOrBeforeApplyDate) {
-            logger
-                .log("Booking rule recurring and starts before date that rules are being applied to: "
-                    + rule.toString());
-            // Does this rule have a relevant exclusion?
-            if (ArrayUtils.contains(rule.getDatesToExclude(), date)) {
-              logger.log("Recurring rule does not apply as it has a matching rule exclusion");
-              continue;
+    try {
+      // Apply rules only if date is not in the past.
+      Boolean applyDateIsInPast = (new SimpleDateFormat("yyyy-MM-dd").parse(date))
+          .before((new SimpleDateFormat("yyyy-MM-dd").parse(getCurrentLocalDate().format(
+              DateTimeFormatter.ofPattern("yyyy-MM-dd")))));
+      if (!applyDateIsInPast) {
+        logger.log("About to apply booking rules for date: " + date);
+        for (BookingRule rule : getRules()) {
+          logger.log("Considering booking rule: " + rule);
+          Boolean ruleIsNonRecurringAndForApplyDate = !rule.getIsRecurring()
+              && rule.getBooking().getDate().equals(date);
+          Boolean ruleIsRecurringAndStartsOnOrBeforeApplyDate = rule.getIsRecurring()
+              && dayOfWeekFromDate(rule.getBooking().getDate()).equals(dayOfWeekFromDate(date))
+              && !((new SimpleDateFormat("yyyy-MM-dd")).parse(date).before((new SimpleDateFormat(
+                  "yyyy-MM-dd")).parse(rule.getBooking().getDate())));
+          if (ruleIsNonRecurringAndForApplyDate || ruleIsRecurringAndStartsOnOrBeforeApplyDate) {
+            if (ruleIsRecurringAndStartsOnOrBeforeApplyDate) {
+              logger
+                  .log("Booking rule recurring and starts before date that rules are being applied to: "
+                      + rule.toString());
+              // Does this rule have a relevant exclusion?
+              if (ArrayUtils.contains(rule.getDatesToExclude(), date)) {
+                logger.log("Recurring rule does not apply as it has a matching rule exclusion");
+                continue;
+              }
+            } else {
+              logger
+                  .log("Booking rule non-recurring but applies to date that rules are being applied to.");
             }
+            logger.log("Applying booking rule to create booking: " + rule.toString());
+            Booking booking = rule.getBooking();
+            booking.setDate(date);
+            bookingManager.createBooking(booking);
+            // Short sleep to minimise chance of getting TooManyRequests error
+            try {
+              Thread.sleep(10);
+            } catch (InterruptedException interruptedException) {
+              logger.log("Sleep before applying next rule has been interrupted.");
+            }
+            logger.log("Rule-based booking created.");
           } else {
-            logger
-                .log("Booking rule non-recurring but applies to date that rules are being applied to.");
+            logger.log("Rule does not apply to date that rules are being applied to.");
           }
-          logger.log("Applying booking rule to create booking: " + rule.toString());
-          Booking booking = rule.getBooking();
-          booking.setDate(date);
-          bookingManager.createBooking(booking);
-          logger.log("Rule-based booking created.");
-        } else {
-          logger.log("Rule does not apply to date that rules are being applied to.");
         }
       }
+    } catch (Exception exception) {
+      logger.log("Exception caught while applying booking rules - so notifying sns topic");
+      getSNSClient()
+          .publish(
+              adminSnsTopicArn,
+              "Apologies - but there was an error applying the booking rules for "
+                  + date
+                  + ". Please make the rule bookings for this date manually instead. The error message was: "
+                  + exception.getMessage(), "Sqawsh booking rules failed to apply");
+      // Rethrow
+      throw exception;
     }
 
     logger.log("About to purge expired rules and exclusions.");
@@ -437,7 +513,7 @@ public class RuleManager implements IRuleManager {
     }
 
     // If the new rule is recurring and any non-recurring existing rules are
-    // left, then we have a clash, unless it has a relevant exclusion. N.B We
+    // left, then we have a clash, unless it has a relevant exclusion. N.B. We
     // need to allow exclusions at rule creation time to support backup/restore
     // functionality.
     if (newBookingRule.getIsRecurring()) {
@@ -581,8 +657,15 @@ public class RuleManager implements IRuleManager {
               .before(today)) {
         logger.log("Deleting non-recurring booking rule as it has expired: "
             + bookingRule.toString());
-        deleteRule(bookingRule);
-        logger.log("Deleted expired booking rule");
+        try {
+          deleteRule(bookingRule);
+          logger.log("Deleted expired booking rule");
+        } catch (Exception exception) {
+          // Don't want to abort here if we fail to remove a rule - after all
+          // we'll get another shot at it in 24 hours time.
+          logger
+              .log("Exception caught deleting expired booking rule - swallowing and carrying on...");
+        }
         continue;
       }
 
@@ -615,14 +698,33 @@ public class RuleManager implements IRuleManager {
           bookingRuleAttribute.setName(attributeName);
           bookingRuleAttribute.setValue(attributeValue);
           bookingRuleAttribute.setReplace(true);
-
-          versionNumber = Optional.of(optimisticPersister.put(ruleItemName, versionNumber,
-              bookingRuleAttribute));
-          logger.log("Updated rule to purge expired exclusion(s)");
+          try {
+            versionNumber = Optional.of(optimisticPersister.put(ruleItemName, versionNumber,
+                bookingRuleAttribute));
+            logger.log("Updated rule to purge expired exclusion(s)");
+          } catch (Exception exception) {
+            // Don't want to abort here if we fail to remove an exclusion -
+            // after all we'll get another shot at it in 24 hours time.
+            logger
+                .log("Exception caught deleting expired booking exclusion - swallowing and carrying on...");
+          }
         }
       }
     }
     logger.log("Purged all expired rules and exclusions");
+  }
+
+  /**
+   * Returns an SNS client.
+   *
+   * <p>This method is provided so unit tests can mock out SNS.
+   */
+  protected AmazonSNS getSNSClient() {
+
+    // Use a getter here so unit tests can substitute a mock client
+    AmazonSNS client = new AmazonSNSClient();
+    client.setRegion(region);
+    return client;
   }
 
   /**
@@ -643,5 +745,26 @@ public class RuleManager implements IRuleManager {
     // This gets the correct local date no matter what the user's device
     // system time may say it is, and no matter where in AWS we run.
     return BookingsUtilities.getCurrentLocalDate();
+  }
+
+  /**
+   * Returns a named property from the SquashCustomResource settings file.
+   */
+  protected String getStringProperty(String propertyName) throws IOException {
+    // Use a getter here so unit tests can substitute a mock value.
+    // We get the value from a settings file so that
+    // CloudFormation can substitute the actual value when the
+    // stack is created, by replacing the settings file.
+
+    Properties properties = new Properties();
+    try (InputStream stream = BookingManager.class
+        .getResourceAsStream("/squash/booking/lambdas/SquashCustomResource.settings")) {
+      properties.load(stream);
+    } catch (IOException e) {
+      logger.log("Exception caught reading SquashCustomResource.settings properties file: "
+          + e.getMessage());
+      throw e;
+    }
+    return properties.getProperty(propertyName);
   }
 }

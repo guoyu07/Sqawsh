@@ -54,7 +54,7 @@ limitations under the License.-->
 <h2>You are reserving court {{ctrl.activeCourt}} for {{ctrl.activeSlot | date:'shortTime'}} on {{ctrl.activeDate | date:'fullDate'}}</h2>
 <div class="form-box">
   Players names:<br>
-<input type="text" ng-model="ctrl.name" ng-model-options="{ updateOn: 'blur' }" ng-maxlength=30 placeholder="e.g. {{ctrl.famousPlayer1}}/{{ctrl.famousPlayer2}}" ng-pattern="/^[a-zA-Z\.\- \/]+$/" name="name" autocapitalize="off" autocorrect="off" required>
+<input type="text" ng-model="ctrl.name" ng-model-options="{ updateOn: 'blur' }" ng-maxlength=30 placeholder="e.g. {{ctrl.famousPlayer1}}/{{ctrl.famousPlayer2}}" ng-pattern="/^[a-z0-9A-Z\.\- \/]+$/" name="name" autocapitalize="off" autocorrect="off" required>
 <span class="error" ng-show="reservationForm.name.$error.pattern && reservationForm.$submitted">
   Players names must have valid format
 </span>

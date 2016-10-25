@@ -33,6 +33,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
+import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.s3.model.PutObjectRequest;
@@ -51,7 +52,7 @@ public class BackupManagerTest {
   // Variables for setting up subclass of class under test
   squash.booking.lambdas.core.BackupManagerTest.TestBackupManager backupManager;
 
-  String databaseBackupSnsTopicArn;
+  String adminSnsTopicArn;
   String databaseBackupBucketName;
 
   // Mocks
@@ -105,8 +106,8 @@ public class BackupManagerTest {
 
     databaseBackupBucketName = "databaseBackupBucketName";
     backupManager.setDatabaseBackupBucketName(databaseBackupBucketName);
-    databaseBackupSnsTopicArn = "databaseBackupSnsTopicArn";
-    backupManager.setDatabaseBackupSnsTopicArn(databaseBackupSnsTopicArn);
+    adminSnsTopicArn = "adminSnsTopicArn";
+    backupManager.setAdminSnsTopicArn(adminSnsTopicArn);
 
     // Use a single booking for most of the tests
     court = 2;
@@ -140,7 +141,7 @@ public class BackupManagerTest {
     private AmazonSNS snsClient;
     private IS3TransferManager transferManager;
     private String databaseBackupBucketName;
-    private String databaseBackupSnsTopicArn;
+    private String adminSnsTopicArn;
 
     public void setS3TransferManager(IS3TransferManager transferManager) {
       this.transferManager = transferManager;
@@ -164,8 +165,8 @@ public class BackupManagerTest {
       this.databaseBackupBucketName = databaseBackupBucketName;
     }
 
-    public void setDatabaseBackupSnsTopicArn(String databaseBackupSnsTopicArn) {
-      this.databaseBackupSnsTopicArn = databaseBackupSnsTopicArn;
+    public void setAdminSnsTopicArn(String adminSnsTopicArn) {
+      this.adminSnsTopicArn = adminSnsTopicArn;
     }
 
     @Override
@@ -173,8 +174,8 @@ public class BackupManagerTest {
       if (propertyName.equals("databasebackupbucketname")) {
         return databaseBackupBucketName;
       }
-      if (propertyName.equals("databasebackupsnstopicarn")) {
-        return databaseBackupSnsTopicArn;
+      if (propertyName.equals("adminsnstopicarn")) {
+        return adminSnsTopicArn;
       }
       if (propertyName.equals("region")) {
         return "eu-west-1";
@@ -420,8 +421,8 @@ public class BackupManagerTest {
     mockSNSClient = mockery.mock(AmazonSNS.class);
     mockery.checking(new Expectations() {
       {
-        oneOf(mockSNSClient).publish(with(equal(databaseBackupSnsTopicArn)),
-            with(equal(backupMessage)), with(equal(backupSubject)));
+        oneOf(mockSNSClient).publish(with(equal(adminSnsTopicArn)), with(equal(backupMessage)),
+            with(equal(backupSubject)));
       }
     });
     backupManager.setSNSClient(mockSNSClient);
@@ -501,9 +502,8 @@ public class BackupManagerTest {
     mockSNSClient = mockery.mock(AmazonSNS.class);
     mockery.checking(new Expectations() {
       {
-        oneOf(mockSNSClient)
-            .publish(with(equal(databaseBackupSnsTopicArn)), with(equal(backupMessage)),
-                with(equal("Sqawsh all-bookings and booking rules backup")));
+        oneOf(mockSNSClient).publish(with(equal(adminSnsTopicArn)), with(equal(backupMessage)),
+            with(equal("Sqawsh all-bookings and booking rules backup")));
       }
     });
     backupManager.setSNSClient(mockSNSClient);
@@ -617,10 +617,17 @@ public class BackupManagerTest {
         oneOf(mockRuleManager).deleteAllBookingRules();
         inSequence(restoreSequence);
         // Restore everything
+        oneOf(mockBookingManager).validateBooking(bookings.get(0));
+        inSequence(restoreSequence);
         oneOf(mockBookingManager).createBooking(bookings.get(0));
+        oneOf(mockBookingManager).validateBooking(bookings.get(1));
+        inSequence(restoreSequence);
         oneOf(mockBookingManager).createBooking(bookings.get(1));
+        oneOf(mockBookingManager).validateBooking(bookingRules.get(0).getBooking());
         inSequence(restoreSequence);
         oneOf(mockRuleManager).createRule(bookingRules.get(0));
+        oneOf(mockBookingManager).validateBooking(bookingRules.get(1).getBooking());
+        inSequence(restoreSequence);
         oneOf(mockRuleManager).createRule(bookingRules.get(1));
         inSequence(restoreSequence);
       }
@@ -649,21 +656,265 @@ public class BackupManagerTest {
     // Set up mock managers
     mockBookingManager = mockery.mock(IBookingManager.class);
     mockRuleManager = mockery.mock(IRuleManager.class);
+    final Sequence restoreSequence = mockery.sequence("restore");
     mockery.checking(new Expectations() {
       {
         // Do not delete any existing bookings
         never(mockBookingManager).deleteAllBookings();
         never(mockRuleManager).deleteAllBookingRules();
         // Restore everything
+        oneOf(mockBookingManager).validateBooking(bookings.get(0));
+        inSequence(restoreSequence);
         oneOf(mockBookingManager).createBooking(bookings.get(0));
+        oneOf(mockBookingManager).validateBooking(bookings.get(1));
+        inSequence(restoreSequence);
         oneOf(mockBookingManager).createBooking(bookings.get(1));
+        oneOf(mockBookingManager).validateBooking(bookingRules.get(0).getBooking());
+        inSequence(restoreSequence);
         oneOf(mockRuleManager).createRule(bookingRules.get(0));
+        oneOf(mockBookingManager).validateBooking(bookingRules.get(1).getBooking());
+        inSequence(restoreSequence);
         oneOf(mockRuleManager).createRule(bookingRules.get(1));
+        inSequence(restoreSequence);
       }
     });
     backupManager.initialise(mockBookingManager, mockRuleManager, mockLogger);
 
     // ACT
+    backupManager.restoreAllBookingsAndBookingRules(bookings, bookingRules, false);
+  }
+
+  @Test
+  public void testRestoreAllBookingsAndBookingRulesThrowsIfABookingRuleDateHasAnInvalidFormat()
+      throws Exception {
+
+    // Check that we verify that everything on a rule being restored that should
+    // be a date actually is one.
+
+    // ARRANGE
+    thrown.expect(Exception.class);
+    thrown.expectMessage("One of the dates has an invalid format");
+
+    // Tweak date on the booking rule so it's invalid
+    bookingRule.getBooking().setDate("Boom!");
+
+    // Set up mock managers
+    mockBookingManager = mockery.mock(IBookingManager.class);
+    mockRuleManager = mockery.mock(IRuleManager.class);
+    mockery.checking(new Expectations() {
+      {
+        // Delete any existing bookings and booking rules before restoring.
+        ignoring(mockBookingManager);
+        allowing(mockRuleManager).deleteAllBookingRules();
+        never(mockRuleManager).createRule(with(anything()));
+      }
+    });
+    backupManager.initialise(mockBookingManager, mockRuleManager, mockLogger);
+
+    // ACT
+    // This should throw as the booking rule has an invalid date
+    backupManager.restoreAllBookingsAndBookingRules(bookings, bookingRules, true);
+  }
+
+  @Test
+  public void testRestoreAllBookingsAndBookingRulesThrowsIfABookingRuleExcludeDateHasAnInvalidFormat()
+      throws Exception {
+
+    // Check that we verify that everything on a rule being restored that should
+    // be a date actually is one.
+
+    // ARRANGE
+    thrown.expect(Exception.class);
+    thrown.expectMessage("One of the dates has an invalid format");
+
+    // Tweak exclude date on the booking rule so it's invalid
+    bookingRule.getDatesToExclude()[0] = "Boom!";
+
+    // Set up mock managers
+    mockBookingManager = mockery.mock(IBookingManager.class);
+    mockRuleManager = mockery.mock(IRuleManager.class);
+    mockery.checking(new Expectations() {
+      {
+        // Delete any existing bookings and booking rules before restoring.
+        ignoring(mockBookingManager);
+        allowing(mockRuleManager).deleteAllBookingRules();
+        never(mockRuleManager).createRule(with(anything()));
+      }
+    });
+    backupManager.initialise(mockBookingManager, mockRuleManager, mockLogger);
+
+    // ACT
+    // This should throw as the booking rule has an invalid exclude date
+    backupManager.restoreAllBookingsAndBookingRules(bookings, bookingRules, true);
+  }
+
+  @Test
+  public void testRestoreAllBookingsAndBookingRulesThrowsIfABookingDateHasAnInvalidFormat()
+      throws Exception {
+
+    // Check that we verify that the booking being restored has a valid date
+    // format.
+
+    // ARRANGE
+    thrown.expect(Exception.class);
+    thrown.expectMessage("One of the dates has an invalid format");
+
+    // Tweak booking date so it's invalid
+    bookings.get(0).setDate("Boom!");
+
+    // Set up mock managers
+    mockBookingManager = mockery.mock(IBookingManager.class);
+    mockRuleManager = mockery.mock(IRuleManager.class);
+    mockery.checking(new Expectations() {
+      {
+        never(mockBookingManager).createBooking(with(anything()));
+        ignoring(mockRuleManager);
+      }
+    });
+    backupManager.initialise(mockBookingManager, mockRuleManager, mockLogger);
+
+    // ACT
+    // This should throw as the booking has an invalid date
+    backupManager.restoreAllBookingsAndBookingRules(bookings, bookingRules, false);
+  }
+
+  @Test
+  public void testRestoreAllBookingsAndBookingRulesThrowsIfTheBookingManagerThrowsTooManyRequestsExceptionsThreeTimesRunning()
+      throws Exception {
+    // The booking manager can throw a TooManyRequests exception during restore
+    // if there are many bookings being restored. If this happens we should
+    // pause for a short time and then continue restoring. We allow up to three
+    // attempts to restore each booking before giving up. This tests that if all
+    // three tries fail then the backup manager will give up and throw.
+
+    // ARRANGE
+    thrown.expect(Exception.class);
+    String message = "Boom!";
+    thrown.expectMessage(message);
+
+    // Set up mock managers
+    mockBookingManager = mockery.mock(IBookingManager.class);
+    mockRuleManager = mockery.mock(IRuleManager.class);
+    // Configure the TooManyRequests error (429)
+    AmazonServiceException ase = new AmazonServiceException(message);
+    ase.setErrorCode("429");
+    mockery.checking(new Expectations() {
+      {
+        exactly(3).of(mockBookingManager).createBooking(with(anything()));
+        will(throwException(ase));
+        allowing(mockBookingManager).validateBooking(with(anything()));
+        ignoring(mockRuleManager);
+      }
+    });
+    backupManager.initialise(mockBookingManager, mockRuleManager, mockLogger);
+
+    // ACT
+    // This should throw - albeit after three tries
+    backupManager.restoreAllBookingsAndBookingRules(bookings, bookingRules, false);
+  }
+
+  @Test
+  public void testRestoreAllBookingsAndBookingRulesShouldNotThrowIfTheBookingManagerThrowsTooManyRequestsExceptionsOnlyTwice()
+      throws Exception {
+    // The booking manager can throw a TooManyRequests exception during restore
+    // if there are many bookings being restored. If this happens we should
+    // pause for a short time and then continue restoring. We allow up to three
+    // attempts to restore each booking before giving up. This tests that if we
+    // throw twice but the third try succeeds, then the backup manager does not
+    // throw.
+
+    // ARRANGE
+
+    // Set up mock managers
+    mockBookingManager = mockery.mock(IBookingManager.class);
+    mockRuleManager = mockery.mock(IRuleManager.class);
+    // Configure the TooManyRequests error (429)
+    AmazonServiceException ase = new AmazonServiceException("Boom!");
+    ase.setErrorCode("429");
+    mockery.checking(new Expectations() {
+      {
+        // Set up to fail twice...
+        exactly(2).of(mockBookingManager).createBooking(with(anything()));
+        will(throwException(ase));
+        // ...but third attempt succeeds
+        oneOf(mockBookingManager).createBooking(with(anything()));
+        allowing(mockBookingManager).validateBooking(with(anything()));
+        ignoring(mockRuleManager);
+      }
+    });
+    backupManager.initialise(mockBookingManager, mockRuleManager, mockLogger);
+
+    // ACT
+    // This should _not_ throw - we are allowed three tries
+    backupManager.restoreAllBookingsAndBookingRules(bookings, bookingRules, false);
+  }
+
+  @Test
+  public void testRestoreAllBookingsAndBookingRulesThrowsIfTheRuleManagerThrowsTooManyRequestsExceptionsThreeTimesRunning()
+      throws Exception {
+    // The rule manager can throw a TooManyRequests exception during restore
+    // if there are many booking rules being restored. If this happens we should
+    // pause for a short time and then continue restoring. We allow up to three
+    // attempts to restore each booking rule before giving up. This tests that
+    // if all three tries fail then the backup manager will give up and throw.
+
+    // ARRANGE
+    thrown.expect(Exception.class);
+    String message = "Boom!";
+    thrown.expectMessage(message);
+
+    // Set up mock managers
+    mockBookingManager = mockery.mock(IBookingManager.class);
+    mockRuleManager = mockery.mock(IRuleManager.class);
+    // Configure the TooManyRequests error (429)
+    AmazonServiceException ase = new AmazonServiceException(message);
+    ase.setErrorCode("429");
+    mockery.checking(new Expectations() {
+      {
+        exactly(3).of(mockRuleManager).createRule(with(anything()));
+        will(throwException(ase));
+        ignoring(mockBookingManager);
+      }
+    });
+    backupManager.initialise(mockBookingManager, mockRuleManager, mockLogger);
+
+    // ACT
+    // This should throw - albeit after three tries
+    backupManager.restoreAllBookingsAndBookingRules(bookings, bookingRules, false);
+  }
+
+  @Test
+  public void testRestoreAllBookingsAndBookingRulesShouldNotThrowIfTheRuleManagerThrowsTooManyRequestsExceptionsOnlyTwice()
+      throws Exception {
+    // The rule manager can throw a TooManyRequests exception during restore
+    // if there are many booking rules being restored. If this happens we should
+    // pause for a short time and then continue restoring. We allow up to three
+    // attempts to restore each booking rule before giving up. This tests that
+    // if we throw twice but the third try succeeds, then the backup manager
+    // does not throw.
+
+    // ARRANGE
+
+    // Set up mock managers
+    mockBookingManager = mockery.mock(IBookingManager.class);
+    mockRuleManager = mockery.mock(IRuleManager.class);
+    // Configure the TooManyRequests error (429)
+    AmazonServiceException ase = new AmazonServiceException("Boom!");
+    ase.setErrorCode("429");
+    mockery.checking(new Expectations() {
+      {
+        // Set up to fail twice...
+        exactly(2).of(mockRuleManager).createRule(with(anything()));
+        will(throwException(ase));
+        // ...but third attempt succeeds
+        oneOf(mockRuleManager).createRule(with(anything()));
+        ignoring(mockBookingManager);
+      }
+    });
+    backupManager.initialise(mockBookingManager, mockRuleManager, mockLogger);
+
+    // ACT
+    // This should _not_ throw - we are allowed three tries
     backupManager.restoreAllBookingsAndBookingRules(bookings, bookingRules, false);
   }
 }

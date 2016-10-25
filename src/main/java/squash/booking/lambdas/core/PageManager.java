@@ -37,6 +37,8 @@ import com.amazonaws.services.s3.model.CopyObjectRequest;
 import com.amazonaws.services.s3.model.DeleteObjectRequest;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
+import com.amazonaws.services.sns.AmazonSNS;
+import com.amazonaws.services.sns.AmazonSNSClient;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -74,6 +76,7 @@ public class PageManager implements IPageManager {
 
   private String websiteBucketName;
   private Region region;
+  private String adminSnsTopicArn;
   private IBookingManager bookingManager;
   private LambdaLogger logger;
   private Boolean initialised = false;
@@ -82,6 +85,7 @@ public class PageManager implements IPageManager {
   public void initialise(IBookingManager bookingManager, LambdaLogger logger) throws Exception {
     this.logger = logger;
     websiteBucketName = getStringProperty("s3websitebucketname");
+    adminSnsTopicArn = getStringProperty("adminsnstopicarn");
     region = Region.getRegion(Regions.fromName(getStringProperty("region")));
     this.bookingManager = bookingManager;
     initialised = true;
@@ -126,47 +130,58 @@ public class PageManager implements IPageManager {
       throw new IllegalStateException("The page manager has not been initialised");
     }
 
-    // Upload all bookings pages, cached booking data, famous players data, and
-    // the index page to the S3 bucket. N.B. This should upload for the
-    // most-future date first to ensure all links are valid during the several
-    // seconds the update takes to complete.
-    logger.log("About to refresh S3 website at midnight");
-    logger.log("Using valid dates: " + validDates);
-    logger.log("Using ApigatewayBaseUrl: " + apiGatewayBaseUrl);
+    try {
+      // Upload all bookings pages, cached booking data, famous players data,
+      // and the index page to the S3 bucket. N.B. This should upload for the
+      // most-future date first to ensure all links are valid during the several
+      // seconds the update takes to complete.
+      logger.log("About to refresh S3 website at midnight");
+      logger.log("Using valid dates: " + validDates);
+      logger.log("Using ApigatewayBaseUrl: " + apiGatewayBaseUrl);
 
-    // Log time to sanity check it does occur at midnight. (_Think_ this
-    // accounts for BST?)
-    logger.log("Current London time is: "
-        + Calendar.getInstance().getTime().toInstant()
-            .atZone(TimeZone.getTimeZone("Europe/London").toZoneId())
-            .format(DateTimeFormatter.ofPattern("h:mm a")));
+      // Log time to sanity check it does occur at midnight. (_Think_ this
+      // accounts for BST?)
+      logger.log("Current London time is: "
+          + Calendar.getInstance().getTime().toInstant()
+              .atZone(TimeZone.getTimeZone("Europe/London").toZoneId())
+              .format(DateTimeFormatter.ofPattern("h:mm a")));
 
-    uploadBookingsPagesToS3(validDates, apiGatewayBaseUrl);
-    logger.log("Uploaded new set of bookings pages to S3 at midnight");
+      uploadBookingsPagesToS3(validDates, apiGatewayBaseUrl);
+      logger.log("Uploaded new set of bookings pages to S3 at midnight");
 
-    // Save the valid dates in JSON form
-    logger.log("About to create and upload cached valid dates data to S3");
-    copyJsonDataToS3("validdates", createValidDatesData(validDates));
-    logger.log("Uploaded cached valid dates data to S3");
+      // Save the valid dates in JSON form
+      logger.log("About to create and upload cached valid dates data to S3");
+      copyJsonDataToS3("validdates", createValidDatesData(validDates));
+      logger.log("Uploaded cached valid dates data to S3");
 
-    logger.log("About to upload famous players data to S3");
-    uploadFamousPlayers();
-    logger.log("Uploaded famous players data to S3");
+      logger.log("About to upload famous players data to S3");
+      uploadFamousPlayers();
+      logger.log("Uploaded famous players data to S3");
 
-    // Remove the now-previous day's bookings page and cached data from S3.
-    // (If this page does not exist then this is a no-op.)
-    String yesterdaysDate = getCurrentLocalDate().minusDays(1).format(
-        DateTimeFormatter.ofPattern("yyyy-MM-dd"));
-    logger.log("About to remove yesterday's booking page and cached data from S3 bucket: "
-        + websiteBucketName + " and key: " + yesterdaysDate + ".html");
-    IS3TransferManager transferManager = getS3TransferManager();
-    DeleteObjectRequest deleteObjectRequest = new DeleteObjectRequest(websiteBucketName,
-        yesterdaysDate + ".html");
-    AmazonS3 client = transferManager.getAmazonS3Client();
-    client.deleteObject(deleteObjectRequest);
-    deleteObjectRequest = new DeleteObjectRequest(websiteBucketName, yesterdaysDate + ".json");
-    client.deleteObject(deleteObjectRequest);
-    logger.log("Removed yesterday's booking page and cached data successfully from S3");
+      // Remove the now-previous day's bookings page and cached data from S3.
+      // (If this page does not exist then this is a no-op.)
+      String yesterdaysDate = getCurrentLocalDate().minusDays(1).format(
+          DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+      logger.log("About to remove yesterday's booking page and cached data from S3 bucket: "
+          + websiteBucketName + " and key: " + yesterdaysDate + ".html");
+      IS3TransferManager transferManager = getS3TransferManager();
+      DeleteObjectRequest deleteObjectRequest = new DeleteObjectRequest(websiteBucketName,
+          yesterdaysDate + ".html");
+      AmazonS3 client = transferManager.getAmazonS3Client();
+      client.deleteObject(deleteObjectRequest);
+      deleteObjectRequest = new DeleteObjectRequest(websiteBucketName, yesterdaysDate + ".json");
+      client.deleteObject(deleteObjectRequest);
+      logger.log("Removed yesterday's booking page and cached data successfully from S3");
+    } catch (Exception exception) {
+      logger.log("Exception caught while refreshing S3 booking pages - so notifying sns topic");
+      getSNSClient()
+          .publish(
+              adminSnsTopicArn,
+              "Apologies - but there was an error refreshing the booking pages in S3. Please refresh the pages manually instead from the Lambda console. The error message was: "
+                  + exception.getMessage(), "Sqawsh booking pages in S3 failed to refresh");
+      // Rethrow
+      throw exception;
+    }
   }
 
   @Override
@@ -563,6 +578,19 @@ public class PageManager implements IPageManager {
     template.merge(context, writer);
     logger.log("Rendered index page: " + writer);
     return writer.toString();
+  }
+
+  /**
+   * Returns an SNS client.
+   *
+   * <p>This method is provided so unit tests can mock out SNS.
+   */
+  protected AmazonSNS getSNSClient() {
+
+    // Use a getter here so unit tests can substitute a mock client
+    AmazonSNS client = new AmazonSNSClient();
+    client.setRegion(region);
+    return client;
   }
 
   /**
