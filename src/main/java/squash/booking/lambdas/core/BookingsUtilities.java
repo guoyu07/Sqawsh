@@ -32,7 +32,8 @@ public class BookingsUtilities {
    */
   public static LocalDate getCurrentLocalDate() {
     // This gets the correct local date no matter what the user's device
-    // system time may say it is, and no matter where in AWS we run.
+    // system time may say it is, and no matter where in AWS we run. This
+    // takes BST into account.
     return Calendar.getInstance().getTime().toInstant()
         .atZone(TimeZone.getTimeZone("Europe/London").toZoneId()).toLocalDate();
   }

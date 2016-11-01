@@ -90,7 +90,8 @@ public interface IRuleManager {
    * This will apply the rules (i.e. create the bookings in the database) for the date specified.
    * 
    * @param date the date on which to apply the rules.
+   * @return the list of bookings that were created.
    * @throws Exception when the rule application fails.
    */
-  void applyRules(String date) throws Exception;
+  List<Booking> applyRules(String date) throws Exception;
 }

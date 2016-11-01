@@ -1810,6 +1810,28 @@ public class RuleManagerTest {
   }
 
   @Test
+  public void testApplyRulesReturnsBookingsItHasMade_SingleBooking() throws Exception {
+    // applyRules should return a list of the rule-based bookings it has made -
+    // so that, e.g., they can be backed up.
+
+    // ARRANGE
+    initialiseRuleManager();
+    expectOptimisticPersisterToReturnVersionedAttributes(42);
+    expectBookingManagerCall(existingThursdayNonRecurringRule.getBooking());
+    expectPurgeExpiredRulesAndRuleExclusions(42, existingBookingRules);
+
+    // ACT
+    // This should create a booking
+    List<Booking> bookings = ruleManager.applyRules(existingThursdayNonRecurringRule.getBooking()
+        .getDate());
+
+    // ASSERT
+    assertTrue("Unexpected bookings returned by applyRules",
+        bookings.get(0).equals(existingThursdayNonRecurringRule.getBooking())
+            && bookings.size() == 1);
+  }
+
+  @Test
   public void testApplyRulesCallsBookingManagerCorrectly_NonRecurringRuleDoesNotRecur()
       throws Exception {
     // A nonrecurring rule should apply for its date only and should not recur
@@ -1995,6 +2017,42 @@ public class RuleManagerTest {
     // ACT
     // This should create two bookings for the specified date
     ruleManager.applyRules(sameDayRule.getBooking().getDate());
+  }
+
+  @Test
+  public void testApplyRulesReturnsBookingsItHasMade_MultipleBookings() throws Exception {
+    // applyRules should return a list of the rule-based bookings it has made -
+    // so that, e.g., they can be backed up.
+
+    // ARRANGE
+    initialiseRuleManager();
+
+    List<BookingRule> existingRules = new ArrayList<>();
+    existingRules.addAll(existingBookingRules);
+    // Add second booking rule for the same day of the week as an existing one
+    BookingRule sameDayRule = new BookingRule(existingFridayRecurringRuleWithoutExclusions);
+    // Tweak so does not clash with existing rule
+    sameDayRule.getBooking().setCourt(
+        sameDayRule.getBooking().getCourt() + sameDayRule.getBooking().getCourtSpan());
+    sameDayRule.getBooking().setSlot(
+        sameDayRule.getBooking().getSlot() + sameDayRule.getBooking().getSlotSpan());
+    existingRules.add(sameDayRule);
+    expectOptimisticPersisterToReturnVersionedAttributes(2, existingRules);
+
+    expectBookingManagerCall(existingFridayRecurringRuleWithoutExclusions.getBooking());
+    expectBookingManagerCall(sameDayRule.getBooking());
+    expectPurgeExpiredRulesAndRuleExclusions(42, existingRules);
+
+    List<Booking> expectedBookings = new ArrayList<>();
+    expectedBookings.add(existingFridayRecurringRuleWithoutExclusions.getBooking());
+    expectedBookings.add(sameDayRule.getBooking());
+
+    // ACT
+    // This should create two bookings for the specified date
+    List<Booking> bookings = ruleManager.applyRules(sameDayRule.getBooking().getDate());
+
+    // ASSERT
+    assertTrue("Unexpected bookings returned by applyRules", bookings.equals(expectedBookings));
   }
 
   @Test

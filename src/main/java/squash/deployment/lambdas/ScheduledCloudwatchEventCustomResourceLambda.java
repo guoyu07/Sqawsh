@@ -173,7 +173,7 @@ public class ScheduledCloudwatchEventCustomResourceLambda implements
 
         ruleArns = new HashMap<>();
         ImmutablePair<String, String> ruleArn = setUpPreMidnightRuleAndTargets(preMidnightRuleName,
-            preMidnightapplyBookingRulesTargetId, applyBookingRulesLambdaArn,
+            preMidnightapplyBookingRulesTargetId, applyBookingRulesLambdaArn, apiGatewayBaseUrl,
             preMidnightDatabaseBackupTargetId, databaseBackupLambdaArn,
             amazonCloudWatchEventsClient, logger);
         ruleArns.put(ruleArn.left, ruleArn.right);
@@ -228,7 +228,7 @@ public class ScheduledCloudwatchEventCustomResourceLambda implements
         logger.log("Adding back updated rules and their targets");
         ruleArns = new HashMap<>();
         ImmutablePair<String, String> ruleArn = setUpPreMidnightRuleAndTargets(preMidnightRuleName,
-            preMidnightapplyBookingRulesTargetId, applyBookingRulesLambdaArn,
+            preMidnightapplyBookingRulesTargetId, applyBookingRulesLambdaArn, apiGatewayBaseUrl,
             preMidnightDatabaseBackupTargetId, databaseBackupLambdaArn,
             amazonCloudWatchEventsClient, logger);
         ruleArns.put(ruleArn.left, ruleArn.right);
@@ -331,7 +331,7 @@ public class ScheduledCloudwatchEventCustomResourceLambda implements
 
   ImmutablePair<String, String> setUpPreMidnightRuleAndTargets(String ruleName,
       String applyBookingRulesTargetId, String applyBookingRulesLambdaArn,
-      String databaseBackupTargetId, String databaseBackupLambdaArn,
+      String apiGatewayBaseUrl, String databaseBackupTargetId, String databaseBackupLambdaArn,
       AmazonCloudWatchEvents amazonCloudWatchEventsClient, LambdaLogger logger) {
 
     // Create pre-midnight rule with Cron expression
@@ -339,7 +339,8 @@ public class ScheduledCloudwatchEventCustomResourceLambda implements
     PutRuleRequest putRuleRequest = new PutRuleRequest();
     // Put just before midnight to allow rule-based bookings to be created
     // before anyone else has a chance to create bookings that might clash.
-    putRuleRequest.setScheduleExpression("cron(0 22 * * ? *)");
+    // This is 9pm UTC - i.e. 10pm BST.
+    putRuleRequest.setScheduleExpression("cron(0 21 * * ? *)");
     putRuleRequest.setName(ruleName);
     putRuleRequest.setState(RuleState.ENABLED);
     putRuleRequest
@@ -353,6 +354,7 @@ public class ScheduledCloudwatchEventCustomResourceLambda implements
     logger.log("Attaching applyBookingRules lambda to the pre-midnight rule");
     Target applyBookingRulesTarget = new Target();
     applyBookingRulesTarget.setArn(applyBookingRulesLambdaArn);
+    applyBookingRulesTarget.setInput("{\"apiGatewayBaseUrl\" : \"" + apiGatewayBaseUrl + "\"}");
     applyBookingRulesTarget.setId(applyBookingRulesTargetId);
     Collection<Target> midnightTargets = new ArrayList<>();
     midnightTargets.add(applyBookingRulesTarget);
@@ -378,9 +380,9 @@ public class ScheduledCloudwatchEventCustomResourceLambda implements
     logger.log("Creating post-midnight rule");
     PutRuleRequest putRuleRequest = new PutRuleRequest();
     // Put just after midnight to avoid any timing glitch i.e. somehow still
-    // thinking it's the previous day when it runs. Will this run at 1am in
-    // BST? (Not a massive problem if it does not update till 1am.)
-    putRuleRequest.setScheduleExpression("cron(1 0 * * ? *)");
+    // thinking it's the previous day when it runs. This is 10 minutes after
+    // midnight UTC - i.e. 1.10AM BST.
+    putRuleRequest.setScheduleExpression("cron(10 0 * * ? *)");
     putRuleRequest.setName(ruleName);
     putRuleRequest.setState(RuleState.ENABLED);
     putRuleRequest

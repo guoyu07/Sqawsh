@@ -387,12 +387,13 @@ public class RuleManager implements IRuleManager {
   }
 
   @Override
-  public void applyRules(String date) throws Exception {
+  public List<Booking> applyRules(String date) throws Exception {
 
     if (!initialised) {
       throw new IllegalStateException("The rule manager has not been initialised");
     }
 
+    List<Booking> ruleBookings = new ArrayList<>();
     try {
       // Apply rules only if date is not in the past.
       Boolean applyDateIsInPast = (new SimpleDateFormat("yyyy-MM-dd").parse(date))
@@ -426,6 +427,7 @@ public class RuleManager implements IRuleManager {
             Booking booking = rule.getBooking();
             booking.setDate(date);
             bookingManager.createBooking(booking);
+            ruleBookings.add(booking);
             // Short sleep to minimise chance of getting TooManyRequests error
             try {
               Thread.sleep(10);
@@ -454,6 +456,8 @@ public class RuleManager implements IRuleManager {
     logger.log("About to purge expired rules and exclusions.");
     purgeExpiredRulesAndRuleExclusions();
     logger.log("Purged expired rules and exclusions.");
+
+    return ruleBookings;
   }
 
   private DayOfWeek dayOfWeekFromDate(String date) throws ParseException {

@@ -22,4 +22,16 @@ package squash.booking.lambdas;
  * @author robinsteel19@outlook.com (Robin Steel)
  */
 public class ApplyBookingRulesLambdaRequest {
+  String apiGatewayBaseUrl;
+
+  public String getApiGatewayBaseUrl() {
+    return apiGatewayBaseUrl;
+  }
+
+  /**
+   *  Sets the base Url of our Apigateway Api.
+   */
+  public void setApiGatewayBaseUrl(String apiGatewayBaseUrl) {
+    this.apiGatewayBaseUrl = apiGatewayBaseUrl;
+  }
 }
