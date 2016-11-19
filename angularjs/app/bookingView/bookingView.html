@@ -13,184 +13,12 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.-->
 
-<style>
-  .booking-table {
-    width: 100%;
-    height: 100%;
-    table-layout: fixed;
-  }
-  
-  .date-button {
-    color: black;
-    background-color: white;
-    border-color: #FA787E;
-    border: 2px solid #dadada;
-    border-radius: 7px;
-    font-size: 80%;
-  }
-  
-  .time-header {
-    background-color: rgba(255, 0, 0, 1);
-    color: white;
-  }
-  
-  .lefttime-footer {
-    background-color: rgba(255, 0, 0, 1);
-    color: white;
-    border-style: solid;
-    border-top-width: 0px;
-    border-bottom-width: 0px;
-    border-left-width: 0px;
-    border-right-width: 20px;
-    border-color: red;
-  }
-  
-  .righttime-footer {
-    background-color: rgba(255, 0, 0, 1);
-    color: white;
-    border-style: solid;
-    border-top-width: 0px;
-    border-bottom-width: 0px;
-    border-left-width: 20px;
-    border-right-width: 0px;
-    border-color: red;
-  }
-  
-  .court-header {
-    background-color: rgba(255, 0, 0, 1);
-    color: white;
-    text-align: center;
-  }
-  
-  .court-footer {
-    background-color: #f5f5dc;
-    color: #f5f5dc;
-  }
-  
-  .wide-footer {
-    color: #f5f5dc;
-  }
-  
-  .lefttime-label {
-    text-align: center;
-    border-style: solid;
-    border-top-width: 0px;
-    border-bottom-width: 0px;
-    border-left-width: 0px;
-    border-right-width: 20px;
-    border-color: red;
-  }
-  
-  .righttime-label {
-    text-align: center;
-    border-style: solid;
-    border-top-width: 0px;
-    border-bottom-width: 0px;
-    border-left-width: 20px;
-    border-right-width: 0px;
-    border-color: red;
-  }
-  
-  .table-cell {
-    text-align: center;
-  }
-  
-  .block-booking-cell {
-    padding: 3px;
-    border: 2px solid;
-    border-color: white;
-    text-align: center;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    background-color: yellow;
-    color: black;
-  }
-  
-  .non-block-booking-cell {
-    background-color: white;
-  }
-  
-  .block-booking {
-    text-align: center;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    background-color: yellow;
-  }
-  
-  .cancellation-button {
-    width: 100%;
-    border: 2px solid;
-    border-radius: 7px;
-    margin: auto;
-    display: inline-block;
-    font-family: 'Comic Sans MS', cursive, sans-serif;
-    font-size: large;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    background-color: white;
-    color: #9ecaed;
-  }
-  
-  .reservation-button {
-    width: 100%;
-    border: 2px solid;
-    border-radius: 7px;
-    margin: auto;
-    display: inline-block;
-    font-family: 'Comic Sans MS', cursive, sans-serif;
-    font-size: large;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    background-color: #9ecaed;
-    color: white;
-  }
-  
-  .admin-button {
-    color: black;
-    background-color: white;
-    border-color: #FA787E;
-    border: 2px solid #dadada;
-    border-radius: 7px;
-    font-size: 80%;
-  }
-  
-  .admin-span {
-    float: right
-  }
-  
-  button[disabled=disabled],
-  button:disabled {
-    color: #c0c0c0;
-    background-color: #ffffff;
-  }
-  
-  .odd-row {
-    background-color: #f5f5dc;
-    color: black;
-  }
-  
-  .even-row {
-    background-color: rgba(255, 255, 255, 1);
-    color: black;
-  }
-  
-  body {
-    font-family: 'Comic Sans MS', cursive, sans-serif;
-  }
-  
-  .booking-view {
-    background-color: #f5f5dc;
-  }
-</style>
 <div class="booking-view" ng-show="!ctrl.loadFailure && ctrl.initialLoadSucceeded" ng-cloak>
-  <div align="center" class="dateSelector">
-    <button class="date-button" ng-click="ctrl.incrementOrDecrementDate(-1)" ng-disabled="ctrl.isEarliestDate()">Earlier</button>
+  <div class="booking-view-header">
+    <span class="date-panel">
+    <button class="date-button button-default" ng-click="ctrl.incrementOrDecrementDate(-1)" ng-disabled="ctrl.isEarliestDate()">Earlier</button>
     <select ng-options="date as (date | date:'fullDate') for date in ctrl.validDates" ng-model="ctrl.selectedDate" ng-change="ctrl.selectedDateChanged()"></select>
-    <button class="date-button" ng-click="ctrl.incrementOrDecrementDate(1)" ng-disabled="ctrl.isLatestDate()">Later</button><span class="admin-span"><Button ng-show="ctrl.showAdminUi()" ng-click="ctrl.manageBookingRules()" class="admin-button">Manage Booking Rules</Button><Button class="admin-button" ng-click="ctrl.loginOrOut()">{{ctrl.loginOrOutButtonText()}}</Button></span>
+    <button class="date-button button-default" ng-click="ctrl.incrementOrDecrementDate(1)" ng-disabled="ctrl.isLatestDate()">Later</button></span><span class="admin-span"><Button ng-show="ctrl.showAdminUi()" ng-click="ctrl.manageBookingRules()">Manage Booking Rules</Button><Button ng-click="ctrl.loginOrOut()">{{ctrl.loginOrOutButtonText()}}</Button></span>
   </div>
   <table class="booking-table">
     <thead>
@@ -203,7 +31,7 @@ limitations under the License.-->
     <tbody>
       <div>
         <tr ng-class-odd="'odd-row'" ng-class-even="'even-row'" ng-repeat="(timeSlotIndex, timeSlot) in ctrl.timeSlots">
-          <td class="lefttime-label">{{ctrl.timeSlots[$index] | date:'shortTime'}}</td>
+          <td class="time-label">{{ctrl.timeSlots[$index] | date:'shortTime'}}</td>
           <td ng-class="ctrl.cellClass(timeSlotIndex, courtNumber - 1)" ng-repeat="courtNumber in ctrl.courtNumbers | filter: ctrl.isNotBlockBookingInterior(timeSlotIndex)" rowspan="{{ctrl.rowSpan(timeSlotIndex, courtNumber - 1)}}" colspan="{{ctrl.colSpan(timeSlotIndex, courtNumber - 1)}}">
             <div ng-switch on="ctrl.isBlockBooking(timeSlotIndex, courtNumber - 1)">
               <div ng-switch-when="false">
@@ -221,20 +49,15 @@ limitations under the License.-->
               </div>
             </div>
           </td>
-          <td class="righttime-label">{{ctrl.timeSlots[timeSlotIndex] | date:'shortTime'}}</td>
+          <td class="time-label">{{ctrl.timeSlots[timeSlotIndex] | date:'shortTime'}}</td>
         </tr>
       </div>
     </tbody>
     <tfoot>
       <tr>
-        <td class="lefttime-footer" align="center"></td>
+        <td align="center"></td>
         <td ng-repeat="courtNumber in ctrl.courtNumbers" class="court-footer" align="center">Court {{courtNumber}}</td>
-        <td class="righttime-footer" align="center"></td>
-      </tr>
-      <tr ng-repeat="n in [1,2]">
-        <td></td>
-        <td class="wide-footer" ng-repeat="col in ctrl.courtNumbers" class="court-footer" align="center">dummy</td>
-        <td></td>
+        <td align="center"></td>
       </tr>
     </tfoot>
   </table>

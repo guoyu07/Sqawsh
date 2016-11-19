@@ -11,6 +11,7 @@
 ## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 ## See the License for the specific language governing permissions and
 ## limitations under the License.
+<!DOCTYPE html>
 <html>
 <head>
 <title>Court Bookings</title>
@@ -21,90 +22,26 @@
 <meta http-equiv="expires" content="0" />
 <meta http-equiv="expires" content="Tue, 01 Jan 1980 1:00:00 GMT" />
 <meta http-equiv="pragma" content="no-cache" />
-## This guid is used by the AATs to handle S3 eventual-consistency
-<div id="pageGuid" style="display: none;">$pageGuid</div>
-<style>
-.dateSelectorDiv{
-    background-color: rgb(0, 0, 0);
-}
-.bookingTable {
-    width: 100%;
-    height: 100%;
-    table-layout: fixed;
-}
-.timeHeader {
-    background-color: rgba(0, 255, 0, 0.0980392);
-}
-.courtHeader {
-    background-color: rgba(0, 0, 255, 0.0980392);
-}
-.timeLabel {
-    text-align: center;
-}
-.tableCell {
-    text-align: center;
-}
-.tableCellBlock {
-    text-align: center;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    background-color: yellow;
-}
-.cancellationButtonForm {
-    display: inline;
-}
-.cancellationButton {
-    width: 100%;
-    border: 2px solid;
-    border-radius: 20px;
-    margin: auto;
-    display: inline-block;
-    font-family: 'Comic Sans MS', cursive, sans-serif;
-    font-size: large;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    background-color: tomato;
-}
-.reservationButtonForm {
-    display: inline;
-}
-.reservationButton {
-    width: 100%;
-    border: 2px solid;
-    border-radius: 20px;
-    margin: auto;
-    display: inline-block;
-    font-family: 'Comic Sans MS', cursive, sans-serif;
-    font-size: large;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    background-color: chartreuse;
-}
-.oddRow {
-    background-color: rgba(0, 255, 0, 0.1);
-}
-.evenRow {
-    background-color: rgba(255, 200, 0, 0.5);
-}
-</style>
+<link rel="stylesheet" href="app/sqawshNoScript.min.css">
 </head>
 <body>
-<div align="center" class="dateSelectorDiv">
-  <form class="dateSelectorForm" autocomplete="off" action="$s3WebsiteUrl" method="GET">
-    <select name="selectedDate" class="dateDropdown" onchange='this.form.submit()'>
+## This guid is used by the AATs to handle S3 eventual-consistency
+<div id="pageGuid" style="display: none;">$pageGuid</div>
+<div class="booking-view">
+<div align="center" class="booking-view-header">
+  <form autocomplete="off" action="$s3WebsiteUrl" method="GET">
+    <select class="date-dropdown" name="selectedDate" onchange='this.form.submit()'>
     #foreach($date in $validDates)
       ## N.B. We add .html suffix here so S3 bucket routing rules can transform the query string
       #if($date == $pagesDate)
       #set($pagesDateLong = $validDatesLong.get($foreach.index))
-      <option class="dateOption" value="${date}.html" selected="selected">$pagesDateLong</option>
+      <option value="${date}.html" selected="selected">$pagesDateLong</option>
       #else
-      <option class="dateOption" value="${date}.html">$validDatesLong.get($foreach.index)</option>
+      <option value="${date}.html">$validDatesLong.get($foreach.index)</option>
       #end
     #end
-    <input type="submit" id="goButton" value="Go">
+    </select>
+    <input type="submit" id="goButton" class="button-default date-button" value="Go">
   </form>
 </div>
 
@@ -115,17 +52,17 @@
   ## This is a block booking
   #if(!$slotIsBlockInterior.get($foreach.index))
   ## For block bookings, add content only to the top-left cell of the block
-  <td class="tableCellBlock" rowspan="$slotRowSpan.get($foreach.index)" colspan="$slotColSpan.get($foreach.index)">
+  <td class="block-booking-cell" rowspan="$slotRowSpan.get($foreach.index)" colspan="$slotColSpan.get($foreach.index)">
     $name.get($foreach.index)
   </td>
   #end
   #else
   ## Not a block booking - so add reservation or cancellation buttons to the cell
-  <td class="tableCell">
+  <td class="non-block-booking-cell">
   #if($slotBookedState)
-    <form action=$cancellationFormGetUrl method="GET" class="cancellationButtonForm">
+    <form action=$cancellationFormGetUrl method="GET">
   #else
-    <form action=$reservationFormGetUrl method="GET" class="reservationButtonForm">
+    <form action=$reservationFormGetUrl method="GET">
   #end
       ## Include parameters here so we can set up the form correctly
       <input type=hidden name=court value="$court">
@@ -138,9 +75,9 @@
       <input type=hidden name=date value="$pagesDate">
       <input type=hidden name=dateLong value="$pagesDateLong">
   #if($slotBookedState)
-      <input type="submit" value="$name.get($foreach.index)" class="cancellationButton" data-court="$court" data-time_slot="$timeSlotIndex" type="cancellation">
+      <input type="submit" value="$name.get($foreach.index)" class="cancellation-button" data-court="$court" data-time_slot="$timeSlotIndex">
   #else
-      <input type="submit" value="Reserve" class="reservationButton" data-court="$court" data-time_slot="$timeSlotIndex" type="reservation">
+      <input type="submit" value="Reserve" class="reservation-button" data-court="$court" data-time_slot="$timeSlotIndex">
   #end
     </form>
   </td>
@@ -148,28 +85,28 @@
 #end
 #end
 
-<table id="bookingtable" class="bookingTable">
+<table class="booking-table">
   <thead>
     <tr>
-      <th class="timeHeader">Time</th>
+      <th class="time-header"></th>
       #foreach ($court in [1..$numCourts])
-      <th class="courtHeader">Court $court</th>
+      <th class="court-header">Court $court</th>
       #end
-      <th class="timeHeader">Time</th>
+      <th class="time-header"></th>
     </tr>
   </thead>
   <tbody>
     #foreach ($slot in $timeSlots)
 
     ## Style alternate rows differently
-    #if($foreach.index%2 == 1)
-    #set($rowClass="oddRow")
+    #if($foreach.index%2 == 0)
+    #set($rowClass="odd-row")
     #else
-    #set($rowClass="evenRow")
+    #set($rowClass="even-row")
     #end
 
     <tr class="$rowClass">
-      <td class="timeLabel">$slot</td>
+      <td class="time-label">$slot</td>
         ## For all courts for this time slot, add either buttons or a block booking
         #set($slotBookedStates = $bookedState.get($foreach.index))
         #set($slotIsBlockInterior = $isBlockInterior.get($foreach.index))
@@ -178,11 +115,20 @@
         #set($name = $names.get($foreach.index))
         #set($slotIndex = $foreach.index + 1)
         #tablerow($slotIndex $slotBookedStates $slotIsBlockInterior $slotRowSpan $slotColSpan $name)
-     <td class="timeLabel">$slot</td>
+     <td class="time-label">$slot</td>
     </tr>
     #end
   </tbody>
+  <tfoot>
+    <tr>
+      <td></td>
+      #foreach ($court in [1..$numCourts])
+      <td class="court-footer">Court $court</td>
+      #end
+      <td></td>
+    </tr>
+  </tfoot>
 </table>
-
+</div>
 </body>
 </html>

@@ -44,7 +44,7 @@ public class CourtReservationPage extends SquashBasePage<CourtReservationPage> {
   @FindBy(how = How.CSS, css = "input[name = 'password']")
   public WebElement passwordTextBox;
 
-  @FindBy(how = How.ID, id = "submitreservation")
+  @FindBy(how = How.CLASS_NAME, className = "button-submit")
   public WebElement submitReservationButton;
 
   @FindBy(how = How.CSS, css = "input:invalid")

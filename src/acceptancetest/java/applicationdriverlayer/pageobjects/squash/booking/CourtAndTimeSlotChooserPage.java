@@ -55,22 +55,22 @@ import java.util.stream.Collectors;
  */
 public class CourtAndTimeSlotChooserPage extends SquashBasePage<CourtAndTimeSlotChooserPage> {
 
-  @FindBy(how = How.CLASS_NAME, className = "courtHeader")
+  @FindBy(how = How.CLASS_NAME, className = "court-header")
   public List<WebElement> courtHeaders;
 
-  @FindBy(how = How.CLASS_NAME, className = "timeHeader")
+  @FindBy(how = How.CLASS_NAME, className = "time-header")
   public List<WebElement> timeSlotHeaders;
 
-  @FindBy(how = How.CLASS_NAME, className = "timeLabel")
+  @FindBy(how = How.CLASS_NAME, className = "time-label")
   public List<WebElement> timeSlotLabels;
 
-  @FindBy(how = How.CLASS_NAME, className = "reservationButton")
+  @FindBy(how = How.CLASS_NAME, className = "reservation-button")
   public List<WebElement> reservationButtons;
 
-  @FindBy(how = How.CLASS_NAME, className = "cancellationButton")
+  @FindBy(how = How.CLASS_NAME, className = "cancellation-button")
   public List<WebElement> cancellationButtons;
 
-  @FindBy(how = How.CLASS_NAME, className = "dateDropdown")
+  @FindBy(how = How.CLASS_NAME, className = "date-dropdown")
   public WebElement dateDropdown;
 
   @FindBy(how = How.ID, id = "goButton")
@@ -169,7 +169,7 @@ public class CourtAndTimeSlotChooserPage extends SquashBasePage<CourtAndTimeSlot
   @Override
   protected void waitForLoadToComplete() {
     new WebDriverWait(driver, explicitWaitTimeoutSeconds).until(ExpectedConditions
-        .visibilityOfAllElementsLocatedBy(By.className("bookingTable")));
+        .visibilityOfAllElementsLocatedBy(By.className("booking-table")));
     new WebDriverWait(driver, explicitWaitTimeoutSeconds).until(ExpectedConditions
         .visibilityOf(dateDropdown));
   }
@@ -177,7 +177,7 @@ public class CourtAndTimeSlotChooserPage extends SquashBasePage<CourtAndTimeSlot
   @Override
   protected void assertIsLoaded() {
     Assert.assertTrue("The CourtAndTimeSlotBooking page is not loaded (booking table not visible)",
-        driver.findElement(By.className("bookingTable")).isDisplayed());
+        driver.findElement(By.className("booking-table")).isDisplayed());
     Assert.assertTrue(
         "The CourtAndTimeSlotBooking page is not loaded (date selector dropdown not visible)",
         dateDropdown.isDisplayed());

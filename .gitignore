@@ -38,3 +38,6 @@ node_modules/
 bower_components/
 tmp
 .idea
+*.min.css
+*.lessmin.css
+*.css.map

@@ -4,6 +4,7 @@ Sqawsh
 **License:** [Apache 2.0](http://www.apache.org/licenses/LICENSE-2.0) (except where explicitly stated otherwise)
 
 [![Build Status](https://travis-ci.org/robinsteel/Sqawsh.svg?branch=master)](https://travis-ci.org/robinsteel/Sqawsh)
+[![Built with Grunt](https://cdn.gruntjs.com/builtwith.svg)](http://gruntjs.com/)
 
 Sqawsh is a toy project to test drive [AWS microservices](https://aws.amazon.com/blogs/compute/microservices-without-the-servers/) - implementing a basic serverless squash court booking service.
 

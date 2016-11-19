@@ -1,0 +1,98 @@
+@border-radius: 7px;
+@border-width: 2px;
+@border-line-style: solid;
+@margin: 5px;
+@form-background-colour: rgba(90, 200, 90, 0.1);
+@form-submit-button-text-colour: white;
+@form-submit-button-background-colour: #ace;
+@default-button-background-colour: rgb(246, 246, 246);
+@error-colour: tomato;
+@font-family: 'Comic Sans MS', cursive, sans-serif;
+
+body {
+  font-family: @font-family;
+}
+h2 {
+  font-family: @font-family;
+  margin-left: @margin;
+}
+h4 {
+  font-family: @font-family;
+  margin-left: @margin * 0.25;
+}
+h5 {
+  margin-top: @margin;
+  margin-bottom: @margin;
+}
+.border-radius(@border_radius) {
+  border-radius: @border_radius;
+}
+.border-default {
+  border: @border-width @border-line-style @form-submit-button-background-colour;
+  .border-radius(@border-radius);
+}
+form {
+  display: inline;
+}
+.form-container {
+  .border-default;
+  width: fit-content;
+  padding: 5px;
+  margin-left: @margin;
+  font-family: @font-family;
+  background-color: @form-background-colour;
+  label {
+    font-weight: unset;
+    display: block;
+    margin-bottom: 0;
+  }
+}
+form input {
+  &:extend(.border-default);
+  border-color: fade(@form-submit-button-background-colour, 35%);
+}
+form input:focus {
+  outline: none;
+  border-color: @form-submit-button-background-colour;
+  box-shadow: 0 0 10px @form-submit-button-background-colour;
+}
+.button-default {
+  .border-default;
+  border-color: @default-button-background-colour;
+  color: black;
+  background-color: @default-button-background-colour;
+  margin-top: @margin;
+  margin-left: @margin;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  display: block;
+  &:hover:enabled {
+    background-color: darken(@default-button-background-colour, 5%);
+  }
+  &:disabled {
+    color: darken(white, 20%);
+  }
+  font-family: @font-family;
+  outline: none;
+}
+.button-submit {
+  &:extend(.button-default);
+  border-color: @form-submit-button-background-colour;
+  background-color: @form-submit-button-background-colour;
+  color: @form-submit-button-text-colour;
+  margin-left: 0em;
+  &:hover:enabled {
+    background-color: darken(@form-submit-button-background-colour, 5%);
+  }
+}
+form.ng-submitted input.ng-invalid {
+  &:extend(.border-default);
+  border-color: @error-colour;
+}
+.error {
+  color: @error-colour;
+}
+.transform(@horiz, @vert) {
+  transform: translate(@horiz, @vert);
+}

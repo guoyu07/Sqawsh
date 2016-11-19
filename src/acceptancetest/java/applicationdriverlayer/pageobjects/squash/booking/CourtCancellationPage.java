@@ -40,7 +40,7 @@ public class CourtCancellationPage extends SquashBasePage<CourtCancellationPage>
   @FindBy(how = How.CSS, css = "input[name = 'password']")
   public WebElement passwordTextBox;
 
-  @FindBy(how = How.ID, id = "cancelreservation")
+  @FindBy(how = How.CLASS_NAME, className = "button-submit")
   public WebElement submitCancellationButton;
 
   public CourtCancellationPage(SharedDriver driver) {

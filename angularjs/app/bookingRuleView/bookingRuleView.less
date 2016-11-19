@@ -1,0 +1,76 @@
+@import "../shared.less";
+.panel-group {
+  width: fit-content;
+  margin: @margin;
+}
+.panel-default {
+  .border-default;
+  font-family: @font-family;
+  background-color: @form-background-colour;
+}
+.panel-default>.panel-heading {
+  background-color: @form-background-colour;
+  border: 0;
+  margin: 0;
+  padding-left: 0;
+}
+.panel-body {
+  background-color: white;
+  border: 0;
+}
+.booking-rule-details {
+  .border-default;
+  background-color: @form-background-colour;
+  padding: @margin;
+}
+label {
+  display: block;
+}
+.checkboxLabel {
+  display: inline;
+}
+.rule-save-button {
+  &:extend(.button-submit);
+  display: inline-block;
+}
+.add-rule-cancel-button {
+  float: right;
+}
+.delete-rule-button {
+  float: right;
+  margin-top: @margin;
+}
+#add-rule-button {
+  margin: @margin;
+}
+#add-exclusion-date-button {
+  margin-left: 1px;
+  .border-radius(3px);
+}
+.remove-exclusion-date-button {
+  margin-left: @margin * 0.5;
+  margin-bottom: @margin;
+}
+.change-rule-start-date-button {
+  margin-top: 0;
+  margin-left: 0;
+  margin-bottom: 0;
+  margin-right: @margin;
+}
+.datepicker-popup {
+  width: 0;
+  padding: 0;
+  display: none;
+}
+.input-group {
+  width: 1px;
+}
+.input-group-btn {
+  display: block;
+}
+uib-accordion select {
+  margin-bottom: @margin;
+}
+fieldset {
+  margin-top: @margin;
+}

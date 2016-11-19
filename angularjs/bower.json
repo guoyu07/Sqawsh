@@ -12,6 +12,7 @@
     "angular-sanitize": "~1.5.0",
     "angular-loader": "~1.5.0",
     "angular-mocks": "~1.5.0",
+    "bootstrap": "^3.3.7",
     "html5-boilerplate": "~5.2.0",
     "moment": "~2.14.1",
     "angular-bootstrap": "^2.1.4"

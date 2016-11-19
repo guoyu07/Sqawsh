@@ -13,170 +13,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.-->
 
-<style>
-  #booking-rules {
-    width: fit-content;
-    font-family: 'Comic Sans MS', cursive, sans-serif;
-  }
-  
-  #booking-rules .panel-group,
-  #booking-rules .panel-group > .panel {
-    margin-bottom: 0.5em;
-  }
-  
-  .panel-default {
-    border-color: #0F0;
-    border: 4px solid #0F0;
-    border-radius: 170px;
-  }
-  
-  .booking-rule-details {
-    border-color: #dadada;
-    border: 2px solid #dadada;
-    border-width: 2px;
-    border-radius: 7px;
-    width: fit-content;
-    padding: 5px;
-    font-family: 'Comic Sans MS', cursive, sans-serif;
-    background-color: rgba(100, 100, 100, 0.1);
-  }
-  
-  .add-rule-button {
-    font-family: 'Comic Sans MS', cursive, sans-serif;
-    margin-left: 5px;
-    margin-bottom: 5px;
-  }
-  
-  .exclusion-date {
-    margin-bottom: 3px;
-    font-family: 'Comic Sans MS', cursive, sans-serif;
-  }
-  
-  #add-exclusion {
-    margin-left: 1px;
-    border-radius: 4px;
-  }
-  
-  .return-to-bookings {
-    background-color: Transparent;
-    color: Black;
-    margin-top: 10px;
-    border-color: #FA787E;
-    border: 2px solid #dadada;
-    border-radius: 7px;
-    display: block;
-  }
-  
-  #datepicker-popup {
-    width: 0;
-    padding: 0;
-    display: none;
-  }
-  
-  .input-group {
-    width: 1px;
-  }
-  
-  .input-group-btn {
-    display: block;
-  }
-  
-  .delete-rule {
-    float: right;
-    margin-top: 0.5em;
-  }
-  
-  .booking-rule-form input {
-    border-color: #FA787E;
-    border: 2px solid #dadada;
-    border-radius: 7px;
-  }
-  
-  .booking-rule-form {
-    border-color: #dadada;
-    border: 2px solid #dadada;
-    border-width: 2px;
-    border-radius: 7px;
-    width: fit-content;
-    padding: 5px;
-    font-family: 'Comic Sans MS', cursive, sans-serif;
-    background-color: rgba(100, 100, 100, 0.1);
-  }
-  
-  h3,
-  button {
-    font-family: 'Comic Sans MS', cursive, sans-serif;
-  }
-  
-  .booking-rule-form label {
-    font-family: 'Comic Sans MS', cursive, sans-serif;
-    font-weight: normal;
-  }
-  
-  .booking-rule-form input {
-    font-family: 'Comic Sans MS', cursive, sans-serif;
-    background-color: White;
-    margin-right: 0.1em;
-  }
-  
-  #rule-date {
-    border-color: #FA787E;
-    border: 2px solid #dadada;
-    border-radius: 7px;
-  }
-  
-  #rulename,
-  #date-div,
-  #recurs-div,
-  .courtSpanSelector {
-    margin-bottom: 0.5em;
-  }
-  
-  .booking-rule-form label {
-    display: block;
-  }
-  
-  #checkboxLabel {
-    display: inline;
-  }
-  
-  .booking-rule-form button[type=submit],
-  #saverule,
-  #cancel,
-  #change-rule-start-date {
-    background-color: #9ecaed;
-    color: White;
-    margin-top: 5px;
-    font-family: 'Comic Sans MS', cursive, sans-serif;
-    border-color: #FA787E;
-    border: 2px solid #dadada;
-    border-radius: 7px;
-  }
-  
-  #change-rule-start-date {
-    margin-top: 0px;
-    margin-right: 0.2em;
-  }
-  
-  #cancel {
-    float: right;
-  }
-  
-  #court-span-dropdown,
-  #timeslot-span-dropdown {
-    margin-bottom: 0.5em;
-  }
-  
-  #rule-accordion-group {
-    width: fit-content;
-  }
-  
-  #remove-button {
-    margin-left: 0.2em;
-  }
-</style>
 <div ng-show="!ctrl.loadFailure && ctrl.initialLoadSucceeded" ng-cloak>
-  <h3>Booking Rules</h3>
+  <h2>Booking Rules</h2>
   <uib-accordion close-others=true id="booking-rules">
     <div uib-accordion-group id="rule-accordion-group" class="panel-default" ng-repeat="(ruleIndex, bookingRule) in ctrl.bookingRules | orderBy:'booking.name'">
       <uib-accordion-heading>
@@ -194,7 +32,7 @@ limitations under the License.-->
         <h5>Apply rule except on:</h5>
         <div ng-repeat="(exclusionIndex, dateToExclude) in bookingRule.datesToExclude | orderBy: '+'">
           <div class="exclusion-date">{{dateToExclude | date:'fullDate'}}
-            <Button id="remove-button" class="btn btn-xs btn-danger" ng-click="ctrl.removeExclusion(ctrl.ruleIndex(bookingRule), dateToExclude)">Remove</Button>
+            <Button class="btn btn-xs btn-danger remove-exclusion-date-button" ng-click="ctrl.removeExclusion(ctrl.ruleIndex(bookingRule), dateToExclude)">Remove</Button>
           </div>
           <span class="error" ng-show="ctrl.bookingRuleExclusionDeletionFailed && ctrl.latentClashExists">
             Failed to remove excluded date - doing so would cause the remaining rules to clash.
@@ -207,11 +45,13 @@ limitations under the License.-->
           </span>
         </div>
         <p class="input-group">
-          <input type="text" id="datepicker-popup" class="form-control" ng-model="ctrl.datesOfAddExclusionDatepickers[ctrl.ruleIndex(bookingRule)]" uib-datepicker-popup ng-change="ctrl.onExclusionDateSelected(ctrl.ruleIndex(bookingRule))" is-open="ctrl.addExclusionDatepickerPopupsOpened[ctrl.ruleIndex(bookingRule)]"
+          <div class="datepicker-container">
+          <input type="text" class="datepicker-popup" ng-model="ctrl.datesOfAddExclusionDatepickers[ctrl.ruleIndex(bookingRule)]" uib-datepicker-popup ng-change="ctrl.onExclusionDateSelected(ctrl.ruleIndex(bookingRule))" is-open="ctrl.addExclusionDatepickerPopupsOpened[ctrl.ruleIndex(bookingRule)]"
             datepicker-options="ctrl.addExclusionDateOptions[ctrl.ruleIndex(bookingRule)]" show-button-bar="false" close-text="Close" />
           <span class="input-group-btn">
-            <button type="button" id="add-exclusion" class="btn btn-success btn-xs" ng-click="ctrl.openAddExclusionDatepickerPopup(ctrl.ruleIndex(bookingRule))">Add date to exclude <i class="glyphicon glyphicon-calendar"></i></button>
+            <button type="button" id="add-exclusion-date-button" class="btn btn-success btn-xs" ng-click="ctrl.openAddExclusionDatepickerPopup(ctrl.ruleIndex(bookingRule))">Add date to exclude <i class="glyphicon glyphicon-calendar"></i></button>
           </span>
+          </div>
           <div>
             <span class="error" ng-show="ctrl.bookingRuleExclusionAdditionFailed && ctrl.tooManyExclusions">
               Failed to add new excluded date - maximum number of exclusions (30) already present.
@@ -225,7 +65,7 @@ limitations under the License.-->
           </div>
         </p>
       </div>
-      <button class="btn btn-danger delete-rule" ng-click="ctrl.deleteRule(ctrl.ruleIndex(bookingRule))">Delete Rule</button>
+      <button class="btn btn-danger delete-rule-button" ng-click="ctrl.deleteRule(ctrl.ruleIndex(bookingRule))">Delete Rule</button>
       <div>
         <span class="error" ng-show="ctrl.bookingRuleDeletionFailed && ctrl.unauthenticatedBookingRulesError">
           You must login to manage booking rules.
@@ -236,9 +76,9 @@ limitations under the License.-->
       </div>
     </div>
   </uib-accordion>
-  <div><button type="button" class="btn btn-success btn-sm" ng-click="ctrl.showAddRuleForm()" ng-show="!ctrl.addRuleFormVisible">Add Rule...</button></div>
+  <div><button type="button" id="add-rule-button" class="btn btn-success btn-sm" ng-click="ctrl.showAddRuleForm()" ng-show="!ctrl.addRuleFormVisible">Add Rule...</button></div>
   <form novalidate class="booking-rule-form" ng-submit="ctrl.addNewRule(bookingRuleForm)" name="bookingRuleForm" ng-show="ctrl.addRuleFormVisible">
-    <div class="form-box">
+    <div class="form-container">
       <label for="rulename">Rule name:</label>
       <input type="text" name="ruleName" id="rulename" ng-model="ctrl.newRuleName" name="rulename" pattern="^[a-zA-Z0-9 ]+$" ng-maxlength=30 placeholder="e.g. Club Night" autocapitalize="off" autocorrect="off" required>
       <span class="error" ng-show="bookingRuleForm.ruleName.$error.required && bookingRuleForm.$submitted">
@@ -247,16 +87,19 @@ limitations under the License.-->
       <span class="error" ng-show="bookingRuleForm.ruleName.$error.maxlength && bookingRuleForm.$submitted">
         Rule name too long - 30 characters max
       </span>
+      <fieldset>
       <label for="datepicker-popup">First date to apply rule:</label>
-      <input type="text" name="ruleDate" id="datepicker-popup" class="form-control" ng-model="ctrl.newRuleDate" uib-datepicker-popup is-open="ctrl.newRuleDatepickerPopupOpened" datepicker-options="ctrl.newRuleDatepickerOptions" show-button-bar="false" required>
-      <div id="date-div"><button type="button" id="change-rule-start-date" class="btn btn-success btn-xs" ng-click="ctrl.openNewRuleDatepickerPopup()">Change <i class="glyphicon glyphicon-calendar"></i></button><span id="rule-date">{{ctrl.newRuleDate | date:'fullDate'}}</span></div>
+      <input type="text" name="ruleDate" id="datepicker-popup" class="datepicker-popup" ng-model="ctrl.newRuleDate" uib-datepicker-popup is-open="ctrl.newRuleDatepickerPopupOpened" datepicker-options="ctrl.newRuleDatepickerOptions" show-button-bar="false" required>
+      <div id="date-div"><button type="button" class="btn btn-success btn-xs change-rule-start-date-button" ng-click="ctrl.openNewRuleDatepickerPopup()">Change <i class="glyphicon glyphicon-calendar"></i></button><span id="rule-date">{{ctrl.newRuleDate | date:'fullDate'}}</span></div>
       <span class="error" ng-show="bookingRuleForm.ruleDate.$error.required && bookingRuleForm.$submitted">
         Required
       </span>
       <div id="recurs-div">
         <input type="checkbox" name="ruleIsRecurring" id="ruleRecurs" ng-model="ctrl.newRuleIsRecurring">
-        <label id="checkboxLabel" for="ruleRecurs">Apply rule each week</label>
+        <label class="checkboxLabel" for="ruleRecurs">Apply rule each week</label>
       </div>
+      </fieldset>
+      <fieldset>
       <div class="courtSelector">
         <label for="court-dropdown">First court to book:</label>
         <select name="court" id="court-dropdown" ng-options="court for court in ctrl.courtNumbers" ng-model="ctrl.newRuleCourt" ng-change="ctrl.updateAllowedCourtSpans()"></select>
@@ -265,6 +108,8 @@ limitations under the License.-->
         <label for="court-span-dropdown">Number of courts to book:</label>
         <select name="courtSpan" id="court-span-dropdown" ng-options="courtSpan for courtSpan in ctrl.courtSpans" ng-model="ctrl.newRuleCourtSpan"></select>
       </div>
+      </fieldset>
+      <fieldset>
       <div class="timeSelector">
         <label for="timeslot-dropdown">First time slot to book:</label>
         <select name="timeSlot" id="timeslot-dropdown" ng-options="timeSlot as (timeSlot  | date:'shortTime') for timeSlot in ctrl.timeSlots" ng-model="ctrl.newRuleTimeSlot" ng-change="ctrl.updateAllowedTimeSlotSpans()"></select>
@@ -273,8 +118,9 @@ limitations under the License.-->
         <label for="timeslot-span-dropdown">Number of time slots to book:</label>
         <select name="timeSlotSpan" id="timeslot-span-dropdown" ng-options="timeSlotSpan as timeSlotSpan for timeSlotSpan in ctrl.timeSlotSpans" ng-model="ctrl.newRuleTimeSlotSpan"></select>
       </div>
+      </fieldset>
+      <button type="submit" class="rule-save-button">Save rule</button><button type="button" class="button-default add-rule-cancel-button" ng-click="ctrl.hideAddRuleForm()">Cancel</button>
     </div>
-    <button type="submit" id="saverule">Save rule</button><button type="button" id="cancel" ng-click="ctrl.hideAddRuleForm()">Cancel</button>
   </form>
   <span class="error" ng-show="ctrl.bookingRuleCreationFailed && ctrl.tooManyRules">
     Failed to add new rule - maximum number of rules (100) already present.
@@ -289,7 +135,7 @@ limitations under the License.-->
     Apologies - something has gone wrong whilst adding the new rule.
   </span>
   <p>
-    <button type="button" class="return-to-bookings" ng-click="ctrl.returnToBookings()">Return to bookings table</button>
+    <button type="button" class="button-default" ng-click="ctrl.returnToBookings()">Return to bookings table</button>
   </p>
 </div>
 <div ng-show="ctrl.loadFailure">

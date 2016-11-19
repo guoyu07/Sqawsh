@@ -42,6 +42,12 @@ angular.module('squashApp.reservationView', ['ngRoute', 'squashApp.bookingsServi
       $location.url('/bookings')
     }
 
+    self.namesLength = function () {
+      // Used to ensure players' names input box is big enough to show all of placeholder text
+      var placeholder = 'e.g. ' + self.famousPlayer1 + '/' + self.famousPlayer2
+      return placeholder.length
+    }
+
     self.submitReservation = function (form) {
       if (form.$invalid) {
         return
