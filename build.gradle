@@ -2,7 +2,7 @@
 buildscript {
     repositories {
         mavenCentral()
-        maven { url "https://plugins.gradle.org/m2/" } // For grunt plugin
+        maven { url "https://plugins.gradle.org/m2/" } // For grunt and node plugins
     }
     dependencies {
         classpath "io.spring.gradle:dependency-management-plugin:0.5.4.RELEASE",
@@ -44,6 +44,19 @@ grunt {
     // Whether output from Grunt should be buffered - useful when running tasks in parallel
     bufferOutput = false
 }
+
+node {
+    // Version of node to use.
+    version = '6.9.1'
+    workDir = file('angularjs')
+    nodeModulesDir = file('angularjs')
+}
+
+// makes sure on each build that grunt is installed
+build.dependsOn 'installGrunt'
+
+// processes package.json before running build
+build.dependsOn 'npmInstall'
 
 configurations {
     acceptancetestCompile.extendsFrom testCompile
