@@ -20,6 +20,7 @@ import squash.deployment.lambdas.utils.ExceptionUtils;
 import squash.deployment.lambdas.utils.IS3TransferManager;
 import squash.deployment.lambdas.utils.S3TransferManager;
 import squash.deployment.lambdas.utils.TransferUtils;
+import squash.deployment.lambdas.utils.ZipUtils;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.velocity.Template;
@@ -461,10 +462,12 @@ public class PageManager implements IPageManager {
     try {
       logger.log("Uploading booking page to S3 bucket: " + websiteBucketName
           + "s3websitebucketname" + " and key: " + pageBaseName + uidSuffix + ".html");
-      byte[] pageAsBytes = page.getBytes(StandardCharsets.UTF_8);
-      ByteArrayInputStream pageAsStream = new ByteArrayInputStream(pageAsBytes);
+      byte[] pageAsGzippedBytes = ZipUtils.gzip(page.getBytes(StandardCharsets.UTF_8), logger);
+
+      ByteArrayInputStream pageAsStream = new ByteArrayInputStream(pageAsGzippedBytes);
       ObjectMetadata metadata = new ObjectMetadata();
-      metadata.setContentLength(pageAsBytes.length);
+      metadata.setContentLength(pageAsGzippedBytes.length);
+      metadata.setContentEncoding("gzip");
       metadata.setContentType("text/html");
       // Direct caches not to satisfy future requests with this data without
       // revalidation.
@@ -491,7 +494,7 @@ public class PageManager implements IPageManager {
           + uidSuffix + ".html", websiteBucketName, pageBaseName + ".html");
       copyObjectRequest.setCannedAccessControlList(CannedAccessControlList.PublicRead);
       // N.B. Copied object will get same metadata as the source (e.g. the
-      // cache-control header)
+      // cache-control header etc.)
       TransferUtils.waitForS3Transfer(transferManager.copy(copyObjectRequest), logger);
       logger.log("Copied booking page successfully in S3");
     } catch (AmazonServiceException ase) {

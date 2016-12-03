@@ -20,11 +20,11 @@
 
 angular.module('squashApp.identityService', [])
   .factory('IdentityService', ['$q', function ($q) {
-    var comSquashRegion = 'stringtobereplaced' // will be replaced at stack creation time
-    var comSquashIdentityPoolId = 'stringtobereplaced' // will be replaced at stack creation time
-    var comSquashUserPoolId = 'stringtobereplaced' // will be replaced at stack creation time
-    var comSquashUserPoolIdentityProviderName = 'stringtobereplaced' // will be replaced at stack creation time
-    var comSquashClientAppId = 'stringtobereplaced' // will be replaced at stack creation time
+    var comSquashRegion = 'identityregiontobereplaced' // will be replaced at stack creation time
+    var comSquashIdentityPoolId = 'identitypoolidtobereplaced' // will be replaced at stack creation time
+    var comSquashUserPoolId = 'identityuserpoolidtobereplaced' // will be replaced at stack creation time
+    var comSquashUserPoolIdentityProviderName = 'identityprovidernametobereplaced' // will be replaced at stack creation time
+    var comSquashClientAppId = 'identityappidtobereplaced' // will be replaced at stack creation time
     var isAuthenticated = false
     AWS.config.region = comSquashRegion // Region
     AWSCognito.config.region = comSquashRegion // Region

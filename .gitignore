@@ -41,3 +41,4 @@ tmp
 *.min.css
 *.lessmin.css
 *.css.map
+angularjs/dist*

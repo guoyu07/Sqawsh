@@ -20,8 +20,10 @@ import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
+import com.amazonaws.services.s3.model.CopyObjectRequest;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
+import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.transfer.Transfer;
 import com.amazonaws.services.s3.transfer.TransferManager;
@@ -103,5 +105,54 @@ public class TransferUtils {
       listObjectsRequest.setMarker(objectListing.getNextMarker());
     } while (objectListing.isTruncated());
     logger.log("Finished setting public read permissions");
+  }
+
+  /**
+   * Adds gzip content-encoding metadata to S3 objects.
+   * 
+   * <p>Adds gzip content-encoding metadata to S3 objects. All objects
+   *    beneath the specified prefix (i.e. folder) will have the
+   *    metadata added. When the bucket serves objects it will then
+   *    add a suitable Content-Encoding header.
+   *
+   *    @param bucketName the bucket to apply the metadata to.
+   *    @param prefix prefix within the bucket, beneath which to apply the metadata.
+   *    @param logger a CloudwatchLogs logger.
+   */
+
+  public static void addGzipContentEncodingMetadata(String bucketName, Optional<String> prefix,
+      LambdaLogger logger) {
+
+    // To add new metadata, we must copy each object to itself.
+    ListObjectsRequest listObjectsRequest;
+    if (prefix.isPresent()) {
+      logger.log("Setting gzip content encoding metadata on bucket: " + bucketName
+          + " and prefix: " + prefix.get());
+      listObjectsRequest = new ListObjectsRequest().withBucketName(bucketName).withPrefix(
+          prefix.get());
+    } else {
+      logger.log("Setting gzip content encoding metadata on bucket: " + bucketName);
+      listObjectsRequest = new ListObjectsRequest().withBucketName(bucketName);
+    }
+
+    ObjectListing objectListing;
+    AmazonS3 client = new TransferManager().getAmazonS3Client();
+    do {
+      objectListing = client.listObjects(listObjectsRequest);
+      for (S3ObjectSummary objectSummary : objectListing.getObjectSummaries()) {
+        String key = objectSummary.getKey();
+        logger.log("Setting metadata for S3 object: " + key);
+        // We must specify ALL metadata - not just the one we're adding.
+        ObjectMetadata objectMetadata = client.getObjectMetadata(bucketName, key);
+        objectMetadata.setContentEncoding("gzip");
+        CopyObjectRequest copyObjectRequest = new CopyObjectRequest(bucketName, key, bucketName,
+            key).withNewObjectMetadata(objectMetadata).withCannedAccessControlList(
+            CannedAccessControlList.PublicRead);
+        client.copyObject(copyObjectRequest);
+        logger.log("Set metadata for S3 object: " + key);
+      }
+      listObjectsRequest.setMarker(objectListing.getNextMarker());
+    } while (objectListing.isTruncated());
+    logger.log("Set gzip content encoding metadata on bucket");
   }
 }

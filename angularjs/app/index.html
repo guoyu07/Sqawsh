@@ -45,8 +45,7 @@ limitations under the License.-->
   <title>Court Bookings</title>
   <meta name="description" content="">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="sqawsh.min.css">
-  <script src="bower_components/html5-boilerplate/dist/js/vendor/modernizr-2.8.3.min.js"></script>
+  <link type="text/css" rel="stylesheet" href="sqawsh.min.css">
 </head>
 
 <body>
@@ -55,11 +54,10 @@ limitations under the License.-->
   <![endif]-->
 
   <div ng-view></div>
-
-  <!-- In production use:
-  <script src="//ajax.googleapis.com/ajax/libs/angularjs/x.x.x/angular.min.js"></script>
-  -->
-  <script type="text/javascript" src="https://sdk.amazonaws.com/js/aws-sdk-2.5.0.min.js"></script>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/modernizr/2.8.3/modernizr.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/aws-sdk/2.7.10/aws-sdk.min.js"></script>
+  
   <script type="text/javascript" src="../lib/axios/dist/axios.standalone.js"></script>
   <script type="text/javascript" src="../lib/CryptoJS/rollups/hmac-sha256.js"></script>
   <script type="text/javascript" src="../lib/CryptoJS/rollups/sha256.js"></script>
@@ -71,28 +69,20 @@ limitations under the License.-->
   <script type="text/javascript" src="../lib/apiGatewayCore/simpleHttpClient.js"></script>
   <script type="text/javascript" src="../lib/apiGatewayCore/utils.js"></script>
   <script type="text/javascript" src="../apigClient.js"></script>
-
   <script type="text/javascript" src="components/identity/cognito/jsbn.js"></script>
   <script type="text/javascript" src="components/identity/cognito/jsbn2.js"></script>
   <script type="text/javascript" src="components/identity/cognito/sjcl.js"></script>
   <script type="text/javascript" src="components/identity/cognito/aws-cognito-sdk.min.js"></script>
   <script type="text/javascript" src="components/identity/cognito/amazon-cognito-identity.min.js"></script>
 
-  <script src="bower_components/angular/angular.js"></script>
-  <script src="bower_components/angular-route/angular-route.js"></script>
-  <script src="bower_components/angular-animate/angular-animate.js"></script>
-  <script src="bower_components/angular-sanitize/angular-sanitize.js"></script>
-  <script src="bower_components/angular-bootstrap/ui-bootstrap-tpls.js"></script>
-  <script src="bower_components/moment/moment.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.0/angular.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.0/angular-route.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.0/angular-sanitize.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.0/angular-animate.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/angular-ui-bootstrap/2.3.0/ui-bootstrap-tpls.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.17.1/moment.min.js"></script>
 
-  <script src="app.js"></script>
-  <script src="loginView/loginView.js"></script>
-  <script src="bookingView/bookingView.js"></script>
-  <script src="bookingRuleView/bookingRuleView.js"></script>
-  <script src="reservationView/reservationView.js"></script>
-  <script src="cancellationView/cancellationView.js"></script>
-  <script src="components/identity/identityService.js"></script>
-  <script src="components/bookings/bookingsService.js"></script>
+  <script type="text/javascript" src="sqawsh.min.js"></script>
 </body>
 
 </html>

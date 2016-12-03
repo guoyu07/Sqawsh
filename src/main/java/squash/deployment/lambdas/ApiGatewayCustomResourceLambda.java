@@ -23,6 +23,7 @@ import squash.deployment.lambdas.utils.IS3TransferManager;
 import squash.deployment.lambdas.utils.LambdaInputLogger;
 import squash.deployment.lambdas.utils.S3TransferManager;
 import squash.deployment.lambdas.utils.TransferUtils;
+import squash.deployment.lambdas.utils.ZipUtils;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.velocity.Template;
@@ -80,6 +81,8 @@ import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
 import java.security.InvalidParameterException;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
@@ -505,12 +508,23 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       } finally {
         zipFile.close();
       }
+      logger.log("SDK unzipped.");
+
+      // GZIP all the sdk files individually
+      logger.log("Gzip-ing sdk files to enable serving gzip-ed from S3");
+      ZipUtils.gzip(Arrays.asList(new File("/tmp/extractedSdk")), Collections.emptyList(), logger);
+      logger.log("Gzip-ed sdk files to enable serving gzip-ed from S3");
 
       // Upload the sdk from the temporary filesystem to S3.
       logger.log("Uploading unzipped Javascript SDK to S3 bucket: " + squashWebsiteBucket);
       TransferUtils.waitForS3Transfer(new TransferManager().uploadDirectory(squashWebsiteBucket,
           "", new File("/tmp/extractedSdk/apiGateway-js-sdk"), true), logger);
       logger.log("Uploaded sdk successfully to S3");
+
+      // Add gzip content-encoding metadata to zip-ed files
+      logger.log("Updating metadata on Javascript SDK in S3 bucket");
+      TransferUtils.addGzipContentEncodingMetadata(squashWebsiteBucket, Optional.empty(), logger);
+      logger.log("Updated metadata on Javascript SDK in S3 bucket");
 
       logger.log("Setting public read permission on uploaded sdk");
       TransferUtils.setPublicReadPermissionsOnBucket(squashWebsiteBucket, Optional.empty(), logger);

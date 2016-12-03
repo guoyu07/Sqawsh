@@ -17,7 +17,7 @@
 <head>
 <title>Court Cancellation Form</title>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-<link rel="stylesheet" href="https://s3-${region}.amazonaws.com/${squashWebsiteBucket}/app/sqawshNoScript.min.css">
+<link type="text/css" rel="stylesheet" href="https://s3-${region}.amazonaws.com/${squashWebsiteBucket}/app/sqawshNoScript.min.css">
 </head>
 <body>
 <h2>You are cancelling the $util.urlDecode($input.params('name')) booking of court $input.params('court') for $util.urlDecode($input.params('slotLong')) on $util.urlDecode($input.params('dateLong'))</h2>

@@ -35,7 +35,7 @@ sourceSets {
 }
 
 grunt {
-    // Set the directory where Gruntfile.js should be found
+    // Folder containing gruntfile.js
     workDir = file("${project.projectDir}/angularjs")
 
     // Whether colors should output on the terminal
@@ -48,8 +48,12 @@ grunt {
 node {
     // Version of node to use.
     version = '6.9.1'
-    workDir = file('angularjs')
-    nodeModulesDir = file('angularjs')
+    
+    // Folder containing package.json
+    workDir = file("${project.projectDir}/angularjs")
+    
+    // Folder containing node_modules folder
+    nodeModulesDir = file("${project.projectDir}/angularjs")
 }
 
 // makes sure on each build that grunt is installed
@@ -150,31 +154,39 @@ task zipAllLambdas(dependsOn: tasks.matching { Task task -> task.name.startsWith
 zipAllLambdas.dependsOn(classes)
 build.dependsOn(zipAllLambdas)
 
-// Zip of everything beneath the angularjs/app folder to upload to AWS.
+// Zip of our minimised css and js to upload to AWS.
 // During stack creation, this will be unzipped into the S3 website bucket.
 task zipAngularjsApp(type: Zip) {
     baseName 'AngularjsApp'
     into('app') {
+        from('angularjs/dist/') {
+            include 'sqawsh.min.js'
+            include 'sqawsh.min.css'
+            include 'sqawshNoScript.min.css'
+        }
         from('angularjs/app/') {
-            // Include everything...
-            include '**'
-            // ...except mocks, tests, packages, less, and non-minimised css
-            exclude '**/*mock*'
-            exclude '**/*test*'
-            exclude '**/node_modules/**'
-            exclude '**/*.less'
-            exclude '**/*.lessmin.css'
-            exclude {
-              // Exclude all non-minimised css
-              details -> details.file.name.endsWith('.css') && !details.file.name.endsWith('.min.css')
-            }
+            include '**/*.html'
+            // Currently use Bower only for dev
+            exclude 'bower_components/**/*.*'
         }
     }
     outputs.upToDateWhen { false }
 }
+
+// Minimise our css and js before zipping the app:
+// Run the grunt tasks to produce the minimised css
 grunt_postcss.dependsOn(grunt_less)
 zipAngularjsApp.dependsOn(grunt_postcss)
+// Run the grunt tasks to produce the minimised js
+grunt_babel.dependsOn(grunt_concat)
+grunt_uglify.dependsOn(grunt_babel)
+zipAngularjsApp.dependsOn(grunt_uglify)
 build.dependsOn(zipAngularjsApp)
+
+// Clean up after grunt when the clean task is run
+clean.doFirst {
+    delete "${rootDir}/angularjs/dist/"
+}
 
 // N.B. This task will work only if the AWS CLI tools are installed
 // Pass it an S3 bucketname and a zip revision number and it will upload

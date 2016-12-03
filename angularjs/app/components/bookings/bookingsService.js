@@ -32,9 +32,9 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
     }
 
     // Initialize the Amazon Cognito credentials provider for calling AWS ApiGateway
-    var comSquashRegion = 'stringtobereplaced' // will be replaced at stack creation time
-    var comSquashApiGatewayBaseUrl = 'stringtobereplaced' // will be replaced at stack creation time
-    var comSquashWebsiteBucket = 'stringtobereplaced' // will be replaced at stack creation time
+    var comSquashRegion = 'bookingregiontobereplaced' // will be replaced at stack creation time
+    var comSquashApiGatewayBaseUrl = 'bookingurltobereplaced' // will be replaced at stack creation time
+    var comSquashWebsiteBucket = 'bookingbuckettobereplaced' // will be replaced at stack creation time
     AWS.config.region = comSquashRegion // Region
 
     // Workaround for occasional 504 timeouts from API Gateway bc 10-second timeout.

@@ -1,6 +1,7 @@
 module.exports = function (grunt) {
   grunt.initConfig({
     pkg: grunt.file.readJSON('package.json'),
+    // JS processing pipeline
     jshint: {
       files: ['Gruntfile.js', 'src/**/*.js', 'test/**/*.js'],
       options: {
@@ -18,8 +19,20 @@ module.exports = function (grunt) {
         separator: ';'
       },
       dist: {
-        src: ['src/**/*.js'],
-        dest: 'dist/<%= pkg.name %>.js'
+        files: {
+            'dist/<%= pkg.name %>.js': ['app/**/*.js', 'node_modules/babel-polyfill/dist/polyfill.js', '!**/*_test.js', '!app/bower_components/**/*.js', '!app/**/*mock*.js']
+        }
+      }
+    },
+    babel: {
+      options: {
+        sourceMap: true,
+        presets: ['es2015']
+      },
+      dist: {
+        files: {
+          'dist/<%= pkg.name %>.babel.js': 'dist/<%= pkg.name %>.js'
+        }
       }
     },
     uglify: {
@@ -28,10 +41,11 @@ module.exports = function (grunt) {
       },
       dist: {
         files: {
-          'dist/<%= pkg.name %>.min.js': ['<%= concat.dist.dest %>']
+            'dist/<%= pkg.name %>.min.js': 'dist/<%= pkg.name %>.babel.js'
         }
       }
     },
+    // CSS processing pipeline
     // Still use less - but use postcss for css minification.
     less: {
       angular: {
@@ -42,7 +56,7 @@ module.exports = function (grunt) {
           relativeUrls: true
         },
         files: {
-          'app/sqawsh.lessmin.css': 'app/sqawsh.less' // destination file and source file
+          'dist/sqawsh.lessmin.css': 'app/sqawsh.less' // destination file and source file
         }
       },
       // Have separate css for no-script app - so it can ditch bootstrap.
@@ -54,7 +68,7 @@ module.exports = function (grunt) {
           relativeUrls: true
         },
         files: {
-          'app/sqawshNoScript.lessmin.css': 'app/sqawshNoScript.less' // destination file and source file
+          'dist/sqawshNoScript.lessmin.css': 'app/sqawshNoScript.less' // destination file and source file
         }
       }
     },
@@ -78,7 +92,7 @@ module.exports = function (grunt) {
           failOnError: true
         },
         files: {
-          'app/sqawsh.min.css': 'app/sqawsh.lessmin.css' // destination file and source file
+          'dist/sqawsh.min.css': 'dist/sqawsh.lessmin.css' // destination file and source file
         }
       },
       noscript: {
@@ -100,7 +114,7 @@ module.exports = function (grunt) {
           failOnError: true
         },
         files: {
-          'app/sqawshNoScript.min.css': 'app/sqawshNoScript.lessmin.css' // destination file and source file
+          'dist/sqawshNoScript.min.css': 'dist/sqawshNoScript.lessmin.css' // destination file and source file
         }
       }
     }
@@ -109,6 +123,7 @@ module.exports = function (grunt) {
   // Load the plugins.
   grunt.loadNpmTasks('grunt-contrib-jshint')
   grunt.loadNpmTasks('grunt-contrib-concat')
+  grunt.loadNpmTasks('grunt-babel')
   grunt.loadNpmTasks('grunt-contrib-uglify')
   grunt.loadNpmTasks('grunt-contrib-less')
   grunt.loadNpmTasks('grunt-postcss')

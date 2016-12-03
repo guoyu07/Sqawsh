@@ -22,6 +22,7 @@ import squash.deployment.lambdas.utils.IS3TransferManager;
 import squash.deployment.lambdas.utils.LambdaInputLogger;
 import squash.deployment.lambdas.utils.S3TransferManager;
 import squash.deployment.lambdas.utils.TransferUtils;
+import squash.deployment.lambdas.utils.ZipUtils;
 
 import net.lingala.zip4j.core.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
@@ -50,6 +51,8 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -61,7 +64,10 @@ import java.util.Optional;
  * The Angularjs app needs to be unzipped and deployed to the website. Since
  * some constants that it uses are not known until the stack is created, this
  * resource modifies these constants to substitute the correct values, and then
- * deploys the unzipped, modified app to the website.
+ * deploys the unzipped, modified app to the website. After the whole app is
+ * unzipped, all js included via script tags, css, and html files are
+ * individually zipped prior to upload to the website. This is bc S3 does
+ * not automatically serve gzip-ed content, so we need to do the zip-ing.
  * 
  * @author robinsteel19@outlook.com (Robin Steel)
  */
@@ -185,8 +191,8 @@ public class AngularjsAppCustomResourceLambda implements
               logger);
           logger.log("Downloaded Angularjs zip successfully from S3");
 
-          // Modify the BookingsService file to point to the correct
-          // Cognito data, ApiGateway base url, and region.
+          // Modify the Bookings and Identity Service files to point to the
+          // correct Cognito data, ApiGateway base url, and region.
           logger.log("Extracting Angularjs zip");
           String extractPath = "/tmp";
           try {
@@ -200,55 +206,44 @@ public class AngularjsAppCustomResourceLambda implements
           logger.log("Extracted Angularjs zip");
 
           logger
-              .log("Modifying the BookingsService file to point to the correct ApiGatewayBaseUrl, and region");
-          String bookingsServiceContent;
-          String bookingsServicePath = extractPath + "/app/components/bookings/bookingsService.js";
-          try (FileInputStream inputStream = new FileInputStream(bookingsServicePath)) {
-            bookingsServiceContent = IOUtils.toString(inputStream);
+              .log("Modifying the Bookings and Identity Services to point to the correct ApiGatewayBaseUrl, Cognito data, and region");
+          String fileContent;
+          String filePath = extractPath + "/app/sqawsh.min.js";
+          try (FileInputStream inputStream = new FileInputStream(filePath)) {
+            fileContent = IOUtils.toString(inputStream);
           }
-          bookingsServiceContent = bookingsServiceContent
-              .replace("var comSquashRegion = 'stringtobereplaced'",
-                  "var comSquashRegion = '" + region + "'")
-              .replace("var comSquashApiGatewayBaseUrl = 'stringtobereplaced'",
-                  "var comSquashApiGatewayBaseUrl = '" + apiGatewayBaseUrl + "'")
-              .replace("var comSquashWebsiteBucket = 'stringtobereplaced'",
-                  "var comSquashWebsiteBucket = '" + websiteBucket + "'");
-          FileUtils.writeStringToFile(new File(bookingsServicePath), bookingsServiceContent);
-          logger
-              .log("Modified the BookingsService file to point to the correct ApiGatewayBaseUrl, and region");
+          fileContent = fileContent.replace("bookingregiontobereplaced", region)
+              .replace("bookingurltobereplaced", apiGatewayBaseUrl)
+              .replace("bookingbuckettobereplaced", websiteBucket)
+              .replace("identityregiontobereplaced", region)
+              .replace("identitypoolidtobereplaced", cognitoIdentityPoolId)
+              .replace("identityuserpoolidtobereplaced", cognitoUserPoolId)
+              .replace("identityprovidernametobereplaced", cognitoUserPoolIdentityProviderName)
+              .replace("identityappidtobereplaced", javascriptClientAppId);
 
+          FileUtils.writeStringToFile(new File(filePath), fileContent);
           logger
-              .log("Modifying the IdentityService file to point to the correct Cognito data, and region");
-          String identityServiceContent;
-          String identityServicePath = extractPath + "/app/components/identity/identityService.js";
-          try (FileInputStream inputStream = new FileInputStream(identityServicePath)) {
-            identityServiceContent = IOUtils.toString(inputStream);
-          }
-          identityServiceContent = identityServiceContent
-              .replace("var comSquashRegion = 'stringtobereplaced'",
-                  "var comSquashRegion = '" + region + "'")
-              .replace("var comSquashIdentityPoolId = 'stringtobereplaced'",
-                  "var comSquashIdentityPoolId = '" + cognitoIdentityPoolId + "'")
-              .replace("var comSquashUserPoolId = 'stringtobereplaced'",
-                  "var comSquashUserPoolId = '" + cognitoUserPoolId + "'")
-              .replace(
-                  "var comSquashUserPoolIdentityProviderName = 'stringtobereplaced'",
-                  "var comSquashUserPoolIdentityProviderName = '"
-                      + cognitoUserPoolIdentityProviderName + "'")
-              .replace("var comSquashClientAppId = 'stringtobereplaced'",
-                  "var comSquashClientAppId = '" + javascriptClientAppId + "'");
-          FileUtils.writeStringToFile(new File(identityServicePath), identityServiceContent);
-          logger
-              .log("Modified the IdentityService file to point to the correct Cognito identity pool, and region");
+              .log("Modified the Bookings and Identity Services to point to the correct ApiGatewayBaseUrl, Cognito data, and region");
+
+          // GZIP all js, css, and html files within app folder
+          logger.log("GZip-ing files in app folder to enable serving gzip-ed from S3");
+          ZipUtils.gzip(Arrays.asList(new File("/tmp/app")), Collections.emptyList(), logger);
+          logger.log("GZip-ed files in app folder to enable serving gzip-ed from S3");
 
           // Upload the modified app to the S3 website bucket
           logger.log("Uploading modified Angularjs app to S3 website bucket");
-          // Will produce <S3BucketRoot>/app/app.js etc
+          // Will produce <S3BucketRoot>/app/sqawsh.min.js etc
           TransferUtils.waitForS3Transfer(transferManager.uploadDirectory(websiteBucket, "app",
               new File(extractPath + "/app"), true), logger);
           logger.log("Uploaded modified Angularjs app to S3 website bucket");
 
-          // Upload Cognito SDKs and their dependencies.
+          // Add gzip content-encoding metadata to zip-ed files
+          logger.log("Updating metadata on modified Angularjs app in S3 bucket");
+          TransferUtils.addGzipContentEncodingMetadata(websiteBucket, Optional.of("app"), logger);
+          logger.log("Updated metadata on modified Angularjs app in S3 bucket");
+
+          // Upload Cognito SDKs and their dependencies - these should all be
+          // zipped first.
           logger.log("About to upload Cognito libraries");
           List<ImmutableTriple<String, String, byte[]>> cognitoLibraries = new ArrayList<>();
           cognitoLibraries
@@ -289,13 +284,16 @@ public class AngularjsAppCustomResourceLambda implements
           for (ImmutableTriple<String, String, byte[]> cognitoLibrary : cognitoLibraries) {
             logger.log("Uploading a Cognito library to S3 website bucket. Library name: "
                 + cognitoLibrary.left);
-            ByteArrayInputStream libraryAsStream = new ByteArrayInputStream(cognitoLibrary.right);
+
+            byte[] zippedLibrary = ZipUtils.gzip(cognitoLibrary.right, logger);
+            ByteArrayInputStream libraryAsGzippedStream = new ByteArrayInputStream(zippedLibrary);
             ObjectMetadata metadata = new ObjectMetadata();
-            metadata.setContentLength(cognitoLibrary.right.length);
+            metadata.setContentLength(zippedLibrary.length);
+            metadata.setContentEncoding("gzip");
             String keyName = "app/components/identity/cognito/" + cognitoLibrary.middle;
             logger.log("Uploading to key: " + keyName);
             PutObjectRequest putObjectRequest = new PutObjectRequest(websiteBucket, keyName,
-                libraryAsStream, metadata);
+                libraryAsGzippedStream, metadata);
             TransferUtils.waitForS3Transfer(transferManager.upload(putObjectRequest), logger);
             logger.log("Uploaded a Cognito library to S3 website bucket: " + cognitoLibrary.left);
           }
