@@ -469,7 +469,8 @@ public class CognitoCustomResourceLambda implements RequestHandler<Map<String, O
       AmazonCognitoIdentity client, LambdaLogger logger) {
     // First update the roles to use the actual pool id in their conditions
     logger
-        .log("Updating authenticated and unauthenticated roles to use the actual identity pool id");
+        .log("Updating authenticated and unauthenticated roles to use the actual identity pool id: "
+            + identityPoolId);
     AmazonIdentityManagement iamClient = new AmazonIdentityManagementClient();
     UpdateAssumeRolePolicyRequest updateAssumeRolePolicyRequest = new UpdateAssumeRolePolicyRequest();
     updateAssumeRolePolicyRequest.setRoleName(unauthenticatedRoleName);

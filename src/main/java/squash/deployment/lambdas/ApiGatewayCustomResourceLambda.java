@@ -19,11 +19,11 @@ package squash.deployment.lambdas;
 import squash.booking.lambdas.GetBookingsLambda;
 import squash.deployment.lambdas.utils.CloudFormationResponder;
 import squash.deployment.lambdas.utils.ExceptionUtils;
+import squash.deployment.lambdas.utils.FileUtils;
 import squash.deployment.lambdas.utils.IS3TransferManager;
 import squash.deployment.lambdas.utils.LambdaInputLogger;
 import squash.deployment.lambdas.utils.S3TransferManager;
 import squash.deployment.lambdas.utils.TransferUtils;
-import squash.deployment.lambdas.utils.ZipUtils;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.velocity.Template;
@@ -380,6 +380,8 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     logger.log("Creating API methods");
     Map<String, String> extraParameters = new HashMap<>();
 
+    String revvingSuffix = System.getenv("RevvingSuffix");
+
     // Methods on the validdates resource
     logger.log("Creating methods on validdates resource");
     extraParameters.put("ValidDatesGETLambdaURI", validDatesGETLambdaURI);
@@ -389,47 +391,47 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     extraParameters.put("BookingRulesPUTDELETELambdaURI", bookingRuleOrExclusionPUTDELETELambdaURI);
     extraParameters.put("BookingsApiGatewayInvocationRole", bookingsApiGatewayInvocationRole);
     createMethodOnResource("ValidDatesGET", validDates, restApiId, extraParameters,
-        apiGatewayClient, region, logger);
+        apiGatewayClient, revvingSuffix, region, logger);
     createMethodOnResource("ValidDatesOPTIONS", validDates, restApiId, extraParameters,
-        apiGatewayClient, region, logger);
+        apiGatewayClient, revvingSuffix, region, logger);
 
     // Methods on the bookings resource
     logger.log("Creating methods on bookings resource");
     createMethodOnResource("BookingsGET", bookings, restApiId, extraParameters, apiGatewayClient,
-        region, logger);
+        revvingSuffix, region, logger);
     createMethodOnResource("BookingsDELETE", bookings, restApiId, extraParameters,
-        apiGatewayClient, region, logger);
+        apiGatewayClient, revvingSuffix, region, logger);
     createMethodOnResource("BookingsPUT", bookings, restApiId, extraParameters, apiGatewayClient,
-        region, logger);
+        revvingSuffix, region, logger);
     createMethodOnResource("BookingsPOST", bookings, restApiId, extraParameters, apiGatewayClient,
-        region, logger);
+        revvingSuffix, region, logger);
     createMethodOnResource("BookingsOPTIONS", bookings, restApiId, extraParameters,
-        apiGatewayClient, region, logger);
+        apiGatewayClient, revvingSuffix, region, logger);
 
     // Methods on the bookingrules resource
     logger.log("Creating methods on bookingrules resource");
     createMethodOnResource("BookingrulesGET", bookingRules, restApiId, extraParameters,
-        apiGatewayClient, region, logger);
+        apiGatewayClient, revvingSuffix, region, logger);
     createMethodOnResource("BookingrulesDELETE", bookingRules, restApiId, extraParameters,
-        apiGatewayClient, region, logger);
+        apiGatewayClient, revvingSuffix, region, logger);
     createMethodOnResource("BookingrulesPUT", bookingRules, restApiId, extraParameters,
-        apiGatewayClient, region, logger);
+        apiGatewayClient, revvingSuffix, region, logger);
     createMethodOnResource("BookingrulesOPTIONS", bookingRules, restApiId, extraParameters,
-        apiGatewayClient, region, logger);
+        apiGatewayClient, revvingSuffix, region, logger);
 
     // Methods on the reservationform resource
     logger.log("Creating methods on reservationform resource");
     createMethodOnResource("ReservationformGET", reservationForm, restApiId, extraParameters,
-        apiGatewayClient, region, logger);
+        apiGatewayClient, revvingSuffix, region, logger);
     createMethodOnResource("ReservationformOPTIONS", reservationForm, restApiId, extraParameters,
-        apiGatewayClient, region, logger);
+        apiGatewayClient, revvingSuffix, region, logger);
 
     // Methods on the cancellationform resource
     logger.log("Creating methods on cancellationform resource");
     createMethodOnResource("CancellationformGET", cancellationForm, restApiId, extraParameters,
-        apiGatewayClient, region, logger);
+        apiGatewayClient, revvingSuffix, region, logger);
     createMethodOnResource("CancellationformOPTIONS", cancellationForm, restApiId, extraParameters,
-        apiGatewayClient, region, logger);
+        apiGatewayClient, revvingSuffix, region, logger);
 
     // Deploy the api to a stage (with default throttling settings)
     logger.log("Deploying API to stage: " + stageName);
@@ -512,19 +514,30 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
 
       // GZIP all the sdk files individually
       logger.log("Gzip-ing sdk files to enable serving gzip-ed from S3");
-      ZipUtils.gzip(Arrays.asList(new File("/tmp/extractedSdk")), Collections.emptyList(), logger);
+      FileUtils.gzip(Arrays.asList(new File(outputFolder)), Collections.emptyList(), logger);
       logger.log("Gzip-ed sdk files to enable serving gzip-ed from S3");
+
+      // Rev the files by appending revving-suffix to names - for cache-ing
+      File sdkFolder = new File("/tmp/extractedSdk/apiGateway-js-sdk");
+      FileUtils.appendRevvingSuffix(revvingSuffix, sdkFolder.toPath(), logger);
 
       // Upload the sdk from the temporary filesystem to S3.
       logger.log("Uploading unzipped Javascript SDK to S3 bucket: " + squashWebsiteBucket);
-      TransferUtils.waitForS3Transfer(new TransferManager().uploadDirectory(squashWebsiteBucket,
-          "", new File("/tmp/extractedSdk/apiGateway-js-sdk"), true), logger);
+      TransferUtils.waitForS3Transfer(
+          new TransferManager().uploadDirectory(squashWebsiteBucket, "", sdkFolder, true), logger);
       logger.log("Uploaded sdk successfully to S3");
 
       // Add gzip content-encoding metadata to zip-ed files
-      logger.log("Updating metadata on Javascript SDK in S3 bucket");
+      logger.log("Updating gzip metadata on Javascript SDK in S3 bucket");
       TransferUtils.addGzipContentEncodingMetadata(squashWebsiteBucket, Optional.empty(), logger);
-      logger.log("Updated metadata on Javascript SDK in S3 bucket");
+      logger.log("Updated gzip metadata on Javascript SDK in S3 bucket");
+
+      // Add cache-control metadata to zip-ed files. js files will have
+      // 1-year cache validity, since they are rev-ved.
+      logger.log("Updating cache-control metadata on Javascript SDK in S3 bucket");
+      TransferUtils.addCacheControlHeader("max-age=31536000", squashWebsiteBucket,
+          Optional.empty(), ".js", logger);
+      logger.log("Updated cache-control metadata on Javascript SDK in S3 bucket");
 
       logger.log("Setting public read permission on uploaded sdk");
       TransferUtils.setPublicReadPermissionsOnBucket(squashWebsiteBucket, Optional.empty(), logger);
@@ -615,8 +628,8 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
   }
 
   PutMethodResult createMethodOnResource(String methodName, String resourceId, String restApiId,
-      Map<String, String> extraParameters, AmazonApiGateway client, String region,
-      LambdaLogger logger) throws IOException {
+      Map<String, String> extraParameters, AmazonApiGateway client, String revvingSuffix,
+      String region, LambdaLogger logger) throws IOException {
     logger.log("Creating method: " + methodName + " on resource with id: " + resourceId);
     // Short sleep - this avoids the Too Many Requests error in this
     // custom resource when creating the cloudformation stack.
@@ -666,8 +679,11 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
         Boolean.valueOf("true"));
 
     methodResponseParameters.put("method.response.header.content-type", Boolean.valueOf("true"));
-    // Add header to prevent caching of booking pages
-    methodResponseParameters.put("method.response.header.cache-control", Boolean.valueOf("true"));
+    if (!methodName.equals("OPTIONS")) {
+      // Add header to prevent caching of booking pages, except for OPTIONS -
+      // which is not cached.
+      methodResponseParameters.put("method.response.header.cache-control", Boolean.valueOf("true"));
+    }
     // Variables for integration input
     PutIntegrationRequest putIntegrationRequest = new PutIntegrationRequest();
     putIntegrationRequest.setRestApiId(restApiId);
@@ -719,6 +735,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
         .put("method.response.header.access-control-allow-headers",
             "'content-type,x-amz-date,authorization,accept,x-amz-security-token,location,cache-control'");
     responseParameters.put("method.response.header.access-control-allow-origin", "'*'");
+    // This will reduce preflight calls...
     responseParameters.put("method.response.header.access-control-max-age", "'86400'");
 
     responseParameters.put("method.response.header.content-type", "'text/html; charset=utf-8'");
@@ -726,8 +743,6 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     // Add no-cache header except to options methods
     if (!methodName.contains("OPTIONS")) {
       responseParameters.put("method.response.header.cache-control", "'no-cache, must-revalidate'");
-    } else {
-      responseParameters.put("method.response.header.cache-control", "'public, max-age=86400'");
     }
 
     // Response templates follow pattern like:
@@ -1099,7 +1114,8 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       putIntegrationRequest.setHttpMethod("GET");
 
       requestTemplates.put("application/json", "{\"statusCode\": 200}");
-      response200Templates.put("text/html", getReservationformResponseTemplate(region, logger));
+      response200Templates.put("text/html",
+          getReservationformResponseTemplate(revvingSuffix, region, logger));
       responseParameters
           .put("method.response.header.access-control-allow-methods", "'GET,OPTIONS'");
     } else if (methodName.equals("ReservationformOPTIONS")) {
@@ -1128,7 +1144,8 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       putIntegrationRequest.setType(IntegrationType.MOCK);
       putIntegrationRequest.setHttpMethod("GET");
       requestTemplates.put("application/json", "{\"statusCode\": 200}");
-      response200Templates.put("text/html", getCancellationformResponseTemplate(region, logger));
+      response200Templates.put("text/html",
+          getCancellationformResponseTemplate(revvingSuffix, region, logger));
       responseParameters
           .put("method.response.header.access-control-allow-methods", "'GET,OPTIONS'");
     } else if (methodName.equals("CancellationformOPTIONS")) {
@@ -1207,7 +1224,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     return mappingTemplate;
   }
 
-  String getReservationformResponseTemplate(String region, LambdaLogger logger) {
+  String getReservationformResponseTemplate(String revvingSuffix, String region, LambdaLogger logger) {
     // This template constructs the reservation form using the URLs and the
     // request query parameters.
 
@@ -1225,6 +1242,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     VelocityContext context = new VelocityContext();
     context.put("squashWebsiteBucket", squashWebsiteBucket);
     context.put("region", region);
+    context.put("revvingSuffix", revvingSuffix);
 
     // Render the template
     StringWriter writer = new StringWriter();
@@ -1235,7 +1253,8 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     return writer.toString();
   }
 
-  String getCancellationformResponseTemplate(String region, LambdaLogger logger) {
+  String getCancellationformResponseTemplate(String revvingSuffix, String region,
+      LambdaLogger logger) {
     // This template constructs the cancellation form using the URLs and the
     // request query parameters.
 
@@ -1253,6 +1272,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     VelocityContext context = new VelocityContext();
     context.put("squashWebsiteBucket", squashWebsiteBucket);
     context.put("region", region);
+    context.put("revvingSuffix", revvingSuffix);
 
     // Render the template
     StringWriter writer = new StringWriter();

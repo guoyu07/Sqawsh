@@ -126,7 +126,7 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
         return getS3Client()
           .then(function (client) {
             // Query AWS for the currently valid dates for viewing/mutating bookings
-            return client.getObject({Bucket: comSquashWebsiteBucket, Key: 'validdates.json'}).promise()
+            return client.getObject({Bucket: comSquashWebsiteBucket, Key: 'NoScript/validdates.json'}).promise()
           })
           .then(function (response) {
             // Array of valid dates in YYYY-MM-DD format
@@ -159,7 +159,7 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
         // Return the bookings for the specified date
         return getS3Client()
           .then(function (client) {
-            return client.getObject({Bucket: comSquashWebsiteBucket, Key: builder.getSelectedDate() + '.json'}).promise()
+            return client.getObject({Bucket: comSquashWebsiteBucket, Key: 'NoScript/' + builder.getSelectedDate() + '.json'}).promise()
           })
           .then(function (response) {
             builder.setBookings(JSON.parse(response.Body.toString()).bookings)

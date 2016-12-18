@@ -87,6 +87,8 @@ public class PageManagerTest {
   Booking booking;
   List<Booking> bookings;
 
+  String revvingSuffix;
+
   @Rule
   public ExpectedException thrown = ExpectedException.none();
 
@@ -136,6 +138,8 @@ public class PageManagerTest {
     booking = new Booking(court, courtSpan, slot, slotSpan, name);
     bookings = new ArrayList<>();
     bookings.add(booking);
+
+    revvingSuffix = "revvingSuffix";
 
     apiGatewayBaseUrl = "apiGatewayBaseUrl";
     adminSnsTopicArn = "adminSnsTopicArn";
@@ -221,7 +225,8 @@ public class PageManagerTest {
 
     // ACT
     // Do not initialise the page manager first - so we should throw
-    pageManager.refreshPage(fakeCurrentDateString, validDates, apiGatewayBaseUrl, true, bookings);
+    pageManager.refreshPage(fakeCurrentDateString, validDates, apiGatewayBaseUrl, true, bookings,
+        revvingSuffix);
   }
 
   @Test
@@ -274,7 +279,8 @@ public class PageManagerTest {
     pageManager.setS3TransferManager(mockTransferManager);
 
     // ACT
-    pageManager.refreshPage(fakeCurrentDateString, validDates, apiGatewayBaseUrl, true, bookings);
+    pageManager.refreshPage(fakeCurrentDateString, validDates, apiGatewayBaseUrl, true, bookings,
+        revvingSuffix);
   }
 
   @Test
@@ -313,7 +319,8 @@ public class PageManagerTest {
     pageManager.setS3TransferManager(mockTransferManager);
 
     // ACT
-    pageManager.refreshPage(fakeCurrentDateString, validDates, apiGatewayBaseUrl, false, bookings);
+    pageManager.refreshPage(fakeCurrentDateString, validDates, apiGatewayBaseUrl, false, bookings,
+        revvingSuffix);
   }
 
   @Test
@@ -347,7 +354,8 @@ public class PageManagerTest {
     pageManager.setS3TransferManager(mockTransferManager);
 
     // ACT - this should throw
-    pageManager.refreshPage(fakeCurrentDateString, validDates, apiGatewayBaseUrl, false, bookings);
+    pageManager.refreshPage(fakeCurrentDateString, validDates, apiGatewayBaseUrl, false, bookings,
+        revvingSuffix);
   }
 
   @Test
@@ -397,7 +405,7 @@ public class PageManagerTest {
     pageManager.setS3TransferManager(mockTransferManager);
 
     // ACT
-    pageManager.refreshAllPages(validDates, apiGatewayBaseUrl);
+    pageManager.refreshAllPages(validDates, apiGatewayBaseUrl, revvingSuffix);
   }
 
   @Test
@@ -409,7 +417,7 @@ public class PageManagerTest {
 
     // ACT
     // Do not initialise the page manager first - so we should throw
-    pageManager.refreshAllPages(validDates, apiGatewayBaseUrl);
+    pageManager.refreshAllPages(validDates, apiGatewayBaseUrl, revvingSuffix);
   }
 
   @Test
@@ -450,7 +458,7 @@ public class PageManagerTest {
     pageManager.setSNSClient(mockSNSClient);
 
     // ACT - this should throw
-    pageManager.refreshAllPages(validDates, apiGatewayBaseUrl);
+    pageManager.refreshAllPages(validDates, apiGatewayBaseUrl, revvingSuffix);
   }
 
   @Test
@@ -501,7 +509,7 @@ public class PageManagerTest {
     pageManager.setSNSClient(mockSNSClient);
 
     // ACT - this should throw - and notify the SNS topic
-    pageManager.refreshAllPages(validDates, apiGatewayBaseUrl);
+    pageManager.refreshAllPages(validDates, apiGatewayBaseUrl, revvingSuffix);
   }
 
   @Test
@@ -606,7 +614,8 @@ public class PageManagerTest {
 
     // ACT
     String actualBookingPage = pageManager.createBookingPage(fakeCurrentDateString, validDates,
-        reservationFormGetUrl, cancellationFormGetUrl, s3WebsiteUrl, bookingsForPage, "DummyGuid");
+        reservationFormGetUrl, cancellationFormGetUrl, s3WebsiteUrl, bookingsForPage, "DummyGuid",
+        revvingSuffix);
 
     // ASSERT
     boolean pageIsCorrect = actualBookingPage.equals(expectedBookingPage);

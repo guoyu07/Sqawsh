@@ -156,13 +156,16 @@ public class ApplyBookingRulesLambda {
       logger.log("Throwing because request has null ApiGatewayBaseUrl");
       throw new Exception("ApiGatewayBaseUrl should not be null");
     }
+    String revvingSuffix = System.getenv("RevvingSuffix");
+    logger.log("Using revvingSuffix: " + revvingSuffix);
+
     List<String> advancedValidDates = getValidDates()
         .stream()
         .map(
             d -> LocalDate.parse(d, DateTimeFormatter.ofPattern("yyyy-MM-dd")).plusDays(1)
                 .format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))).collect(Collectors.toList());
     pageManager.refreshPage(newDay, advancedValidDates, apiGatewayBaseUrl, true, bookingManager
-        .get().getBookings(newDay));
+        .get().getBookings(newDay), revvingSuffix);
     logger.log("Created new booking page in S3 with new rule-based booking(s)");
 
     return new ApplyBookingRulesLambdaResponse();

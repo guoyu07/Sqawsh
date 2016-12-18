@@ -67,8 +67,8 @@ configurations {
     acceptancetestRuntime.extendsFrom testRuntime
 }
 
-ext.cucumberVersion = '1.2.5'
-ext.seleniumVersion = '2.9.0'
+ext.cucumberVersion = '1.2.4'
+ext.seleniumVersion = '2.48.2'
 ext.hamcrestVersion = '1.3'
 ext.junitVersion = '4.12'
 ext.jmockVersion = '2.8.0'
@@ -99,7 +99,8 @@ dependencies {
                           'org.apache.velocity:velocity:1.7',
                           'org.apache.commons:commons-lang3:3.2'
 
-    testCompile           "junit:junit:$junitVersion",
+    testCompile           'com.github.stefanbirkner:system-rules:1.16.0',
+                          "junit:junit:$junitVersion",
                           "org.hamcrest:hamcrest-core:${hamcrestVersion}",
                           "org.hamcrest:hamcrest-library:${hamcrestVersion}",
                           "org.jmock:jmock:${jmockVersion}",

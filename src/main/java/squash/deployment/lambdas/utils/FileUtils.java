@@ -16,6 +16,8 @@
 
 package squash.deployment.lambdas.utils;
 
+import org.apache.commons.io.FilenameUtils;
+
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 
 import java.io.ByteArrayOutputStream;
@@ -23,7 +25,9 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -31,11 +35,11 @@ import java.util.List;
 import java.util.zip.GZIPOutputStream;
 
 /**
- * Zip utilities.
+ * File utilities.
  * 
  * @author robinsteel19@outlook.com (Robin Steel)
  */
-public class ZipUtils {
+public class FileUtils {
 
   /**
    * GZIPs files in-place.
@@ -115,5 +119,41 @@ public class ZipUtils {
       logger.log("Caught exception whilst zipping byte[]: " + e.getMessage());
       throw e;
     }
+  }
+
+  /**
+   * Adds revving suffix to all filenames beneath a folder.
+   * 
+   * <p>Adds revving suffix to all filenames beneath a folder, recursing into subfolders.
+   *    Only js and css files are revved.
+   * 
+   *    @param suffix the suffix to add to all filenames.
+   *    @param startFolder the folder at root of tree within which to suffix files
+   *    @param logger a CloudwatchLogs logger.
+   * @throws IOException
+   */
+  public static void appendRevvingSuffix(String suffix, Path startFolder, LambdaLogger logger)
+      throws IOException {
+    Files
+        .walk(startFolder, FileVisitOption.FOLLOW_LINKS)
+        .filter(Files::isRegularFile)
+        .forEach(path -> {
+          File file = path.toFile();
+          if (file.isDirectory()) {
+            return;
+          }
+          String absolutePath = file.getAbsolutePath();
+          String fileExtension = FilenameUtils.getExtension(absolutePath);
+          if (!fileExtension.equals("js") && !fileExtension.equals("css")) {
+            // We rev only js and css
+            return;
+          }
+          String suffixedName = FilenameUtils.getBaseName(absolutePath) + "_" + suffix + "."
+              + fileExtension;
+          File suffixedFile = new File(file.getParentFile(), suffixedName);
+          file.renameTo(suffixedFile);
+          logger.log("Appended suffix to file: " + absolutePath + ", giving: "
+              + suffixedFile.getAbsolutePath());
+        });
   }
 }

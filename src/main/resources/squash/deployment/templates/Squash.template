@@ -91,7 +91,7 @@
       "ConstraintDescription" : "Can contain only ASCII characters."
     },
     "LambdaZipsRevision": {
-      "Description" : "Integer denoting the lambda zip file revision. Increment this whenever you update the stack using a changed zip file",
+      "Description" : "Integer denoting the lambda zip file revision. Increment this whenever you update/recreate the stack using a changed zip file",
       "Type": "Number",
       "Default" : "1",
       "ConstraintDescription" : "Can be any positive integer."
@@ -517,7 +517,8 @@
                 {
                 "Effect": "Allow",
                 "Action": [
-                  "iam:UpdateAssumeRolePolicy"
+                  "iam:UpdateAssumeRolePolicy",
+                  "iam:PassRole"
                 ],
                 "Resource": [
                   { "Fn::GetAtt" : ["SquashCognitoAuthenticatedRole", "Arn"] },
@@ -860,7 +861,8 @@
         "Runtime": "java8",
         "MemorySize" : 1024,
         "Timeout": "120",
-        "Role": { "Fn::GetAtt" : ["BookingsAndBookingRulesLambdaExecutionRole", "Arn"] }
+        "Role": { "Fn::GetAtt" : ["BookingsAndBookingRulesLambdaExecutionRole", "Arn"] },
+        "Environment": { "Variables" : { "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]}}}
       },
       "DependsOn": ["BookingsAndBookingRulesLambdaExecutionRole", "SquashSettingsCustomResource"]
     },
@@ -928,7 +930,8 @@
         "Runtime": "java8",
         "MemorySize" : 1024,
         "Timeout": "60",
-        "Role": { "Fn::GetAtt" : ["BookingsAndBookingRulesLambdaExecutionRole", "Arn"] }
+        "Role": { "Fn::GetAtt" : ["BookingsAndBookingRulesLambdaExecutionRole", "Arn"] },
+        "Environment": { "Variables" : { "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]}}}
       },
       "DependsOn": ["BookingsAndBookingRulesLambdaExecutionRole", "SquashSettingsCustomResource"]
     },
@@ -962,7 +965,8 @@
         "Runtime": "java8",
         "MemorySize" : 1024,
         "Timeout": "120",
-        "Role": { "Fn::GetAtt" : ["BookingsAndBookingRulesLambdaExecutionRole", "Arn"] }
+        "Role": { "Fn::GetAtt" : ["BookingsAndBookingRulesLambdaExecutionRole", "Arn"] },
+        "Environment": { "Variables" : { "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]}}}
       },
       "DependsOn": ["BookingsAndBookingRulesLambdaExecutionRole", "SquashSettingsCustomResource"]
     },
@@ -990,7 +994,7 @@
           "ErrorDocument" : "today.html",
           "RoutingRules" : [{
             "RedirectRule" : {
-              "ReplaceKeyPrefixWith" : ""
+              "ReplaceKeyPrefixWith" : "NoScript/"
             },
             "RoutingRuleCondition" : {
               "KeyPrefixEquals" : "?selectedDate="
@@ -1002,6 +1006,7 @@
         },
         "LifecycleConfiguration" : {
           "Rules" : [{
+            "Prefix": "NoScript/",
             "ExpirationInDays" : 30,
             "NoncurrentVersionExpirationInDays" : 30,
             "Status" : "Enabled"
@@ -1095,7 +1100,8 @@
         "Runtime": "java8",
         "MemorySize" : 1024,
         "Timeout": "300",
-        "Role": { "Fn::GetAtt" : ["BookingsAndBookingRulesLambdaExecutionRole", "Arn"] }
+        "Role": { "Fn::GetAtt" : ["BookingsAndBookingRulesLambdaExecutionRole", "Arn"] },
+        "Environment": { "Variables" : { "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]}}}
       },
       "DependsOn": ["BookingsAndBookingRulesLambdaExecutionRole", "SquashSettingsCustomResource"]
     },
@@ -1112,7 +1118,8 @@
         "Runtime": "java8",
         "MemorySize" : 1024,
         "Timeout": "60",
-        "Role": { "Fn::GetAtt" : ["SquashApiGatewayCustomResourceLambdaExecutionRole", "Arn"] }
+        "Role": { "Fn::GetAtt" : ["SquashApiGatewayCustomResourceLambdaExecutionRole", "Arn"] },
+        "Environment": { "Variables" : { "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]}}}
       },
       "DependsOn": [
         "BookingsApiGatewayInvocationRole",
@@ -1193,7 +1200,8 @@
         "Runtime": "java8",
         "MemorySize" : 1024,
         "Timeout": "60",
-        "Role": { "Fn::GetAtt" : ["SquashAngularjsAppCustomResourceLambdaExecutionRole", "Arn"] }
+        "Role": { "Fn::GetAtt" : ["SquashAngularjsAppCustomResourceLambdaExecutionRole", "Arn"] },
+        "Environment": { "Variables" : { "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]}}}
       },
       "DependsOn": ["SquashAngularjsAppCustomResourceLambdaExecutionRole"]
     },
@@ -1379,7 +1387,8 @@
         "Runtime": "java8",
         "MemorySize" : 1024,
         "Timeout": "60",
-        "Role": { "Fn::GetAtt" : ["SquashNoScriptAppCustomResourceLambdaExecutionRole", "Arn"] }
+        "Role": { "Fn::GetAtt" : ["SquashNoScriptAppCustomResourceLambdaExecutionRole", "Arn"] },
+        "Environment": { "Variables" : { "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]}}}
       },
       "DependsOn": ["SquashNoScriptAppCustomResourceLambdaExecutionRole", "SquashSettingsCustomResource", "SquashApiGatewayCustomResource"]
     },

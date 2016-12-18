@@ -51,12 +51,13 @@ public interface IPageManager {
    * @param apiGatewayBaseUrl the base Url of our apigateway Api, e.g. https://dhfmlwxdgr.execute-api.eu-west-1.amazonaws.com/SquashApi.
    * @param createDuplicate whether to create a duplicate of the page in S3 with a GUID suffix.
    * @param bookings the bookings for the specified date.
+   * @param revvingSuffix the suffix to use for the linked css file, used for cache rev-ing.
    *
    * @return The guid embedded in the refreshed page, and used as a suffix when a duplicate is created.
    * @throws Exception when the method fails.
    */
   String refreshPage(String date, List<String> validDates, String apiGatewayBaseUrl,
-      Boolean createDuplicate, List<Booking> bookings) throws Exception;
+      Boolean createDuplicate, List<Booking> bookings, String revvingSuffix) throws Exception;
 
   /**
    * Refreshes bookings web pages for all currently-bookable dates.
@@ -70,11 +71,13 @@ public interface IPageManager {
    * </ul>
    *
    * @param validDates the dates for which bookings can be made, in YYYY-MM-DD format.
-   * @param apiGatewayBaseUrl the base Url of our apigateway Api, e.g. .
+   * @param apiGatewayBaseUrl the base Url of our apigateway Api
+   * @param revvingSuffix the suffix to use for the linked css file, used for cache rev-ing.
    *
    * @throws Exception when refreshing all pages fails.
    */
-  void refreshAllPages(List<String> validDates, String apiGatewayBaseUrl) throws Exception;
+  void refreshAllPages(List<String> validDates, String apiGatewayBaseUrl, String revvingSuffix)
+      throws Exception;
 
   /**
    * Uploads famous players JSON data.

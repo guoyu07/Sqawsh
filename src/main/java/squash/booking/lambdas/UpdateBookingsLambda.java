@@ -118,7 +118,10 @@ public class UpdateBookingsLambda {
         logger.log("Throwing because request has null ApiGatewayBaseUrl");
         throw new Exception("ApiGatewayBaseUrl should not be null");
       }
-      pageManager.refreshAllPages(getValidDates(), apiGatewayBaseUrl);
+      String revvingSuffix = System.getenv("RevvingSuffix");
+      logger.log("Using revvingSuffix: " + revvingSuffix);
+
+      pageManager.refreshAllPages(getValidDates(), apiGatewayBaseUrl, revvingSuffix);
       logger.log("Refreshed all bookings pages");
 
       // Remove the now-previous day's bookings from the database

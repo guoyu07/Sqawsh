@@ -29,6 +29,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.contrib.java.lang.system.EnvironmentVariables;
 import org.junit.rules.ExpectedException;
 
 import com.amazonaws.services.lambda.runtime.Context;
@@ -61,9 +62,13 @@ public class PutDeleteBookingLambdaTest {
   String fakeCurrentDateString;
   List<String> validDates;
   String apiGatewayBaseUrl;
+  String revvingSuffix;
   String redirectUrl;
   String password;
   String genericExceptionMessage;
+
+  @Rule
+  public final EnvironmentVariables environmentVariables = new EnvironmentVariables();
 
   @Rule
   public ExpectedException thrown = ExpectedException.none();
@@ -71,6 +76,8 @@ public class PutDeleteBookingLambdaTest {
   @Before
   public void beforeTest() {
     mockery = new Mockery();
+    revvingSuffix = "revvingSuffix";
+    environmentVariables.set("RevvingSuffix", revvingSuffix);
     putDeleteBookingLambda = new TestPutDeleteBookingLambda();
     putDeleteBookingLambda.setBackupManager(mockery.mock(IBackupManager.class));
     putDeleteBookingLambda.setPageManager(mockery.mock(IPageManager.class));
@@ -522,7 +529,7 @@ public class PutDeleteBookingLambdaTest {
         oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).createBooking(with(anything()));
         will(returnValue(bookings));
         oneOf(putDeleteBookingLambda.getPageManager(mockLogger)).refreshPage(fakeCurrentDateString,
-            validDates, apiGatewayBaseUrl, true, bookings);
+            validDates, apiGatewayBaseUrl, true, bookings, revvingSuffix);
         will(returnValue(suffix));
         // Not interested in BackupManager calls in this test
         ignoring(putDeleteBookingLambda.getBackupManager(mockLogger));
@@ -625,7 +632,8 @@ public class PutDeleteBookingLambdaTest {
       {
         ignoring(putDeleteBookingLambda.getBookingManager(mockLogger));
         oneOf(putDeleteBookingLambda.getPageManager(mockLogger)).refreshPage(with(anything()),
-            with(anything()), with(anything()), with(anything()), with(anything()));
+            with(anything()), with(anything()), with(anything()), with(anything()),
+            with(anything()));
         will(throwException(new Exception("Booking creation failed")));
       }
     });
@@ -915,7 +923,7 @@ public class PutDeleteBookingLambdaTest {
         oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).deleteBooking(with(anything()));
         will(returnValue(bookings));
         oneOf(putDeleteBookingLambda.getPageManager(mockLogger)).refreshPage(fakeCurrentDateString,
-            validDates, apiGatewayBaseUrl, true, bookings);
+            validDates, apiGatewayBaseUrl, true, bookings, revvingSuffix);
         will(returnValue(suffix));
         // Not interested in BackupManager calls in this test
         ignoring(putDeleteBookingLambda.getBackupManager(mockLogger));
@@ -992,7 +1000,8 @@ public class PutDeleteBookingLambdaTest {
       {
         ignoring(putDeleteBookingLambda.getBookingManager(mockLogger));
         oneOf(putDeleteBookingLambda.getPageManager(mockLogger)).refreshPage(with(anything()),
-            with(anything()), with(anything()), with(anything()), with(anything()));
+            with(anything()), with(anything()), with(anything()), with(anything()),
+            with(anything()));
         will(throwException(new Exception("Booking deletion failed")));
       }
     });

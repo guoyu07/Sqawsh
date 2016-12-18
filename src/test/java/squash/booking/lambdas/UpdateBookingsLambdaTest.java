@@ -26,6 +26,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.contrib.java.lang.system.EnvironmentVariables;
 import org.junit.rules.ExpectedException;
 
 import com.amazonaws.AmazonClientException;
@@ -52,7 +53,11 @@ public class UpdateBookingsLambdaTest {
   String fakeCurrentDateString;
   List<String> validDates;
   String apiGatewayBaseUrl;
+  String revvingSuffix;
   String updateBookingsExceptionMessage;
+
+  @Rule
+  public final EnvironmentVariables environmentVariables = new EnvironmentVariables();
 
   @Rule
   public ExpectedException thrown = ExpectedException.none();
@@ -60,6 +65,8 @@ public class UpdateBookingsLambdaTest {
   @Before
   public void beforeTest() {
     mockery = new Mockery();
+    revvingSuffix = "revvingSuffix";
+    environmentVariables.set("RevvingSuffix", revvingSuffix);
     updateBookingsLambda = new TestUpdateBookingsLambda();
     updateBookingsLambda.setPageManager(mockery.mock(IPageManager.class));
     updateBookingsLambda.setBookingManager(mockery.mock(IBookingManager.class));
@@ -177,7 +184,7 @@ public class UpdateBookingsLambdaTest {
     mockery.checking(new Expectations() {
       {
         oneOf(updateBookingsLambda.getPageManager(mockLogger)).refreshAllPages(with(anything()),
-            with(aNonNull(String.class)));
+            with(aNonNull(String.class)), with(aNonNull(String.class)));
         will(throwException(exception));
       }
     });
@@ -250,7 +257,7 @@ public class UpdateBookingsLambdaTest {
     mockery.checking(new Expectations() {
       {
         oneOf(updateBookingsLambda.getPageManager(mockLogger)).refreshAllPages(with(validDates),
-            with(apiGatewayBaseUrl));
+            with(apiGatewayBaseUrl), with(revvingSuffix));
         inSequence(refreshSequence);
 
         oneOf(updateBookingsLambda.getBookingManager(mockLogger)).deleteYesterdaysBookings();

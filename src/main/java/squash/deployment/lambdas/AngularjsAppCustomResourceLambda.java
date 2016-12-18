@@ -22,7 +22,6 @@ import squash.deployment.lambdas.utils.IS3TransferManager;
 import squash.deployment.lambdas.utils.LambdaInputLogger;
 import squash.deployment.lambdas.utils.S3TransferManager;
 import squash.deployment.lambdas.utils.TransferUtils;
-import squash.deployment.lambdas.utils.ZipUtils;
 
 import net.lingala.zip4j.core.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
@@ -50,6 +49,10 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.Charset;
+import java.nio.charset.MalformedInputException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -225,10 +228,39 @@ public class AngularjsAppCustomResourceLambda implements
           logger
               .log("Modified the Bookings and Identity Services to point to the correct ApiGatewayBaseUrl, Cognito data, and region");
 
+          // We will later modify the gzip-ed filenames to add a revving suffix.
+          // But before we gzip, we need to modify the revved file links in
+          // index.html
+          String revvingSuffix = System.getenv("RevvingSuffix");
+          File appPath = new File("/tmp/app");
+          logger.log("Modifying links to revved files in index.html");
+          Path indexPath = new File(appPath, "index.html").toPath();
+          Charset charset = StandardCharsets.UTF_8;
+          List<String> newLines = new ArrayList<>();
+          for (String line : Files.readAllLines(indexPath, charset)) {
+            if (line.contains("googleapis") || line.contains("cloudflare")) {
+              // Don't alter lines linking to cdn-s. They are already revved.
+              newLines.add(line);
+            } else {
+              newLines.add(line.replace(".js", "_" + revvingSuffix + ".js").replace(".css",
+                  "_" + revvingSuffix + ".css"));
+            }
+          }
+          Files.write(indexPath, newLines, charset);
+          logger.log("Modified links to revved files in index.html");
+
           // GZIP all js, css, and html files within app folder
           logger.log("GZip-ing files in app folder to enable serving gzip-ed from S3");
-          ZipUtils.gzip(Arrays.asList(new File("/tmp/app")), Collections.emptyList(), logger);
+          squash.deployment.lambdas.utils.FileUtils.gzip(Arrays.asList(appPath),
+              Collections.emptyList(), logger);
           logger.log("GZip-ed files in app folder to enable serving gzip-ed from S3");
+
+          // Rev the js and css files by appending revving-suffix to names - for
+          // cache-ing
+          logger.log("Appending revving suffix to js and css files in app folder");
+          squash.deployment.lambdas.utils.FileUtils.appendRevvingSuffix(revvingSuffix,
+              appPath.toPath(), logger);
+          logger.log("Appended revving suffix to js and css files in app folder");
 
           // Upload the modified app to the S3 website bucket
           logger.log("Uploading modified Angularjs app to S3 website bucket");
@@ -243,27 +275,30 @@ public class AngularjsAppCustomResourceLambda implements
           logger.log("Updated metadata on modified Angularjs app in S3 bucket");
 
           // Upload Cognito SDKs and their dependencies - these should all be
-          // zipped first.
+          // zipped first. N.B. We also append filenames with the revving
+          // suffix.
           logger.log("About to upload Cognito libraries");
           List<ImmutableTriple<String, String, byte[]>> cognitoLibraries = new ArrayList<>();
           cognitoLibraries
               .add(new ImmutableTriple<>(
                   "Cognito SDK",
-                  "aws-cognito-sdk.min.js",
+                  "aws-cognito-sdk.min_" + revvingSuffix + ".js",
                   IOUtils
                       .toByteArray(new URL(
                           "https://raw.githubusercontent.com/aws/amazon-cognito-identity-js/master/dist/aws-cognito-sdk.min.js"))));
           cognitoLibraries
               .add(new ImmutableTriple<>(
                   "Cognito Identity SDK",
-                  "amazon-cognito-identity.min.js",
+                  "amazon-cognito-identity.min_" + revvingSuffix + ".js",
                   IOUtils
                       .toByteArray(new URL(
                           "https://raw.githubusercontent.com/aws/amazon-cognito-identity-js/master/dist/amazon-cognito-identity.min.js"))));
-          cognitoLibraries.add(new ImmutableTriple<>("Big Integer Library", "jsbn.js", IOUtils
-              .toByteArray(new URL("http://www-cs-students.stanford.edu/~tjw/jsbn/jsbn.js"))));
-          cognitoLibraries.add(new ImmutableTriple<>("Big Integer Library 2", "jsbn2.js", IOUtils
-              .toByteArray(new URL("http://www-cs-students.stanford.edu/~tjw/jsbn/jsbn2.js"))));
+          cognitoLibraries.add(new ImmutableTriple<>("Big Integer Library", "jsbn_" + revvingSuffix
+              + ".js", IOUtils.toByteArray(new URL(
+              "http://www-cs-students.stanford.edu/~tjw/jsbn/jsbn.js"))));
+          cognitoLibraries.add(new ImmutableTriple<>("Big Integer Library 2", "jsbn2_"
+              + revvingSuffix + ".js", IOUtils.toByteArray(new URL(
+              "http://www-cs-students.stanford.edu/~tjw/jsbn/jsbn2.js"))));
 
           // The SJCL still seems to need configuring to include the bytes
           // codec, despite 1.0 of Cognito Idp saying it had removed this
@@ -278,14 +313,15 @@ public class AngularjsAppCustomResourceLambda implements
             throw new Exception("Exception caught reading sjcl.js file");
           }
           logger.log("Read modified SJCL library from resources");
-          cognitoLibraries.add(new ImmutableTriple<>("Stanford Javascript Crypto Library",
-              "sjcl.js", sjcl_library.getBytes(Charset.forName("UTF-8"))));
+          cognitoLibraries.add(new ImmutableTriple<>("Stanford Javascript Crypto Library", "sjcl_"
+              + revvingSuffix + ".js", sjcl_library.getBytes(Charset.forName("UTF-8"))));
 
           for (ImmutableTriple<String, String, byte[]> cognitoLibrary : cognitoLibraries) {
             logger.log("Uploading a Cognito library to S3 website bucket. Library name: "
                 + cognitoLibrary.left);
 
-            byte[] zippedLibrary = ZipUtils.gzip(cognitoLibrary.right, logger);
+            byte[] zippedLibrary = squash.deployment.lambdas.utils.FileUtils.gzip(
+                cognitoLibrary.right, logger);
             ByteArrayInputStream libraryAsGzippedStream = new ByteArrayInputStream(zippedLibrary);
             ObjectMetadata metadata = new ObjectMetadata();
             metadata.setContentLength(zippedLibrary.length);
@@ -298,12 +334,27 @@ public class AngularjsAppCustomResourceLambda implements
             logger.log("Uploaded a Cognito library to S3 website bucket: " + cognitoLibrary.left);
           }
 
+          // Add cache-control metadata to files. Css and js files will have
+          // 1-year cache validity, since they are rev-ved.
+          logger.log("Updating cache-control metadata on angular app in S3 bucket");
+          TransferUtils.addCacheControlHeader("max-age=31536000", websiteBucket,
+              Optional.of("app"), ".js", logger);
+          TransferUtils.addCacheControlHeader("max-age=31536000", websiteBucket,
+              Optional.of("app"), ".css", logger);
+          // All html must revalidate every time
+          TransferUtils.addCacheControlHeader("no-cache, must-revalidate", websiteBucket,
+              Optional.of("app"), ".html", logger);
+          logger.log("Updated cache-control metadata on angular app in S3 bucket");
+
           // App content must be public so it can be served from the website
           logger.log("Modifying Angularjs app ACL in S3 website bucket");
           TransferUtils
               .setPublicReadPermissionsOnBucket(websiteBucket, Optional.of("app/"), logger);
           logger.log("Modified Angularjs app ACL in S3 website bucket");
 
+        } catch (MalformedInputException mie) {
+          logger.log("Caught a MalformedInputException: " + mie.getMessage());
+          throw mie;
         } catch (IOException ioe) {
           logger.log("Caught an IO Exception: " + ioe.getMessage());
           throw ioe;

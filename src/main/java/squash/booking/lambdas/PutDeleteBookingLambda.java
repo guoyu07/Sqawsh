@@ -53,12 +53,14 @@ public class PutDeleteBookingLambda {
   private Optional<IRuleManager> ruleManager;
   private Optional<IBookingManager> bookingManager;
   private Optional<IPageManager> pageManager;
+  private String revvingSuffix;
 
   public PutDeleteBookingLambda() {
     backupManager = Optional.empty();
     ruleManager = Optional.empty();
     bookingManager = Optional.empty();
     pageManager = Optional.empty();
+    revvingSuffix = System.getenv("RevvingSuffix");
   }
 
   /**
@@ -241,7 +243,7 @@ public class PutDeleteBookingLambda {
     logger.log("About to refresh booking page in S3 with new booking");
     IPageManager pageManager = getPageManager(logger);
     String pageUidSuffix = pageManager.refreshPage(booking.getDate(), getValidDates(),
-        apiGatewayBaseUrl, true, bookings);
+        apiGatewayBaseUrl, true, bookings, revvingSuffix);
     logger.log("Refreshed booking page in S3 with new booking");
 
     // Backup this booking
@@ -269,7 +271,7 @@ public class PutDeleteBookingLambda {
     logger.log("About to refresh booking page in S3 after deleting booking");
     IPageManager pageManager = getPageManager(logger);
     String pageUidSuffix = pageManager.refreshPage(booking.getDate(), getValidDates(),
-        apiGatewayBaseUrl, true, bookings);
+        apiGatewayBaseUrl, true, bookings, revvingSuffix);
     logger.log("Refreshed booking page in S3 after deleting booking");
 
     // Backup this booking deletion

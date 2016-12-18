@@ -17,10 +17,10 @@
 package squash.booking.lambdas.core;
 
 import squash.deployment.lambdas.utils.ExceptionUtils;
+import squash.deployment.lambdas.utils.FileUtils;
 import squash.deployment.lambdas.utils.IS3TransferManager;
 import squash.deployment.lambdas.utils.S3TransferManager;
 import squash.deployment.lambdas.utils.TransferUtils;
-import squash.deployment.lambdas.utils.ZipUtils;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.velocity.Template;
@@ -94,7 +94,7 @@ public class PageManager implements IPageManager {
 
   @Override
   public String refreshPage(String date, List<String> validDates, String apiGatewayBaseUrl,
-      Boolean createDuplicate, List<Booking> bookings) throws Exception {
+      Boolean createDuplicate, List<Booking> bookings, String revvingSuffix) throws Exception {
 
     if (!initialised) {
       throw new IllegalStateException("The page manager has not been initialised");
@@ -109,7 +109,7 @@ public class PageManager implements IPageManager {
     logger.log("About to create booking page with guid: " + pageGuid);
     String newPage = createBookingPage(date, validDates, apiGatewayBaseUrl + "/reservationform",
         apiGatewayBaseUrl + "/cancellationform", "http://" + websiteBucketName + ".s3-website-"
-            + region + ".amazonaws.com", bookings, pageGuid);
+            + region + ".amazonaws.com", bookings, pageGuid, revvingSuffix);
     logger.log("Created booking page with guid: " + pageGuid);
 
     logger.log("About to copy booking page to S3");
@@ -118,14 +118,15 @@ public class PageManager implements IPageManager {
 
     // Create cached booking data as JSON for the Angularjs app to use
     logger.log("About to create and upload cached booking data to S3");
-    copyJsonDataToS3(date, createCachedBookingData(date, validDates, bookings));
+    copyJsonDataToS3("NoScript/" + date, createCachedBookingData(date, validDates, bookings));
     logger.log("Uploaded cached booking data to S3");
 
     return pageGuid;
   }
 
   @Override
-  public void refreshAllPages(List<String> validDates, String apiGatewayBaseUrl) throws Exception {
+  public void refreshAllPages(List<String> validDates, String apiGatewayBaseUrl,
+      String revvingSuffix) throws Exception {
 
     if (!initialised) {
       throw new IllegalStateException("The page manager has not been initialised");
@@ -147,12 +148,12 @@ public class PageManager implements IPageManager {
               .atZone(TimeZone.getTimeZone("Europe/London").toZoneId())
               .format(DateTimeFormatter.ofPattern("h:mm a")));
 
-      uploadBookingsPagesToS3(validDates, apiGatewayBaseUrl);
+      uploadBookingsPagesToS3(validDates, apiGatewayBaseUrl, revvingSuffix);
       logger.log("Uploaded new set of bookings pages to S3 at midnight");
 
       // Save the valid dates in JSON form
       logger.log("About to create and upload cached valid dates data to S3");
-      copyJsonDataToS3("validdates", createValidDatesData(validDates));
+      copyJsonDataToS3("NoScript/validdates", createValidDatesData(validDates));
       logger.log("Uploaded cached valid dates data to S3");
 
       logger.log("About to upload famous players data to S3");
@@ -217,10 +218,12 @@ public class PageManager implements IPageManager {
    * @param s3WebsiteUrl the base Url of the bookings website bucket.
    * @param bookings the bookings for the specified date.
    * @param pageGuid the guid to embed within the page - used by AATs.
+   * @param revvingSuffix the suffix to use for the linked css file, used for cache rev-ing.
    */
   protected String createBookingPage(String date, List<String> validDates,
       String reservationFormGetUrl, String cancellationFormGetUrl, String s3WebsiteUrl,
-      List<Booking> bookings, String pageGuid) throws IllegalArgumentException {
+      List<Booking> bookings, String pageGuid, String revvingSuffix)
+      throws IllegalArgumentException {
 
     // N.B. we assume that the date is known to be a valid date
     logger.log("About to create booking page");
@@ -300,6 +303,7 @@ public class PageManager implements IPageManager {
     context.put("colSpan", colSpan);
     context.put("isBlockInterior", isBlockInterior);
     context.put("names", names);
+    context.put("revvingSuffix", revvingSuffix);
     logger.log("Set up velocity context");
 
     // TODO assert some sensible invariants on data sizes?
@@ -433,7 +437,12 @@ public class PageManager implements IPageManager {
       metadata.setContentType("application/json");
       // Direct caches not to satisfy future requests with this data without
       // revalidation.
-      metadata.setCacheControl("no-cache, must-revalidate");
+      if (keyName.contains("famousplayers")) {
+        // Famousplayers list is good for a year
+        metadata.setCacheControl("max-age=31536000");
+      } else {
+        metadata.setCacheControl("no-cache, must-revalidate");
+      }
       PutObjectRequest putObjectRequest = new PutObjectRequest(websiteBucketName,
           keyName + ".json", jsonAsStream, metadata);
       // Data must be public so it can be served from the website
@@ -459,10 +468,11 @@ public class PageManager implements IPageManager {
 
     logger.log("About to copy booking page to S3");
 
+    String pageBaseNameWithPrefix = "NoScript/" + pageBaseName;
     try {
       logger.log("Uploading booking page to S3 bucket: " + websiteBucketName
-          + "s3websitebucketname" + " and key: " + pageBaseName + uidSuffix + ".html");
-      byte[] pageAsGzippedBytes = ZipUtils.gzip(page.getBytes(StandardCharsets.UTF_8), logger);
+          + "s3websitebucketname" + " and key: " + pageBaseNameWithPrefix + uidSuffix + ".html");
+      byte[] pageAsGzippedBytes = FileUtils.gzip(page.getBytes(StandardCharsets.UTF_8), logger);
 
       ByteArrayInputStream pageAsStream = new ByteArrayInputStream(pageAsGzippedBytes);
       ObjectMetadata metadata = new ObjectMetadata();
@@ -472,8 +482,8 @@ public class PageManager implements IPageManager {
       // Direct caches not to satisfy future requests with this data without
       // revalidation.
       metadata.setCacheControl("no-cache, must-revalidate");
-      PutObjectRequest putObjectRequest = new PutObjectRequest(websiteBucketName, pageBaseName
-          + uidSuffix + ".html", pageAsStream, metadata);
+      PutObjectRequest putObjectRequest = new PutObjectRequest(websiteBucketName,
+          pageBaseNameWithPrefix + uidSuffix + ".html", pageAsStream, metadata);
       // Page must be public so it can be served from the website
       putObjectRequest.setCannedAcl(CannedAccessControlList.PublicRead);
       IS3TransferManager transferManager = getS3TransferManager();
@@ -489,9 +499,10 @@ public class PageManager implements IPageManager {
       // N.B. We copy from hashed key to non-hashed (and not vice versa)
       // to ensure consistency
       logger.log("Copying booking page in S3 bucket: " + websiteBucketName + " and key: "
-          + pageBaseName + ".html");
-      CopyObjectRequest copyObjectRequest = new CopyObjectRequest(websiteBucketName, pageBaseName
-          + uidSuffix + ".html", websiteBucketName, pageBaseName + ".html");
+          + pageBaseNameWithPrefix + ".html");
+      CopyObjectRequest copyObjectRequest = new CopyObjectRequest(websiteBucketName,
+          pageBaseNameWithPrefix + uidSuffix + ".html", websiteBucketName, pageBaseNameWithPrefix
+              + ".html");
       copyObjectRequest.setCannedAccessControlList(CannedAccessControlList.PublicRead);
       // N.B. Copied object will get same metadata as the source (e.g. the
       // cache-control header etc.)
@@ -510,8 +521,8 @@ public class PageManager implements IPageManager {
     }
   }
 
-  private void uploadBookingsPagesToS3(List<String> validDates, String apiGatewayBaseUrl)
-      throws Exception {
+  private void uploadBookingsPagesToS3(List<String> validDates, String apiGatewayBaseUrl,
+      String revvingSuffix) throws Exception {
     logger.log("About to upload booking page for each valid date");
 
     String currentDate = validDates.get(0);
@@ -527,7 +538,7 @@ public class PageManager implements IPageManager {
       logger.log("About to upload booking page for: " + validDate);
       bookings = bookingManager.getBookings(validDate);
       refreshPage(validDate, validDates, // Still in forward time order
-          apiGatewayBaseUrl, false, bookings);
+          apiGatewayBaseUrl, false, bookings, revvingSuffix);
     }
     logger.log("Uploaded booking page for each valid date");
   }

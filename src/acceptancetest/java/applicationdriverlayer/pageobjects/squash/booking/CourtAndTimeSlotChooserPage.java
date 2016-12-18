@@ -169,7 +169,7 @@ public class CourtAndTimeSlotChooserPage extends SquashBasePage<CourtAndTimeSlot
   @Override
   protected void waitForLoadToComplete() {
     new WebDriverWait(driver, explicitWaitTimeoutSeconds).until(ExpectedConditions
-        .visibilityOfAllElementsLocatedBy(By.className("booking-table")));
+        .presenceOfAllElementsLocatedBy(By.className("booking-table")));
     new WebDriverWait(driver, explicitWaitTimeoutSeconds).until(ExpectedConditions
         .visibilityOf(dateDropdown));
   }

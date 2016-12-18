@@ -119,7 +119,6 @@ public class TransferUtils {
    *    @param prefix prefix within the bucket, beneath which to apply the metadata.
    *    @param logger a CloudwatchLogs logger.
    */
-
   public static void addGzipContentEncodingMetadata(String bucketName, Optional<String> prefix,
       LambdaLogger logger) {
 
@@ -154,5 +153,60 @@ public class TransferUtils {
       listObjectsRequest.setMarker(objectListing.getNextMarker());
     } while (objectListing.isTruncated());
     logger.log("Set gzip content encoding metadata on bucket");
+  }
+
+  /**
+   * Adds cache-control header to S3 objects.
+   * 
+   * <p>Adds cache-control header to S3 objects. All objects
+   *    beneath the specified prefix (i.e. folder), and with the
+   *    specified extension will have the header added. When the
+   *    bucket serves objects it will then add a suitable
+   *    Cache-Control header.
+   *
+   *    @param headerValue value of the cache-control header
+   *    @param bucketName the bucket to apply the header to.
+   *    @param prefix prefix within the bucket, beneath which to apply the header.
+   *    @param extension file extension to apply header to
+   *    @param logger a CloudwatchLogs logger.
+   */
+  public static void addCacheControlHeader(String headerValue, String bucketName,
+      Optional<String> prefix, String extension, LambdaLogger logger) {
+
+    // To add new metadata, we must copy each object to itself.
+    ListObjectsRequest listObjectsRequest;
+    if (prefix.isPresent()) {
+      logger.log("Setting cache-control metadata: " + headerValue + ", on bucket: " + bucketName
+          + " and prefix: " + prefix.get() + " and extension: " + extension);
+      listObjectsRequest = new ListObjectsRequest().withBucketName(bucketName).withPrefix(
+          prefix.get());
+    } else {
+      logger.log("Setting cache-control metadata: " + headerValue + ", on bucket: " + bucketName
+          + " and extension: " + extension);
+      listObjectsRequest = new ListObjectsRequest().withBucketName(bucketName);
+    }
+
+    ObjectListing objectListing;
+    AmazonS3 client = new TransferManager().getAmazonS3Client();
+    do {
+      objectListing = client.listObjects(listObjectsRequest);
+      for (S3ObjectSummary objectSummary : objectListing.getObjectSummaries()) {
+        String key = objectSummary.getKey();
+        if (!key.endsWith(extension)) {
+          continue;
+        }
+        logger.log("Setting metadata for S3 object: " + key);
+        // We must specify ALL metadata - not just the one we're adding.
+        ObjectMetadata objectMetadata = client.getObjectMetadata(bucketName, key);
+        objectMetadata.setCacheControl(headerValue);
+        CopyObjectRequest copyObjectRequest = new CopyObjectRequest(bucketName, key, bucketName,
+            key).withNewObjectMetadata(objectMetadata).withCannedAccessControlList(
+            CannedAccessControlList.PublicRead);
+        client.copyObject(copyObjectRequest);
+        logger.log("Set metadata for S3 object: " + key);
+      }
+      listObjectsRequest.setMarker(objectListing.getNextMarker());
+    } while (objectListing.isTruncated());
+    logger.log("Set cache-control metadata on bucket");
   }
 }
