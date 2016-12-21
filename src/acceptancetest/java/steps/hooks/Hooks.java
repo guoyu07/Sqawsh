@@ -58,7 +58,7 @@ public class Hooks {
         b -> {
           try {
             courtAndTimeSlotChooserPage.cancelCourt(b.getCourt(), b.getTime(), b.getDate(),
-                "pAssw0rd", true);
+                b.getName(), "pAssw0rd", true);
           } catch (Exception e) {
             e.printStackTrace();
             // Note error but continue - we'll fail later

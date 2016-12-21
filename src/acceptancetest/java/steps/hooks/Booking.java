@@ -18,6 +18,7 @@ package steps.hooks;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Objects;
 
 /**
  * Represents a booking.
@@ -32,11 +33,17 @@ public class Booking {
   Integer court;
   LocalTime time;
   LocalDate date;
+  String name;
 
-  public Booking(Integer court, LocalTime time, LocalDate date) {
+  public Booking(String name, Integer court, LocalTime time, LocalDate date) {
+    this.name = name;
     this.court = court;
     this.time = time;
     this.date = date;
+  }
+
+  public String getName() {
+    return name;
   }
 
   public Integer getCourt() {
@@ -51,4 +58,28 @@ public class Booking {
     return date;
   }
 
+  @Override
+  public boolean equals(Object obj) {
+    if (obj == null) {
+      return false;
+    }
+    if (getClass() != obj.getClass()) {
+      return false;
+    }
+    final Booking other = (Booking) obj;
+
+    return Objects.equals(this.date, other.date) && Objects.equals(this.court, other.court)
+        && Objects.equals(this.time, other.time) && Objects.equals(this.name, other.name);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(this.date, this.court, this.time, this.name);
+  }
+
+  @Override
+  public String toString() {
+    return com.google.common.base.MoreObjects.toStringHelper(this).addValue(this.court)
+        .addValue(this.time).addValue(this.name).addValue(this.date).toString();
+  }
 }

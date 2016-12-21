@@ -28,6 +28,7 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 
 import applicationdriverlayer.pageobjects.squash.SquashBasePage;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -37,11 +38,17 @@ import java.util.Optional;
  */
 public class CourtCancellationPage extends SquashBasePage<CourtCancellationPage> {
 
+  @FindBy(how = How.CSS, css = "input[name = 'name']")
+  public WebElement playersNamesTextBox;
+
   @FindBy(how = How.CSS, css = "input[name = 'password']")
   public WebElement passwordTextBox;
 
   @FindBy(how = How.CLASS_NAME, className = "button-submit")
   public WebElement submitCancellationButton;
+
+  @FindBy(how = How.CSS, css = "input:invalid")
+  public List<WebElement> invalidInputElements;
 
   public CourtCancellationPage(SharedDriver driver) {
     // This page never initiates its own retrieval from the server
@@ -64,7 +71,15 @@ public class CourtCancellationPage extends SquashBasePage<CourtCancellationPage>
         driver.findElement(By.className("cancellation-form")).isDisplayed());
   }
 
-  public void submitCancellationDetails(String password, boolean expectCancellationToSucceed) {
+  public boolean hasReceivedFeedbackOnInvalidCancellationDetails() {
+    // We assume that input elements with :invalid pseudo-class means feedback
+    // has been received. (will work only in HTML5 browsers.)
+    return invalidInputElements.size() > 0;
+  }
+
+  public void submitCancellationDetails(String name, String password,
+      boolean expectCancellationToSucceed) {
+    playersNamesTextBox.sendKeys(name);
     passwordTextBox.sendKeys(password);
     submitCancellationButton.click();
 
@@ -72,7 +87,14 @@ public class CourtCancellationPage extends SquashBasePage<CourtCancellationPage>
     if (expectCancellationToSucceed) {
       new CourtAndTimeSlotChooserPage((SharedDriver) driver).get(true, Optional.empty(),
           Optional.of(true));
+    } else if (invalidInputElements.size() > 0) {
+      // HTML5 form validation will have prevented form submission
+      return;
     } else {
+      // The form was valid as far as HTML5 validation goes, but we nevertheless
+      // expect the cancellation to fail - e.g. bc of an invalid password,
+      // invalid date, etc.
+
       // The HtmlUnitDriver redirects immediately - so even in the error,
       // case it will go straight back to the booking page.
       String webDriverType = System.getProperty("WebDriverType");

@@ -16,6 +16,18 @@ limitations under the License.-->
 <form novalidate class="cancellation-form" ng-submit="ctrl.submitCancellation(cancellationForm)" name="cancellationForm" ng-cloak>
 <h2>You are cancelling the {{ctrl.activeName}} booking of court {{ctrl.activeCourt}} for {{ctrl.activeSlot | date:'shortTime'}} on {{ctrl.activeDate | date:'fullDate'}}</h2>
 <div class="form-container">
+<label for="players">Players names:</label>
+<input type="text" id="players" ng-model="ctrl.name" ng-model-options="{ updateOn: 'blur' }" ng-maxlength=30 size="{{ctrl.namesLength()}}" placeholder="i.e. {{ctrl.activeName}}" ng-pattern="ctrl.playersNamesRegex" name="name" autocapitalize="off" autocorrect="off" required>
+<span class="error" ng-show="cancellationForm.name.$error.pattern && cancellationForm.$submitted">
+  Players names must match the booking being cancelled
+</span>
+<span class="error" ng-show="cancellationForm.name.$error.maxlength && cancellationForm.$submitted">
+  30 characters max
+</span>
+<span class="error" ng-show="cancellationForm.name.$error.required && cancellationForm.$submitted">
+  Required
+</span>
+<br>
 <label for="password">Password:</label>
 <input type="password" id="password" ng-model="ctrl.password" placeholder="enter password" name="password" required>
 <span class="error" ng-show="cancellationForm.password.$error.required && cancellationForm.$submitted">

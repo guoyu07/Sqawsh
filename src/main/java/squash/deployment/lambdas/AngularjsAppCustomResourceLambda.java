@@ -238,7 +238,8 @@ public class AngularjsAppCustomResourceLambda implements
           Charset charset = StandardCharsets.UTF_8;
           List<String> newLines = new ArrayList<>();
           for (String line : Files.readAllLines(indexPath, charset)) {
-            if (line.contains("googleapis") || line.contains("cloudflare")) {
+            if (line.contains("googleapis") || line.contains("cloudflare")
+                || line.contains("maxcdn")) {
               // Don't alter lines linking to cdn-s. They are already revved.
               newLines.add(line);
             } else {

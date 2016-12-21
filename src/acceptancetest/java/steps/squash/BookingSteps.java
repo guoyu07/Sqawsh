@@ -289,7 +289,7 @@ public class BookingSteps implements En {
     // Note this attempted booking so can attempt to remove it on scenario
     // teardown
     if (expectBookingToSucceed) {
-      bookingsPotentiallyMadeDuringScenario.add(new Booking(court, time, date));
+      bookingsPotentiallyMadeDuringScenario.add(new Booking(name, court, time, date));
     }
   }
 }

@@ -18,8 +18,41 @@ As a squash player
 In order to ensure I don't stop others using courts
 I want to be able to cancel courts I've booked
 
-    @ignore
-    Scenario: Any booking can be cancelled by anyone
+  Scenario: Cancelling a court with the correct password succeeds
 
-    @ignore
-    Scenario: Any booking can be cancelled at anytime
+      Given I have navigated to the squash booking page
+      And I have booked court 3 at 12:15 PM today
+      Then court 3 should be booked at 12:15 PM today
+
+      # Use the correct password
+      When I cancel court 3 at 12:15 PM today using password pAssw0rd
+      Then I should be taken to the squash booking page
+      And court 3 should not be booked at 12:15 PM today
+
+  Scenario: Cancelling a court with an incorrect password fails
+
+      Given I have navigated to the squash booking page
+      And I have booked court 3 at 12:15 PM today
+      Then court 3 should be booked at 12:15 PM today
+
+      # Use an incorrect password
+      When I attempt to cancel court 3 at 12:15 PM today using password PASSword
+      Then I should be taken to the error page
+      And court 3 should be booked at 12:15 PM today
+
+  Scenario Outline: Players names must be reentered to cancel a booking
+
+      This is to avoid accidentally cancelling the wrong booking
+
+      Given I have navigated to the squash booking page
+      And I have booked court 3 at 12:15 PM today
+      Then court 3 should be booked at 12:15 PM today
+
+      When I <attempt_to_cancel> court 3 at 12:15 PM today for <players_names>
+      Then I <should_or_not> receive feedback that the cancellation details were invalid
+      And court 3 <should_or_not> be booked at 12:15 PM today
+
+      Examples:
+      |name         |attempt_to_cancel |players_names      |should_or_not|
+      |correct names|cancel            |A.Shabana/J.Power  |should not   |
+      |wrong names  |attempt to cancel |A.Shabs/J.Powerless|should       |

@@ -37,10 +37,6 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
     var comSquashWebsiteBucket = 'bookingbuckettobereplaced' // will be replaced at stack creation time
     AWS.config.region = comSquashRegion // Region
 
-    // Workaround for occasional 504 timeouts from API Gateway bc 10-second timeout.
-    // N.B. Lambda can be sluggish on cold-starts. May need tweaking.
-    AWS.config.maxRetries = 4
-
     // AWS ApiGateway client
     var apigClient
     var getApigClient = function () {

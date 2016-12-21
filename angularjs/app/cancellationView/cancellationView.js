@@ -35,9 +35,17 @@ angular.module('squashApp.cancellationView', ['ngRoute', 'squashApp.bookingsServ
     self.activeSlotIndex = BookingService.activeSlotIndex
     self.activeDate = BookingService.activeDate
     self.activeName = BookingService.activeName
+    // Must escape any regex special characters in the name before using in ng-pattern
+    self.playersNamesRegex = new RegExp('^' + self.activeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$')
 
     self.returnToBookings = function () {
       $location.url('/bookings')
+    }
+
+    self.namesLength = function () {
+      // Used to ensure players' names input box is big enough to show all of placeholder text
+      var placeholder = 'i.e. ' + self.activeName
+      return placeholder.length
     }
 
     self.submitCancellation = function (form) {

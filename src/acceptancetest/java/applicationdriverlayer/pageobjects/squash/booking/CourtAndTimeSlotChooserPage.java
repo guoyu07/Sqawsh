@@ -267,8 +267,8 @@ public class CourtAndTimeSlotChooserPage extends SquashBasePage<CourtAndTimeSlot
     reservationPage.submitBookingDetails(name, password, expectBookingToSucceed);
   }
 
-  public void cancelCourt(Integer court, LocalTime time, LocalDate date, String password,
-      boolean expectCancellationToSucceed) throws Exception {
+  public void cancelCourt(Integer court, LocalTime time, LocalDate date, String name,
+      String password, boolean expectCancellationToSucceed) throws Exception {
 
     selectDate(date);
 
@@ -293,7 +293,7 @@ public class CourtAndTimeSlotChooserPage extends SquashBasePage<CourtAndTimeSlot
     CourtCancellationPage cancellationPage = new CourtCancellationPage((SharedDriver) driver).get(
         true, getCachedWebElement(), Optional.empty());
 
-    cancellationPage.submitCancellationDetails(password, expectCancellationToSucceed);
+    cancellationPage.submitCancellationDetails(name, password, expectCancellationToSucceed);
   }
 
   public Multimap<Integer, java.time.LocalTime> getBookedStartTimes() {

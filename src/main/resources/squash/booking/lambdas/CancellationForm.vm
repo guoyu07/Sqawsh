@@ -17,19 +17,22 @@
 <head>
 <title>Court Cancellation Form</title>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<link type="text/css" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/3.0.3/normalize.min.css">
 <link type="text/css" rel="stylesheet" href="https://s3-${region}.amazonaws.com/${squashWebsiteBucket}/app/sqawshNoScript.min_${revvingSuffix}.css">
 </head>
 <body>
 <h2>You are cancelling the $util.urlDecode($input.params('name')) booking of court $input.params('court') for $util.urlDecode($input.params('slotLong')) on $util.urlDecode($input.params('dateLong'))</h2>
 <form class="cancellation-form" action=https://${context.apiId}.execute-api.${region}.amazonaws.com/Squash/bookings method="POST" autocomplete="off">
 <div class="form-container">
+<label for="players">Players names:</label>
+<input type="text" name="name" id="players" required pattern="^$util.urlDecode($input.params('name'))$" maxlength=30 placeholder="i.e. $util.urlDecode($input.params('name'))">
+<br>
 <label for="password">Password:</label>
 <input type="password" name="password" id="password" required placeholder="enter password">
 ## Include parameters here so we can make the cancellation correctly
 <input type=hidden name=redirectUrl value="http://${squashWebsiteBucket}.s3-website-${region}.amazonaws.com?selectedDate=${util.urlDecode($input.params('date'))}.html">
 <input type=hidden name=apiGatewayBaseUrl value="https://${context.apiId}.execute-api.${region}.amazonaws.com/${context.stage}">
 <input type=hidden name=putOrDelete value="DELETE">
-<input type=hidden name=name value="$util.urlDecode($input.params('name'))">
 <input type=hidden name=court value="$util.urlDecode($input.params('court'))">
 <input type=hidden name=courtSpan value="1">
 <input type=hidden name=slot value="$util.urlDecode($input.params('slot'))">
