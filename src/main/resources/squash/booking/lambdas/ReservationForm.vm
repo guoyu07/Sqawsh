@@ -17,8 +17,7 @@
 <head>
 <title>Court Reservation Form</title>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-<link type="text/css" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/3.0.3/normalize.min.css">
-<link type="text/css" rel="stylesheet" href="https://s3-${region}.amazonaws.com/${squashWebsiteBucket}/app/sqawshNoScript.min_${revvingSuffix}.css">
+<link type="text/css" rel="stylesheet" href="https://s3-${region}.amazonaws.com/${squashWebsiteBucket}/app/sqawsh.min_${revvingSuffix}.css">
 </head>
 <body>
 <h2>You are reserving court $input.params('court') for $util.urlDecode($input.params('slotLong')) on $util.urlDecode($input.params('dateLong'))</h2>

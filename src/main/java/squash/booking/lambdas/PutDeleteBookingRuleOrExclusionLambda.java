@@ -33,8 +33,6 @@ import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
@@ -42,7 +40,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.Properties;
 
 /**
  * AWS Lambda function to create or delete a court booking rule or rule exclusion.
@@ -279,7 +276,7 @@ public class PutDeleteBookingRuleOrExclusionLambda {
 
     logger.log("Checking authentication and dates");
 
-    String validCognitoIdentityPoolId = getStringProperty("cognitoidentitypoolid", logger);
+    String validCognitoIdentityPoolId = getEnvironmentVariable("CognitoIdentityPoolId", logger);
     if ((!cognitoIdentityPoolId.equals(validCognitoIdentityPoolId))
         || (!authenticationType.equals("authenticated"))) {
       logger
@@ -313,23 +310,20 @@ public class PutDeleteBookingRuleOrExclusionLambda {
   }
 
   /**
-   * Returns a named property from the SquashCustomResource settings file.
+   * Returns a named environment variable.
+   * @throws Exception 
    */
-  protected String getStringProperty(String propertyName, LambdaLogger logger) throws IOException {
+  protected String getEnvironmentVariable(String variableName, LambdaLogger logger)
+      throws Exception {
     // Use a getter here so unit tests can substitute a mock value.
-    // We get the value from a settings file so that
-    // CloudFormation can substitute the actual value when the
-    // stack is created, by replacing the settings file.
+    // We get the value from an environment variable so that CloudFormation can
+    // set the actual value when the stack is created.
 
-    Properties properties = new Properties();
-    try (InputStream stream = BookingManager.class
-        .getResourceAsStream("/squash/booking/lambdas/SquashCustomResource.settings")) {
-      properties.load(stream);
-    } catch (IOException e) {
-      logger.log("Exception caught reading SquashCustomResource.settings properties file: "
-          + e.getMessage());
-      throw e;
+    String environmentVariable = System.getenv(variableName);
+    if (environmentVariable == null) {
+      logger.log("Environment variable: " + variableName + " is not defined, so throwing.");
+      throw new Exception("Environment variable: " + variableName + " should be defined.");
     }
-    return properties.getProperty(propertyName);
+    return environmentVariable;
   }
 }

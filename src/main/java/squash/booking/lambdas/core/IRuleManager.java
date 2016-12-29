@@ -18,7 +18,6 @@ package squash.booking.lambdas.core;
 
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -33,7 +32,7 @@ public interface IRuleManager {
   /**
    * Initialises the manager.
    */
-  void initialise(IBookingManager bookingManager, LambdaLogger logger) throws IOException;
+  void initialise(IBookingManager bookingManager, LambdaLogger logger) throws Exception;
 
   /**
    * Creates a booking rule.

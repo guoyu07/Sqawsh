@@ -37,7 +37,6 @@ import com.amazonaws.services.simpledb.model.Attribute;
 import com.amazonaws.services.simpledb.model.ReplaceableAttribute;
 import com.amazonaws.services.sns.AmazonSNS;
 
-import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -136,7 +135,7 @@ public class RuleManagerTest {
     ruleItemName = "BookingRulesAndExclusions";
   }
 
-  private void initialiseRuleManager() throws IOException {
+  private void initialiseRuleManager() throws Exception {
     // Call this to initialise the rule manager in tests where this
     // initialisation is not the subject of the test.
 
@@ -332,11 +331,11 @@ public class RuleManagerTest {
     }
 
     @Override
-    public String getStringProperty(String propertyName) {
-      if (propertyName.equals("adminsnstopicarn")) {
+    public String getEnvironmentVariable(String variableName) {
+      if (variableName.equals("AdminSNSTopicArn")) {
         return adminSnsTopicArn;
       }
-      if (propertyName.equals("region")) {
+      if (variableName.equals("AWS_REGION")) {
         return "eu-west-1";
       }
       return null;

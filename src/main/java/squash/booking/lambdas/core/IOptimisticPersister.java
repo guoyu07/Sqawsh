@@ -22,7 +22,6 @@ import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.simpledb.model.Attribute;
 import com.amazonaws.services.simpledb.model.ReplaceableAttribute;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -39,7 +38,7 @@ public interface IOptimisticPersister {
   /**
    * Initialises the persister with the maximum number of attributes the item is allowed.
    */
-  void initialise(int maxNumberOfAttributes, LambdaLogger logger) throws IOException;
+  void initialise(int maxNumberOfAttributes, LambdaLogger logger) throws Exception;
 
   /**
    * Performs consistent read of all item's attributes.

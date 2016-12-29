@@ -48,7 +48,7 @@ module.exports = function (grunt) {
     // CSS processing pipeline
     // Still use less - but use postcss for css minification.
     less: {
-      angular: {
+      squash: {
         options: {
           compress: false,
           optimization: 2,
@@ -58,22 +58,10 @@ module.exports = function (grunt) {
         files: {
           'dist/sqawsh.lessmin.css': 'app/sqawsh.less' // destination file and source file
         }
-      },
-      // Have separate css for no-script app - so it can ditch bootstrap.
-      noscript: {
-        options: {
-          compress: false,
-          optimization: 2,
-          plugins: [],
-          relativeUrls: true
-        },
-        files: {
-          'dist/sqawshNoScript.lessmin.css': 'app/sqawshNoScript.less' // destination file and source file
-        }
       }
     },
     postcss: {
-      angular: {
+      squash: {
         options: {
           map: {
             inline: false, // save all sourcemaps as separate files...
@@ -93,28 +81,6 @@ module.exports = function (grunt) {
         },
         files: {
           'dist/sqawsh.min.css': 'dist/sqawsh.lessmin.css' // destination file and source file
-        }
-      },
-      noscript: {
-        options: {
-          map: {
-            inline: false, // save all sourcemaps as separate files...
-            annotation: 'dist/css/maps/' // ...to the specified directory
-          },
-          processors: [
-            // Ignore css linting for now...
-            // require("stylelint")({config: {
-            //  "extends": "stylelint-config-standard"
-            // }}),
-            require('pixrem')(), // add fallbacks for rem units
-            require('postcss-cssnext')({browsers: '>1%, last 15 versions'}), // autoprefixing etc.
-            require('cssnano')(), // minify the result
-            require('postcss-reporter')()
-          ],
-          failOnError: true
-        },
-        files: {
-          'dist/sqawshNoScript.min.css': 'dist/sqawshNoScript.lessmin.css' // destination file and source file
         }
       }
     }

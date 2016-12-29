@@ -30,15 +30,12 @@ import com.amazonaws.services.sns.AmazonSNS;
 import com.amazonaws.services.sns.AmazonSNSClient;
 import com.google.common.collect.Sets;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -61,10 +58,10 @@ public class BookingManager implements IBookingManager {
   private Boolean initialised = false;
 
   @Override
-  public final void initialise(LambdaLogger logger) throws IOException {
+  public final void initialise(LambdaLogger logger) throws Exception {
     this.logger = logger;
-    adminSnsTopicArn = getStringProperty("adminsnstopicarn");
-    region = Region.getRegion(Regions.fromName(getStringProperty("region")));
+    adminSnsTopicArn = getEnvironmentVariable("AdminSNSTopicArn");
+    region = Region.getRegion(Regions.fromName(getEnvironmentVariable("AWS_REGION")));
     initialised = true;
   }
 
@@ -157,7 +154,7 @@ public class BookingManager implements IBookingManager {
   }
 
   @Override
-  public List<Booking> getAllBookings() throws IOException {
+  public List<Booking> getAllBookings() throws Exception {
 
     if (!initialised) {
       throw new IllegalStateException("The booking manager has not been initialised");
@@ -242,7 +239,7 @@ public class BookingManager implements IBookingManager {
   }
 
   @Override
-  public void deleteYesterdaysBookings() throws IOException {
+  public void deleteYesterdaysBookings() throws Exception {
 
     if (!initialised) {
       throw new IllegalStateException("The booking manager has not been initialised");
@@ -333,9 +330,9 @@ public class BookingManager implements IBookingManager {
 
   /**
    * Returns an optimistic persister.
-   * @throws IOException 
+   * @throws Exception 
    */
-  protected IOptimisticPersister getOptimisticPersister() throws IOException {
+  protected IOptimisticPersister getOptimisticPersister() throws Exception {
 
     if (!initialised) {
       throw new IllegalStateException("The booking manager has not been initialised");
@@ -361,23 +358,19 @@ public class BookingManager implements IBookingManager {
   }
 
   /**
-   * Returns a named property from the SquashCustomResource settings file.
+   * Returns a named environment variable.
+   * @throws Exception 
    */
-  protected String getStringProperty(String propertyName) throws IOException {
+  protected String getEnvironmentVariable(String variableName) throws Exception {
     // Use a getter here so unit tests can substitute a mock value.
-    // We get the value from a settings file so that
-    // CloudFormation can substitute the actual value when the
-    // stack is created, by replacing the settings file.
+    // We get the value from an environment variable so that CloudFormation can
+    // set the actual value when the stack is created.
 
-    Properties properties = new Properties();
-    try (InputStream stream = BookingManager.class
-        .getResourceAsStream("/squash/booking/lambdas/SquashCustomResource.settings")) {
-      properties.load(stream);
-    } catch (IOException e) {
-      logger.log("Exception caught reading SquashCustomResource.settings properties file: "
-          + e.getMessage());
-      throw e;
+    String environmentVariable = System.getenv(variableName);
+    if (environmentVariable == null) {
+      logger.log("Environment variable: " + variableName + " is not defined, so throwing.");
+      throw new Exception("Environment variable: " + variableName + " should be defined.");
     }
-    return properties.getProperty(propertyName);
+    return environmentVariable;
   }
 }

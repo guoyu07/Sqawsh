@@ -36,13 +36,10 @@ import com.amazonaws.services.simpledb.model.SelectRequest;
 import com.amazonaws.services.simpledb.model.SelectResult;
 import com.amazonaws.services.simpledb.model.UpdateCondition;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Properties;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -71,17 +68,17 @@ public class OptimisticPersister implements IOptimisticPersister {
   private Boolean initialised = false;
 
   @Override
-  public final void initialise(int maxNumberOfAttributes, LambdaLogger logger) throws IOException {
+  public final void initialise(int maxNumberOfAttributes, LambdaLogger logger) throws Exception {
 
     if (initialised) {
       throw new IllegalStateException("The optimistic persister has already been initialised");
     }
 
     this.logger = logger;
-    simpleDbDomainName = getStringProperty("simpledbdomainname");
+    simpleDbDomainName = getEnvironmentVariable("SimpleDBDomainName");
     versionAttributeName = "VersionNumber";
     this.maxNumberOfAttributes = maxNumberOfAttributes;
-    region = Region.getRegion(Regions.fromName(getStringProperty("region")));
+    region = Region.getRegion(Regions.fromName(getEnvironmentVariable("AWS_REGION")));
     initialised = true;
   }
 
@@ -344,24 +341,20 @@ public class OptimisticPersister implements IOptimisticPersister {
   }
 
   /**
-   * Returns a named property from the SquashCustomResource settings file.
+   * Returns a named environment variable.
+   * @throws Exception 
    */
-  protected String getStringProperty(String propertyName) throws IOException {
+  protected String getEnvironmentVariable(String variableName) throws Exception {
     // Use a getter here so unit tests can substitute a mock value.
-    // We get the value from a settings file so that
-    // CloudFormation can substitute the actual value when the
-    // stack is created, by replacing the settings file.
+    // We get the value from an environment variable so that CloudFormation can
+    // set the actual value when the stack is created.
 
-    Properties properties = new Properties();
-    try (InputStream stream = RuleManager.class
-        .getResourceAsStream("/squash/booking/lambdas/SquashCustomResource.settings")) {
-      properties.load(stream);
-    } catch (IOException e) {
-      logger.log("Exception caught reading SquashCustomResource.settings properties file: "
-          + e.getMessage());
-      throw e;
+    String stringProperty = System.getenv(variableName);
+    if (stringProperty == null) {
+      logger.log("Environment variable: " + variableName + " is not defined, so throwing.");
+      throw new Exception("Environment variable: " + variableName + " should be defined.");
     }
-    return properties.getProperty(propertyName);
+    return stringProperty;
   }
 
   /**

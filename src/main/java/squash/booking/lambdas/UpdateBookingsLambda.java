@@ -118,7 +118,7 @@ public class UpdateBookingsLambda {
         logger.log("Throwing because request has null ApiGatewayBaseUrl");
         throw new Exception("ApiGatewayBaseUrl should not be null");
       }
-      String revvingSuffix = System.getenv("RevvingSuffix");
+      String revvingSuffix = getEnvironmentVariable("RevvingSuffix", logger);
       logger.log("Using revvingSuffix: " + revvingSuffix);
 
       pageManager.refreshAllPages(getValidDates(), apiGatewayBaseUrl, revvingSuffix);
@@ -138,5 +138,23 @@ public class UpdateBookingsLambda {
     updateBookingsLambdaResponse.setCurrentDate(getCurrentLocalDate().format(
         DateTimeFormatter.ofPattern("yyyy-MM-dd")));
     return updateBookingsLambdaResponse;
+  }
+
+  /**
+   * Returns a named environment variable.
+   * @throws Exception 
+   */
+  protected String getEnvironmentVariable(String variableName, LambdaLogger logger)
+      throws Exception {
+    // Use a getter here so unit tests can substitute a mock value.
+    // We get the value from an environment variable so that CloudFormation can
+    // set the actual value when the stack is created.
+
+    String environmentVariable = System.getenv(variableName);
+    if (environmentVariable == null) {
+      logger.log("Environment variable: " + variableName + " is not defined, so throwing.");
+      throw new Exception("Environment variable: " + variableName + " should be defined.");
+    }
+    return environmentVariable;
   }
 }

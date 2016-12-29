@@ -63,8 +63,8 @@
       "AllowedPattern" : "[\\x20-\\x7E]*",
       "ConstraintDescription" : "Must be a valid email address."
     },
-    "LambdaZipsBucketName": {
-      "Description" : "Name of the (pre-existing) S3 bucket with zips for all lambdas, and with this template.",
+    "SquashZipsBucketName": {
+      "Description" : "Name of the (pre-existing) S3 bucket with zips for the Angularjs app,  all lambdas, and this template.",
       "Type": "String",
       "MinLength": "1",
       "MaxLength": "255",
@@ -72,17 +72,8 @@
       "AllowedPattern" : "[\\x20-\\x7E]*",
       "ConstraintDescription" : "Can contain only ASCII characters."
     },
-    "LambdaZipsFolderName": {
-      "Description" : "Name of the base zipfile folder within the LambdaZipsBucketName bucket",
-      "Type": "String",
-      "MinLength": "1",
-      "MaxLength": "255",
-      "Default" : "lambdas",
-      "AllowedPattern" : "[\\x20-\\x7E]*",
-      "ConstraintDescription" : "Can contain only ASCII characters."
-    },
     "LambdaZipsKeyNameBase": {
-      "Description" : "Name of the zipfile within the LambdaZipsFolderName folder, excluding the numerical LambdaZipsRevision suffix and the zip extension",
+      "Description" : "Name of the zipfile within the SquashZipsBucketName bucket, excluding the numerical LambdaZipsRevision suffix and the zip extension",
       "Type": "String",
       "MinLength": "1",
       "MaxLength": "255",
@@ -191,61 +182,6 @@
                 "Effect":"Allow",
                 "Action":"iam:PassRole",
                 "Resource": { "Fn::GetAtt" : ["BookingsApiGatewayInvocationRole", "Arn"] }
-              }]
-            }
-          }
-        ]
-      }
-    },
-
-    "SquashSettingsCustomResourceLambdaExecutionRole": {
-      "Metadata" : { "Comment1" : "Role assumed by AWS Lambda service to execute",
-                     "Comment2" : "the lambda that wires up our SimpleDB domain and S3 website"},
-      "Type": "AWS::IAM::Role",
-      "Properties": {
-        "AssumeRolePolicyDocument": {
-          "Version" : "2012-10-17",
-          "Statement": [ {
-            "Effect": "Allow",
-            "Principal": {"Service": ["lambda.amazonaws.com"]},
-            "Action": [ "sts:AssumeRole" ]
-          }]
-        },
-        "Path": "/",
-        "Policies": [
-          {
-            "PolicyName": "root",
-            "PolicyDocument": {
-              "Version": "2012-10-17",
-              "Statement": [{
-                "Effect": "Allow",
-                "Action": ["logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents"],
-                "Resource": {"Fn::Join" : ["", [
-                  "arn:aws:logs:",
-                  { "Ref" : "AWS::Region" },
-                  ":",
-                  { "Ref" : "AWS::AccountId" },
-                  ":log-group:/aws/lambda/",
-                  { "Ref" : "AWS::StackName" },
-                  "-*"
-                ]]}
-              },
-              {
-                "Effect": "Allow",
-                "Action": [
-                  "s3:PutObject",
-                  "s3:GetObject"
-                ],
-                "Resource": [
-                  {"Fn::Join" : ["", [
-                  "arn:aws:s3:::",
-                  { "Ref" : "LambdaZipsBucketName" },
-                  "/*"
-                ]]},
-                  {"Fn::Join" : ["", [
-                  "arn:aws:s3:::",
-                  { "Ref" : "LambdaZipsBucketName" }
-                ]]}]
               }]
             }
           }
@@ -424,12 +360,12 @@
                 "Resource": [
                   {"Fn::Join" : ["", [
                   "arn:aws:s3:::",
-                  { "Ref" : "LambdaZipsBucketName" },
+                  { "Ref" : "SquashZipsBucketName" },
                   "/*"
                 ]]},
                   {"Fn::Join" : ["", [
                   "arn:aws:s3:::",
-                  { "Ref" : "LambdaZipsBucketName" }
+                  { "Ref" : "SquashZipsBucketName" }
                 ]]}]
               }]
             }
@@ -854,17 +790,25 @@
       "Metadata" : { "Comment" : "Lambda to apply all booking rules for a specified date" },
       "Properties": {
         "Code": {
-          "S3Bucket" : {"Ref" : "LambdaZipsBucketName"},
-          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsFolderName"}, "/", {"Ref" : "AWS::StackId"}, {"Ref" : "LambdaZipsKeyNameBase"}, "Modified", {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
+          "S3Bucket" : {"Ref" : "SquashZipsBucketName"},
+          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsKeyNameBase"}, {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
         },
         "Handler": "squash.booking.lambdas.ApplyBookingRulesLambda::applyBookingRules",
         "Runtime": "java8",
         "MemorySize" : 1024,
         "Timeout": "120",
         "Role": { "Fn::GetAtt" : ["BookingsAndBookingRulesLambdaExecutionRole", "Arn"] },
-        "Environment": { "Variables" : { "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]}}}
+        "Environment": {
+          "Variables" : {
+            "SimpleDBDomainName" : { "Ref" : "SquashSimpleDBDomain" },
+            "WebsiteBucket" : {"Ref" : "WebsiteBucketName"},
+            "DatabaseBackupBucket" : {"Ref" : "DatabaseBackupBucketName"},
+            "AdminSNSTopicArn" : {"Ref" : "AdminSNSTopic"},
+            "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]}
+          }
+        }
       },
-      "DependsOn": ["BookingsAndBookingRulesLambdaExecutionRole", "SquashSettingsCustomResource"]
+      "DependsOn": ["BookingsAndBookingRulesLambdaExecutionRole"]
     },
 
     "ValidDatesGETLambda": {
@@ -872,8 +816,8 @@
       "Metadata" : { "Comment" : "Lambda to return the list of dates for viewing/making bookings" },
       "Properties": {
         "Code": {
-          "S3Bucket" : {"Ref" : "LambdaZipsBucketName"},
-          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsFolderName"}, "/", {"Ref" : "LambdaZipsKeyNameBase"}, {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
+          "S3Bucket" : {"Ref" : "SquashZipsBucketName"},
+          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsKeyNameBase"}, {"Ref" : "LambdaZipsRevision"}, ".zip"]]}          
         },
         "Handler": "squash.booking.lambdas.GetValidDatesLambda::getValidDates",
         "Runtime": "java8",
@@ -889,16 +833,25 @@
       "Metadata" : { "Comment" : "Lambda to return the list of bookings for a specified date" },
       "Properties": {
         "Code": {
-          "S3Bucket" : {"Ref" : "LambdaZipsBucketName"},
-          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsFolderName"}, "/", {"Ref" : "AWS::StackId"}, {"Ref" : "LambdaZipsKeyNameBase"}, "Modified", {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
+          "S3Bucket" : {"Ref" : "SquashZipsBucketName"},
+          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsKeyNameBase"}, {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
         },
         "Handler": "squash.booking.lambdas.GetBookingsLambda::getBookings",
         "Runtime": "java8",
         "MemorySize" : 1024,
         "Timeout": "60",
-        "Role": { "Fn::GetAtt" : ["BookingsAndBookingRulesLambdaExecutionRole", "Arn"] }
+        "Role": { "Fn::GetAtt" : ["BookingsAndBookingRulesLambdaExecutionRole", "Arn"] },
+        "Environment": {
+          "Variables" : {
+            "SimpleDBDomainName" : { "Ref" : "SquashSimpleDBDomain" },
+            "WebsiteBucket" : {"Ref" : "WebsiteBucketName"},
+            "DatabaseBackupBucket" : {"Ref" : "DatabaseBackupBucketName"},
+            "AdminSNSTopicArn" : {"Ref" : "AdminSNSTopic"},
+            "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]}
+          }
+        }
       },
-      "DependsOn": ["BookingsAndBookingRulesLambdaExecutionRole", "SquashSettingsCustomResource"]
+      "DependsOn": ["BookingsAndBookingRulesLambdaExecutionRole"]
     },
 
     "BookingRulesGETLambda": {
@@ -906,16 +859,26 @@
       "Metadata" : { "Comment" : "Lambda to return the list of booking rules" },
       "Properties": {
         "Code": {
-          "S3Bucket" : {"Ref" : "LambdaZipsBucketName"},
-          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsFolderName"}, "/", {"Ref" : "AWS::StackId"}, {"Ref" : "LambdaZipsKeyNameBase"}, "Modified", {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
+          "S3Bucket" : {"Ref" : "SquashZipsBucketName"},
+          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsKeyNameBase"}, {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
         },
         "Handler": "squash.booking.lambdas.GetBookingRulesLambda::getBookingRules",
         "Runtime": "java8",
         "MemorySize" : 1024,
         "Timeout": "60",
-        "Role": { "Fn::GetAtt" : ["BookingsAndBookingRulesLambdaExecutionRole", "Arn"] }
+        "Role": { "Fn::GetAtt" : ["BookingsAndBookingRulesLambdaExecutionRole", "Arn"] },
+        "Environment": {
+          "Variables" : {
+            "SimpleDBDomainName" : { "Ref" : "SquashSimpleDBDomain" },
+            "CognitoIdentityPoolId" : { "Fn::GetAtt" : ["SquashCognitoCustomResource", "CognitoIdentityPoolId"] },
+            "WebsiteBucket" : {"Ref" : "WebsiteBucketName"},
+            "DatabaseBackupBucket" : {"Ref" : "DatabaseBackupBucketName"},
+            "AdminSNSTopicArn" : {"Ref" : "AdminSNSTopic"},
+            "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]}
+          }
+        }
       },
-      "DependsOn": ["BookingsAndBookingRulesLambdaExecutionRole", "SquashSettingsCustomResource"]
+      "DependsOn": ["BookingsAndBookingRulesLambdaExecutionRole"]
     },
 
     "BookingsPUTDELETELambda": {
@@ -923,17 +886,26 @@
       "Metadata" : { "Comment" : "Lambda to create a new booking" },
       "Properties": {
         "Code": {
-          "S3Bucket" : {"Ref" : "LambdaZipsBucketName"},
-          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsFolderName"}, "/", {"Ref" : "AWS::StackId"}, {"Ref" : "LambdaZipsKeyNameBase"}, "Modified", {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
+          "S3Bucket" : {"Ref" : "SquashZipsBucketName"},
+          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsKeyNameBase"}, {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
         },
         "Handler": "squash.booking.lambdas.PutDeleteBookingLambda::createOrDeleteBooking",
         "Runtime": "java8",
         "MemorySize" : 1024,
         "Timeout": "60",
         "Role": { "Fn::GetAtt" : ["BookingsAndBookingRulesLambdaExecutionRole", "Arn"] },
-        "Environment": { "Variables" : { "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]}}}
+        "Environment": {
+          "Variables" : {
+            "SimpleDBDomainName" : { "Ref" : "SquashSimpleDBDomain" },
+            "CognitoIdentityPoolId" : { "Fn::GetAtt" : ["SquashCognitoCustomResource", "CognitoIdentityPoolId"] },
+            "WebsiteBucket" : {"Ref" : "WebsiteBucketName"},
+            "DatabaseBackupBucket" : {"Ref" : "DatabaseBackupBucketName"},
+            "AdminSNSTopicArn" : {"Ref" : "AdminSNSTopic"},
+            "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]}
+          }
+        }
       },
-      "DependsOn": ["BookingsAndBookingRulesLambdaExecutionRole", "SquashSettingsCustomResource"]
+      "DependsOn": ["BookingsAndBookingRulesLambdaExecutionRole"]
     },
 
     "BookingRuleOrExclusionPUTDELETELambda": {
@@ -941,16 +913,26 @@
       "Metadata" : { "Comment" : "Lambda to manipulate booking rules and their exclusions" },
       "Properties": {
         "Code": {
-          "S3Bucket" : {"Ref" : "LambdaZipsBucketName"},
-          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsFolderName"}, "/", {"Ref" : "AWS::StackId"}, {"Ref" : "LambdaZipsKeyNameBase"}, "Modified", {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
+          "S3Bucket" : {"Ref" : "SquashZipsBucketName"},
+          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsKeyNameBase"}, {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
         },
         "Handler": "squash.booking.lambdas.PutDeleteBookingRuleOrExclusionLambda::createOrDeleteBookingRuleOrExclusion",
         "Runtime": "java8",
         "MemorySize" : 1024,
         "Timeout": "60",
-        "Role": { "Fn::GetAtt" : ["BookingsAndBookingRulesLambdaExecutionRole", "Arn"] }
+        "Role": { "Fn::GetAtt" : ["BookingsAndBookingRulesLambdaExecutionRole", "Arn"] },
+        "Environment": {
+          "Variables" : {
+            "SimpleDBDomainName" : { "Ref" : "SquashSimpleDBDomain" },
+            "CognitoIdentityPoolId" : { "Fn::GetAtt" : ["SquashCognitoCustomResource", "CognitoIdentityPoolId"] },
+            "WebsiteBucket" : {"Ref" : "WebsiteBucketName"},
+            "DatabaseBackupBucket" : {"Ref" : "DatabaseBackupBucketName"},
+            "AdminSNSTopicArn" : {"Ref" : "AdminSNSTopic"},
+            "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]}
+          }
+        }
       },
-      "DependsOn": ["BookingsAndBookingRulesLambdaExecutionRole", "SquashSettingsCustomResource"]
+      "DependsOn": ["BookingsAndBookingRulesLambdaExecutionRole"]
     },
 
     "UpdateBookingsLambda": {
@@ -958,17 +940,26 @@
       "Metadata" : { "Comment" : "Lambda to update booking pages every midnight" },
       "Properties": {
         "Code": {
-          "S3Bucket" : {"Ref" : "LambdaZipsBucketName"},
-          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsFolderName"}, "/", {"Ref" : "AWS::StackId"}, {"Ref" : "LambdaZipsKeyNameBase"}, "Modified", {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
+          "S3Bucket" : {"Ref" : "SquashZipsBucketName"},
+          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsKeyNameBase"}, {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
         },
         "Handler": "squash.booking.lambdas.UpdateBookingsLambda::updateBookings",
         "Runtime": "java8",
         "MemorySize" : 1024,
         "Timeout": "120",
         "Role": { "Fn::GetAtt" : ["BookingsAndBookingRulesLambdaExecutionRole", "Arn"] },
-        "Environment": { "Variables" : { "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]}}}
+        "Environment": {
+          "Variables" : {
+            "SimpleDBDomainName" : { "Ref" : "SquashSimpleDBDomain" },
+            "CognitoIdentityPoolId" : { "Fn::GetAtt" : ["SquashCognitoCustomResource", "CognitoIdentityPoolId"] },
+            "WebsiteBucket" : {"Ref" : "WebsiteBucketName"},
+            "DatabaseBackupBucket" : {"Ref" : "DatabaseBackupBucketName"},
+            "AdminSNSTopicArn" : {"Ref" : "AdminSNSTopic"},
+            "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]}
+          }
+        }
       },
-      "DependsOn": ["BookingsAndBookingRulesLambdaExecutionRole", "SquashSettingsCustomResource"]
+      "DependsOn": ["BookingsAndBookingRulesLambdaExecutionRole"]
     },
 
     "WebsiteBucket" : {
@@ -1076,16 +1067,26 @@
       "Metadata" : { "Comment" : "Lambda to backup all database bookings and booking rules" },
       "Properties": {
         "Code": {
-          "S3Bucket" : {"Ref" : "LambdaZipsBucketName"},
-          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsFolderName"}, "/", {"Ref" : "AWS::StackId"}, {"Ref" : "LambdaZipsKeyNameBase"}, "Modified", {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
+          "S3Bucket" : {"Ref" : "SquashZipsBucketName"},
+          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsKeyNameBase"}, {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
         },
         "Handler": "squash.booking.lambdas.BackupBookingsAndBookingRulesLambda::backupBookingsAndBookingRules",
         "Runtime": "java8",
         "MemorySize" : 1024,
         "Timeout": "120",
-        "Role": { "Fn::GetAtt" : ["BookingsAndBookingRulesLambdaExecutionRole", "Arn"] }
+        "Role": { "Fn::GetAtt" : ["BookingsAndBookingRulesLambdaExecutionRole", "Arn"] },
+        "Environment": {
+          "Variables" : {
+            "SimpleDBDomainName" : { "Ref" : "SquashSimpleDBDomain" },
+            "CognitoIdentityPoolId" : { "Fn::GetAtt" : ["SquashCognitoCustomResource", "CognitoIdentityPoolId"] },
+            "WebsiteBucket" : {"Ref" : "WebsiteBucketName"},
+            "DatabaseBackupBucket" : {"Ref" : "DatabaseBackupBucketName"},
+            "AdminSNSTopicArn" : {"Ref" : "AdminSNSTopic"},
+            "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]}
+          }
+        }
       },
-      "DependsOn": ["BookingsAndBookingRulesLambdaExecutionRole", "SquashSettingsCustomResource"]
+      "DependsOn": ["BookingsAndBookingRulesLambdaExecutionRole"]
     },
 
     "DatabaseRestoreLambda": {
@@ -1093,17 +1094,26 @@
       "Metadata" : { "Comment" : "Lambda to restore all database bookings and booking rules from a backup" },
       "Properties": {
         "Code": {
-          "S3Bucket" : {"Ref" : "LambdaZipsBucketName"},
-          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsFolderName"}, "/", {"Ref" : "AWS::StackId"}, {"Ref" : "LambdaZipsKeyNameBase"}, "Modified", {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
+          "S3Bucket" : {"Ref" : "SquashZipsBucketName"},
+          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsKeyNameBase"}, {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
         },
         "Handler": "squash.booking.lambdas.RestoreBookingsAndBookingRulesLambda::restoreBookingsAndBookingRules",
         "Runtime": "java8",
         "MemorySize" : 1024,
         "Timeout": "300",
         "Role": { "Fn::GetAtt" : ["BookingsAndBookingRulesLambdaExecutionRole", "Arn"] },
-        "Environment": { "Variables" : { "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]}}}
+        "Environment": {
+          "Variables" : {
+            "SimpleDBDomainName" : { "Ref" : "SquashSimpleDBDomain" },
+            "CognitoIdentityPoolId" : { "Fn::GetAtt" : ["SquashCognitoCustomResource", "CognitoIdentityPoolId"] },
+            "WebsiteBucket" : {"Ref" : "WebsiteBucketName"},
+            "DatabaseBackupBucket" : {"Ref" : "DatabaseBackupBucketName"},
+            "AdminSNSTopicArn" : {"Ref" : "AdminSNSTopic"},
+            "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]}
+          }
+        }
       },
-      "DependsOn": ["BookingsAndBookingRulesLambdaExecutionRole", "SquashSettingsCustomResource"]
+      "DependsOn": ["BookingsAndBookingRulesLambdaExecutionRole"]
     },
 
     "SquashApiGatewayCustomResourceLambda": {
@@ -1111,15 +1121,32 @@
       "Metadata" : { "Comment" : "Lambda to manage our custom resource for our ApiGateway API" },
       "Properties": {
         "Code": {
-          "S3Bucket" : {"Ref" : "LambdaZipsBucketName"},
-          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsFolderName"}, "/", {"Ref" : "LambdaZipsKeyNameBase"}, {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
+          "S3Bucket" : {"Ref" : "SquashZipsBucketName"},
+          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsKeyNameBase"}, {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
         },
         "Handler": "squash.deployment.lambdas.ApiGatewayCustomResourceLambda::handleRequest",
         "Runtime": "java8",
         "MemorySize" : 1024,
         "Timeout": "60",
         "Role": { "Fn::GetAtt" : ["SquashApiGatewayCustomResourceLambdaExecutionRole", "Arn"] },
-        "Environment": { "Variables" : { "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]}}}
+        "Environment": {
+          "Variables" : {
+            "SimpleDBDomainName" : { "Ref" : "SquashSimpleDBDomain" },
+            "CognitoIdentityPoolId" : { "Fn::GetAtt" : ["SquashCognitoCustomResource", "CognitoIdentityPoolId"] },
+            "WebsiteBucket" : {"Ref" : "WebsiteBucketName"},
+            "DatabaseBackupBucket" : {"Ref" : "DatabaseBackupBucketName"},
+            "AdminSNSTopicArn" : {"Ref" : "AdminSNSTopic"},
+            "ValidDatesGETLambdaURI" : { "Fn::GetAtt" : ["ValidDatesGETLambda", "Arn"] },
+            "BookingsGETLambdaURI" : { "Fn::GetAtt" : ["BookingsGETLambda", "Arn"] },
+            "BookingRulesGETLambdaURI" : { "Fn::GetAtt" : ["BookingRulesGETLambda", "Arn"] },
+            "BookingsPUTDELETELambdaURI" : { "Fn::GetAtt" : ["BookingsPUTDELETELambda", "Arn"] },
+            "BookingRuleOrExclusionPUTDELETELambdaURI" : { "Fn::GetAtt" : ["BookingRuleOrExclusionPUTDELETELambda", "Arn"] },
+            "BookingsApiGatewayInvocationRole" : { "Fn::GetAtt" : ["BookingsApiGatewayInvocationRole", "Arn"] },
+            "StageName" : "Squash",
+            "Revision" : {"Ref" : "LambdaZipsRevision"},
+            "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]}
+          }
+        }
       },
       "DependsOn": [
         "BookingsApiGatewayInvocationRole",
@@ -1132,58 +1159,9 @@
       "Type" : "Custom::SquashApiGateway",
       "Version" : "1.0",
       "Properties" : {
-        "ServiceToken": { "Fn::GetAtt" : ["SquashApiGatewayCustomResourceLambda", "Arn"] },
-        "ValidDatesGETLambdaURI" : { "Fn::GetAtt" : ["ValidDatesGETLambda", "Arn"] },
-        "BookingsGETLambdaURI" : { "Fn::GetAtt" : ["BookingsGETLambda", "Arn"] },
-        "BookingRulesGETLambdaURI" : { "Fn::GetAtt" : ["BookingRulesGETLambda", "Arn"] },
-        "BookingsPUTDELETELambdaURI" : { "Fn::GetAtt" : ["BookingsPUTDELETELambda", "Arn"] },
-        "BookingRuleOrExclusionPUTDELETELambdaURI" : { "Fn::GetAtt" : ["BookingRuleOrExclusionPUTDELETELambda", "Arn"] },
-        "BookingsApiGatewayInvocationRole" : { "Fn::GetAtt" : ["BookingsApiGatewayInvocationRole", "Arn"] },
-        "WebsiteBucket" : {"Ref" : "WebsiteBucket"},
-        "Stage Name" : "Squash",
-        "Region" : { "Ref" : "AWS::Region" },
-        "Revision" : {"Ref" : "LambdaZipsRevision"}
+        "ServiceToken": { "Fn::GetAtt" : ["SquashApiGatewayCustomResourceLambda", "Arn"] }
       },
       "DependsOn": ["SquashApiGatewayCustomResourceLambda", "WebsiteBucket"]
-    },
-
-    "SquashSettingsCustomResourceLambda": {
-      "Type": "AWS::Lambda::Function",
-      "Metadata" : { "Comment1" : "Lambda to manage our custom resource to configure settings file for use by lambda",
-                     "Comment2" : "functions. This modifies the lambda zip file in S3 so that its settings file",
-                     "Comment3" : "contains various values that are not known until stack creation time." },
-      "Properties": {
-        "Code": {
-          "S3Bucket" : {"Ref" : "LambdaZipsBucketName"},
-          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsFolderName"}, "/", {"Ref" : "LambdaZipsKeyNameBase"}, {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
-        },
-        "Handler": "squash.deployment.lambdas.SquashSettingsCustomResourceLambda::handleRequest",
-        "Runtime": "java8",
-        "MemorySize" : 1024,
-        "Timeout": "60",
-        "Role": { "Fn::GetAtt" : ["SquashSettingsCustomResourceLambdaExecutionRole", "Arn"] }
-      },
-      "DependsOn": ["SquashSettingsCustomResourceLambdaExecutionRole"]
-    },
-
-    "SquashSettingsCustomResource" : {
-      "Metadata" : { "Comment" : "Lambda-backed custom resource to configure settings file for use by lambda functions" },
-      "Type" : "Custom::SquashSettings",
-      "Version" : "1.0",
-      "Properties" : {
-        "ServiceToken": { "Fn::GetAtt" : ["SquashSettingsCustomResourceLambda", "Arn"] },
-        "SimpleDBDomainName" : { "Ref" : "SquashSimpleDBDomain" },
-        "CognitoIdentityPoolId": { "Fn::GetAtt" : ["SquashCognitoCustomResource", "CognitoIdentityPoolId"] },
-        "WebsiteBucket" : {"Ref" : "WebsiteBucketName"},
-        "DatabaseBackupBucket" : {"Ref" : "DatabaseBackupBucketName"},
-        "AdminSNSTopic" : {"Ref" : "AdminSNSTopic"},
-        "LambdaZipsBucket" : {"Ref" : "LambdaZipsBucketName"},
-        "S3InputKey" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsFolderName"}, "/", {"Ref" : "LambdaZipsKeyNameBase"}, {"Ref" : "LambdaZipsRevision"}, ".zip"]]},
-        "S3OutputKey" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsFolderName"}, "/", {"Ref" : "AWS::StackId"}, {"Ref" : "LambdaZipsKeyNameBase"}, "Modified", {"Ref" : "LambdaZipsRevision"}, ".zip"]]},
-        "Region" : { "Ref" : "AWS::Region" },
-        "Revision" : {"Ref" : "LambdaZipsRevision"}
-      },
-      "DependsOn": ["SquashSettingsCustomResourceLambda", "SquashSimpleDBDomain", "WebsiteBucket", "DatabaseBackupBucket", "AdminSNSTopic"]
     },
 
     "SquashAngularjsAppCustomResourceLambda": {
@@ -1193,15 +1171,27 @@
                      "Comment3" : "not known until stack creation time, and then uploads the modified app." },
       "Properties": {
         "Code": {
-          "S3Bucket" : {"Ref" : "LambdaZipsBucketName"},
-          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsFolderName"}, "/", {"Ref" : "LambdaZipsKeyNameBase"}, {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
+          "S3Bucket" : {"Ref" : "SquashZipsBucketName"},
+          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsKeyNameBase"}, {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
         },
         "Handler": "squash.deployment.lambdas.AngularjsAppCustomResourceLambda::handleRequest",
         "Runtime": "java8",
         "MemorySize" : 1024,
         "Timeout": "60",
         "Role": { "Fn::GetAtt" : ["SquashAngularjsAppCustomResourceLambdaExecutionRole", "Arn"] },
-        "Environment": { "Variables" : { "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]}}}
+        "Environment": {
+          "Variables" : {
+            "WebsiteBucket" : {"Ref" : "WebsiteBucketName"},
+            "AngularjsZipBucket" : {"Ref" : "SquashZipsBucketName"},
+            "CognitoIdentityPoolId": { "Fn::GetAtt" : ["SquashCognitoCustomResource", "CognitoIdentityPoolId"] },
+            "CognitoUserPoolId": { "Fn::GetAtt" : ["SquashCognitoCustomResource", "CognitoUserPoolId"] },
+            "CognitoUserPoolIdentityProviderName": { "Fn::GetAtt" : ["SquashCognitoCustomResource", "CognitoUserPoolIdentityProviderName"] },
+            "JavascriptClientAppId": { "Fn::GetAtt" : ["SquashCognitoCustomResource", "JavascriptClientAppId"] },
+            "ApiGatewayBaseUrl" : { "Fn::GetAtt" : ["SquashApiGatewayCustomResource", "ApiGatewayBaseUrl"] },
+            "Revision" : {"Ref" : "LambdaZipsRevision"},
+            "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]}
+          }
+        }
       },
       "DependsOn": ["SquashAngularjsAppCustomResourceLambdaExecutionRole"]
     },
@@ -1211,16 +1201,7 @@
       "Type" : "Custom::AngularjsApp",
       "Version" : "1.0",
       "Properties" : {
-        "ServiceToken": { "Fn::GetAtt" : ["SquashAngularjsAppCustomResourceLambda", "Arn"] },
-        "WebsiteBucket" : {"Ref" : "WebsiteBucketName"},
-        "AngularjsZipBucket" : {"Ref" : "LambdaZipsBucketName"},
-        "CognitoIdentityPoolId": { "Fn::GetAtt" : ["SquashCognitoCustomResource", "CognitoIdentityPoolId"] },
-        "CognitoUserPoolId": { "Fn::GetAtt" : ["SquashCognitoCustomResource", "CognitoUserPoolId"] },
-        "CognitoUserPoolIdentityProviderName": { "Fn::GetAtt" : ["SquashCognitoCustomResource", "CognitoUserPoolIdentityProviderName"] },
-        "JavascriptClientAppId": { "Fn::GetAtt" : ["SquashCognitoCustomResource", "JavascriptClientAppId"] },
-        "ApiGatewayBaseUrl" : { "Fn::GetAtt" : ["SquashApiGatewayCustomResource", "ApiGatewayBaseUrl"] }, 
-        "Region" : { "Ref" : "AWS::Region" },
-        "Revision" : {"Ref" : "LambdaZipsRevision"}
+        "ServiceToken": { "Fn::GetAtt" : ["SquashAngularjsAppCustomResourceLambda", "Arn"] }
       },
       "DependsOn": ["SquashAngularjsAppCustomResourceLambda", "SquashCognitoCustomResource", "WebsiteBucket", "SquashApiGatewayCustomResource"]
     },
@@ -1239,14 +1220,33 @@
                      "Comment2" : "and to reduce their retention period from forever to a few days." },
       "Properties": {
         "Code": {
-          "S3Bucket" : {"Ref" : "LambdaZipsBucketName"},
-          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsFolderName"}, "/", {"Ref" : "LambdaZipsKeyNameBase"}, {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
+          "S3Bucket" : {"Ref" : "SquashZipsBucketName"},
+          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsKeyNameBase"}, {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
         },
         "Handler": "squash.deployment.lambdas.LogGroupsCustomResourceLambda::handleRequest",
         "Runtime": "java8",
         "MemorySize" : 1024,
         "Timeout": "60",
-        "Role": { "Fn::GetAtt" : ["SquashLogGroupsCustomResourceLambdaExecutionRole", "Arn"] }
+        "Role": { "Fn::GetAtt" : ["SquashLogGroupsCustomResourceLambdaExecutionRole", "Arn"] },
+        "Environment": {
+          "Variables" : {
+            "SquashAngularjsAppCustomResourceLambdaName" : { "Ref" : "SquashAngularjsAppCustomResourceLambda" },
+            "ApplyBookingRulesLambdaName" : { "Ref" : "ApplyBookingRulesLambda" },
+            "ValidDatesLambdaName" : { "Ref" : "ValidDatesGETLambda" },
+            "BookingsGETLambdaName" : { "Ref" : "BookingsGETLambda" },
+            "BookingRulesGETLambdaName" : { "Ref" : "BookingRulesGETLambda" },
+            "BookingsPUTDELETELambdaName" : { "Ref" : "BookingsPUTDELETELambda" },
+            "BookingRuleOrExclusionPUTDELETELambdaName" : { "Ref" : "BookingRuleOrExclusionPUTDELETELambda" },
+            "SquashApiGatewayCustomResourceLambdaName" : { "Ref" : "SquashApiGatewayCustomResourceLambda" },
+            "SquashNoScriptAppCustomResourceLambdaName" : { "Ref" : "SquashNoScriptAppCustomResourceLambda" },
+            "SquashCognitoCustomResourceLambdaName" : { "Ref" : "SquashCognitoCustomResourceLambda" },
+            "SquashScheduledCloudwatchEventCustomResourceLambdaName" : { "Ref" : "SquashScheduledCloudwatchEventCustomResourceLambda" },
+            "UpdateBookingsLambdaName" : { "Ref" : "UpdateBookingsLambda" },
+            "DatabaseBackupLambdaName" : { "Ref" : "DatabaseBackupLambda" },
+            "DatabaseRestoreLambdaName" : { "Ref" : "DatabaseRestoreLambda" },
+            "Revision" : {"Ref" : "LambdaZipsRevision"}
+          }
+        }
       },
       "DependsOn": "SquashLogGroupsCustomResourceLambdaExecutionRole"
     },
@@ -1258,24 +1258,7 @@
       "Type" : "Custom::SquashLogGroups",
       "Version" : "1.0",
       "Properties" : {
-        "ServiceToken": { "Fn::GetAtt" : ["SquashLogGroupsCustomResourceLambda", "Arn"] },
-        "SquashAngularjsAppCustomResourceLambdaName" : { "Ref" : "SquashAngularjsAppCustomResourceLambda" },
-        "ApplyBookingRulesLambdaName" : { "Ref" : "ApplyBookingRulesLambda" },
-        "ValidDatesLambdaName" : { "Ref" : "ValidDatesGETLambda" },
-        "BookingsGETLambdaName" : { "Ref" : "BookingsGETLambda" },
-        "BookingRulesGETLambdaName" : { "Ref" : "BookingRulesGETLambda" },
-        "BookingsPUTDELETELambdaName" : { "Ref" : "BookingsPUTDELETELambda" },
-        "BookingRuleOrExclusionPUTDELETELambdaName" : { "Ref" : "BookingRuleOrExclusionPUTDELETELambda" },
-        "SquashApiGatewayCustomResourceLambdaName" : { "Ref" : "SquashApiGatewayCustomResourceLambda" },
-        "SquashSettingsCustomResourceLambdaName" : { "Ref" : "SquashSettingsCustomResourceLambda" },
-        "SquashNoScriptAppCustomResourceLambdaName" : { "Ref" : "SquashNoScriptAppCustomResourceLambda" },
-        "SquashCognitoCustomResourceLambdaName" : { "Ref" : "SquashCognitoCustomResourceLambda" },
-        "SquashScheduledCloudwatchEventCustomResourceLambdaName" : { "Ref" : "SquashScheduledCloudwatchEventCustomResourceLambda" },
-        "UpdateBookingsLambdaName" : { "Ref" : "UpdateBookingsLambda" },
-        "DatabaseBackupLambdaName" : { "Ref" : "DatabaseBackupLambda" },
-        "DatabaseRestoreLambdaName" : { "Ref" : "DatabaseRestoreLambda" },
-        "Region" : { "Ref" : "AWS::Region" },
-        "Revision" : {"Ref" : "LambdaZipsRevision"}
+        "ServiceToken": { "Fn::GetAtt" : ["SquashLogGroupsCustomResourceLambda", "Arn"] }
       },
       "DependsOn": [
         "SquashLogGroupsCustomResourceLambda",
@@ -1286,7 +1269,6 @@
         "BookingsPUTDELETELambda",
         "BookingRuleOrExclusionPUTDELETELambda",
         "SquashApiGatewayCustomResource",
-        "SquashSettingsCustomResource",
         "SquashAngularjsAppCustomResourceLambda",
         "SquashNoScriptAppCustomResource",
         "SquashCognitoCustomResource",
@@ -1302,16 +1284,32 @@
                      "Comment" : "event will fire continuously every 5 minutes."},
       "Properties": {
         "Code": {
-          "S3Bucket" : {"Ref" : "LambdaZipsBucketName"},
-          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsFolderName"}, "/", {"Ref" : "AWS::StackId"}, {"Ref" : "LambdaZipsKeyNameBase"}, "Modified", {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
+          "S3Bucket" : {"Ref" : "SquashZipsBucketName"},
+          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsKeyNameBase"}, {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
         },
         "Handler": "squash.deployment.lambdas.ScheduledCloudwatchEventCustomResourceLambda::handleRequest",
         "Runtime": "java8",
         "MemorySize" : 1024,
         "Timeout": "60",
-        "Role": { "Fn::GetAtt" : ["SquashScheduledCloudwatchEventCustomResourceRole", "Arn"] }
+        "Role": { "Fn::GetAtt" : ["SquashScheduledCloudwatchEventCustomResourceRole", "Arn"] },
+        "Environment": {
+          "Variables" : {
+            "SimpleDBDomainName" : { "Ref" : "SquashSimpleDBDomain" },
+            "CognitoIdentityPoolId" : { "Fn::GetAtt" : ["SquashCognitoCustomResource", "CognitoIdentityPoolId"] },
+            "WebsiteBucket" : {"Ref" : "WebsiteBucketName"},
+            "DatabaseBackupBucket" : {"Ref" : "DatabaseBackupBucketName"},
+            "AdminSNSTopicArn" : {"Ref" : "AdminSNSTopic"},
+            "ApiGatewayBaseUrl" : { "Fn::GetAtt" : ["SquashApiGatewayCustomResource", "ApiGatewayBaseUrl"] },
+            "ApplyBookingRulesLambdaArn": { "Fn::GetAtt" : ["ApplyBookingRulesLambda", "Arn"] },
+            "UpdateBookingsLambdaArn" : { "Fn::GetAtt" : ["UpdateBookingsLambda", "Arn"] },
+            "DatabaseBackupLambdaArn" : { "Fn::GetAtt" : ["DatabaseBackupLambda", "Arn"] },
+            "CreateOrDeleteBookingsLambdaArn" : { "Fn::GetAtt" : ["BookingsPUTDELETELambda", "Arn"] },
+            "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]},
+            "Revision" : {"Ref" : "LambdaZipsRevision"}
+          }
+        }
       },
-      "DependsOn": ["SquashScheduledCloudwatchEventCustomResourceRole", "SquashSettingsCustomResource"]
+      "DependsOn": ["SquashScheduledCloudwatchEventCustomResourceRole"]
     },
 
     "SquashPreMidnightApplyBookingRulesScheduledCloudwatchEventCustomResourceLambdaInvokePermission": {
@@ -1363,14 +1361,7 @@
       "Type" : "Custom::SquashCloudwatchEvent",
       "Version" : "1.0",
       "Properties" : {
-        "ServiceToken": { "Fn::GetAtt" : ["SquashScheduledCloudwatchEventCustomResourceLambda", "Arn"] },
-        "ApiGatewayBaseUrl" : { "Fn::GetAtt" : ["SquashApiGatewayCustomResource", "ApiGatewayBaseUrl"] },
-        "ApplyBookingRulesLambdaArn": { "Fn::GetAtt" : ["ApplyBookingRulesLambda", "Arn"] },
-        "UpdateBookingsLambdaArn" : { "Fn::GetAtt" : ["UpdateBookingsLambda", "Arn"] },
-        "DatabaseBackupLambdaArn" : { "Fn::GetAtt" : ["DatabaseBackupLambda", "Arn"] },
-        "CreateOrDeleteBookingsLambdaArn" : { "Fn::GetAtt" : ["BookingsPUTDELETELambda", "Arn"] },
-        "Region" : { "Ref" : "AWS::Region" },
-        "Revision" : {"Ref" : "LambdaZipsRevision"}
+        "ServiceToken": { "Fn::GetAtt" : ["SquashScheduledCloudwatchEventCustomResourceLambda", "Arn"] }
       },
       "DependsOn": ["SquashScheduledCloudwatchEventCustomResourceRole", "SquashApiGatewayCustomResourceLambda", "WebsiteBucket", "SquashApiGatewayCustomResource"]
     },
@@ -1380,17 +1371,26 @@
       "Metadata" : { "Comment1" : "Lambda to deploy the booking pages to the website bucket." },
       "Properties": {
         "Code": {
-          "S3Bucket" : {"Ref" : "LambdaZipsBucketName"},
-          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsFolderName"}, "/", {"Ref" : "AWS::StackId"}, {"Ref" : "LambdaZipsKeyNameBase"}, "Modified", {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
+          "S3Bucket" : {"Ref" : "SquashZipsBucketName"},
+          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsKeyNameBase"}, {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
         },
         "Handler": "squash.deployment.lambdas.NoScriptAppCustomResourceLambda::handleRequest",
         "Runtime": "java8",
         "MemorySize" : 1024,
         "Timeout": "60",
         "Role": { "Fn::GetAtt" : ["SquashNoScriptAppCustomResourceLambdaExecutionRole", "Arn"] },
-        "Environment": { "Variables" : { "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]}}}
+        "Environment": {
+          "Variables" : {
+            "SimpleDBDomainName" : { "Ref" : "SquashSimpleDBDomain" },
+            "WebsiteBucket" : {"Ref" : "WebsiteBucketName"},
+            "AdminSNSTopicArn" : {"Ref" : "AdminSNSTopic"},
+            "ApiGatewayBaseUrl" : { "Fn::GetAtt" : ["SquashApiGatewayCustomResource", "ApiGatewayBaseUrl"] },
+            "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]},
+            "Revision" : {"Ref" : "LambdaZipsRevision"}
+          }
+        }
       },
-      "DependsOn": ["SquashNoScriptAppCustomResourceLambdaExecutionRole", "SquashSettingsCustomResource", "SquashApiGatewayCustomResource"]
+      "DependsOn": ["SquashNoScriptAppCustomResourceLambdaExecutionRole", "SquashApiGatewayCustomResource"]
     },
 
     "SquashNoScriptAppCustomResource" : {
@@ -1398,14 +1398,9 @@
       "Type" : "Custom::SquashNoScriptApp",
       "Version" : "1.0",
       "Properties" : {
-        "ServiceToken": { "Fn::GetAtt" : ["SquashNoScriptAppCustomResourceLambda", "Arn"] },
-        "WebsiteBucket" : {"Ref" : "WebsiteBucketName"},
-        "ApiGatewayBaseUrl" : { "Fn::GetAtt" : ["SquashApiGatewayCustomResource", "ApiGatewayBaseUrl"] },
-        "CognitoIdentityPoolId" : { "Fn::GetAtt" : ["SquashCognitoCustomResource", "CognitoIdentityPoolId"] },
-        "Region" : { "Ref" : "AWS::Region" },
-        "Revision" : {"Ref" : "LambdaZipsRevision"}
+        "ServiceToken": { "Fn::GetAtt" : ["SquashNoScriptAppCustomResourceLambda", "Arn"] }
       },
-      "DependsOn": ["SquashNoScriptAppCustomResourceLambda", "SquashCognitoCustomResource", "SquashSettingsCustomResource", "SquashApiGatewayCustomResource"]
+      "DependsOn": ["SquashNoScriptAppCustomResourceLambda", "SquashCognitoCustomResource", "SquashApiGatewayCustomResource"]
     },
 
     "SquashCognitoCustomResourceLambda": {
@@ -1413,14 +1408,26 @@
       "Metadata" : { "Comment" : "Lambda to manage our Cognito identity pool" },
       "Properties": {
         "Code": {
-          "S3Bucket" : {"Ref" : "LambdaZipsBucketName"},
-          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsFolderName"}, "/", {"Ref" : "LambdaZipsKeyNameBase"}, {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
+          "S3Bucket" : {"Ref" : "SquashZipsBucketName"},
+          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsKeyNameBase"}, {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
         },
         "Handler": "squash.deployment.lambdas.CognitoCustomResourceLambda::handleRequest",
         "Runtime": "java8",
         "MemorySize" : 1024,
         "Timeout": "60",
-        "Role": { "Fn::GetAtt" : ["SquashCognitoCustomResourceLambdaExecutionRole", "Arn"] }
+        "Role": { "Fn::GetAtt" : ["SquashCognitoCustomResourceLambdaExecutionRole", "Arn"] },
+        "Environment": {
+          "Variables" : {
+            "StackName" : { "Ref" : "AWS::StackName" },
+            "AdminEmail" : {"Ref" : "AdminEmail"},
+            "AdminPassword" : {"Ref" : "AdminPassword"},
+            "AuthenticatedRole" : { "Fn::GetAtt" : ["SquashCognitoAuthenticatedRole", "Arn"] },
+            "AuthenticatedRoleName" : {"Ref" : "SquashCognitoAuthenticatedRole"},
+            "UnauthenticatedRole" : { "Fn::GetAtt" : ["SquashCognitoUnauthenticatedRole", "Arn"] },
+            "UnauthenticatedRoleName" : {"Ref" : "SquashCognitoUnauthenticatedRole"},
+            "Revision" : {"Ref" : "LambdaZipsRevision"}
+          }
+        }
       },
       "DependsOn": [
         "SquashCognitoCustomResourceLambdaExecutionRole",
@@ -1434,16 +1441,7 @@
       "Type" : "Custom::SquashCognito",
       "Version" : "1.0",
       "Properties" : {
-        "ServiceToken": { "Fn::GetAtt" : ["SquashCognitoCustomResourceLambda", "Arn"] },
-        "StackName" : { "Ref" : "AWS::StackName" },
-        "AdminEmail" : {"Ref" : "AdminEmail"},
-        "AdminPassword" : {"Ref" : "AdminPassword"},
-        "AuthenticatedRole" : { "Fn::GetAtt" : ["SquashCognitoAuthenticatedRole", "Arn"] },
-        "AuthenticatedRoleName" : {"Ref" : "SquashCognitoAuthenticatedRole"},
-        "UnauthenticatedRole" : { "Fn::GetAtt" : ["SquashCognitoUnauthenticatedRole", "Arn"] },
-        "UnauthenticatedRoleName" : {"Ref" : "SquashCognitoUnauthenticatedRole"},
-        "Region" : { "Ref" : "AWS::Region" },
-        "Revision" : {"Ref" : "LambdaZipsRevision"}
+        "ServiceToken": { "Fn::GetAtt" : ["SquashCognitoCustomResourceLambda", "Arn"] }
       },
       "DependsOn": ["SquashCognitoCustomResourceLambda", "WebsiteBucket"]
     }

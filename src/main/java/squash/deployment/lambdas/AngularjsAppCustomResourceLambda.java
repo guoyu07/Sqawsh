@@ -92,8 +92,7 @@ public class AngularjsAppCustomResourceLambda implements
    * resource.
    * 
    * <p>
-   * This lambda has the following keys in its request map (in addition to the
-   * standard ones) provided via the Cloudformation stack template:
+   * This lambda requires the following environment variables:
    * <ul>
    * <li>WebsiteBucket - name of S3 bucket serving the booking website.</li>
    * <li>AngularjsZipBucket - S3 bucket holding the Angularjs app zip file.</li>
@@ -102,10 +101,8 @@ public class AngularjsAppCustomResourceLambda implements
    * <li>CognitoUserPoolIdentityProviderName - Name of user pool identity provider.</li>
    * <li>JavascriptClientAppId - id of the Cognito User Pool app to use from javascript.</li>
    * <li>ApiGatewayBaseUrl - base Url of the ApiGateway Api.</li>
-   * <li>Region - the AWS region in which the Cloudformation stack is created.
-   * </li>
-   * <li>Revision - integer incremented to force stack updates to update this
-   * resource.</li>
+   * <li>Region - the AWS region in which the Cloudformation stack is created.</li>
+   * <li>Revision - integer incremented to force stack updates to update this resource.</li>
    * </ul>
    *
    * <p>On success, it returns the following output to Cloudformation:
@@ -131,22 +128,20 @@ public class AngularjsAppCustomResourceLambda implements
         request, logger);
     String requestType = standardRequestParameters.get("RequestType");
 
-    // Handle custom request parameters
-    logger.log("Logging custom input parameters to custom resource request");
-    @SuppressWarnings("unchecked")
-    Map<String, Object> resourceProps = (Map<String, Object>) request.get("ResourceProperties");
-    String websiteBucket = (String) resourceProps.get("WebsiteBucket");
-    String angularjsZipBucket = (String) resourceProps.get("AngularjsZipBucket");
-    String cognitoIdentityPoolId = (String) resourceProps.get("CognitoIdentityPoolId");
-    String cognitoUserPoolId = (String) resourceProps.get("CognitoUserPoolId");
-    String cognitoUserPoolIdentityProviderName = (String) resourceProps
-        .get("CognitoUserPoolIdentityProviderName");
-    String javascriptClientAppId = (String) resourceProps.get("JavascriptClientAppId");
-    String apiGatewayBaseUrl = (String) resourceProps.get("ApiGatewayBaseUrl");
-    String region = (String) resourceProps.get("Region");
-    String revision = (String) resourceProps.get("Revision");
+    // Handle required environment variables
+    logger.log("Logging required environment variables for custom resource request");
+    String websiteBucket = System.getenv("WebsiteBucket");
+    String angularjsZipBucket = System.getenv("AngularjsZipBucket");
+    String cognitoIdentityPoolId = System.getenv("CognitoIdentityPoolId");
+    String cognitoUserPoolId = System.getenv("CognitoUserPoolId");
+    String cognitoUserPoolIdentityProviderName = System
+        .getenv("CognitoUserPoolIdentityProviderName");
+    String javascriptClientAppId = System.getenv("JavascriptClientAppId");
+    String apiGatewayBaseUrl = System.getenv("ApiGatewayBaseUrl");
+    String region = System.getenv("AWS_REGION");
+    String revision = System.getenv("Revision");
 
-    // Log out our custom request parameters
+    // Log out our required environment variables
     logger.log("WebsiteBucket: " + websiteBucket);
     logger.log("AngularjsZipBucket: " + angularjsZipBucket);
     logger.log("CognitoIdentityPoolId: " + cognitoIdentityPoolId);

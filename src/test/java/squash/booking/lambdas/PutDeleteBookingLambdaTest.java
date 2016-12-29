@@ -29,7 +29,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.contrib.java.lang.system.EnvironmentVariables;
 import org.junit.rules.ExpectedException;
 
 import com.amazonaws.services.lambda.runtime.Context;
@@ -68,16 +67,12 @@ public class PutDeleteBookingLambdaTest {
   String genericExceptionMessage;
 
   @Rule
-  public final EnvironmentVariables environmentVariables = new EnvironmentVariables();
-
-  @Rule
   public ExpectedException thrown = ExpectedException.none();
 
   @Before
   public void beforeTest() {
     mockery = new Mockery();
     revvingSuffix = "revvingSuffix";
-    environmentVariables.set("RevvingSuffix", revvingSuffix);
     putDeleteBookingLambda = new TestPutDeleteBookingLambda();
     putDeleteBookingLambda.setBackupManager(mockery.mock(IBackupManager.class));
     putDeleteBookingLambda.setPageManager(mockery.mock(IPageManager.class));
@@ -198,9 +193,11 @@ public class PutDeleteBookingLambdaTest {
     }
 
     @Override
-    public String getStringProperty(String propertyName, LambdaLogger logger) {
-      if (propertyName.equals("cognitoidentitypoolid")) {
+    public String getEnvironmentVariable(String variableName, LambdaLogger logger) {
+      if (variableName.equals("CognitoIdentityPoolId")) {
         return cognitoIdentityPoolId;
+      } else if (variableName.equals("RevvingSuffix")) {
+        return revvingSuffix;
       }
       return null;
     }

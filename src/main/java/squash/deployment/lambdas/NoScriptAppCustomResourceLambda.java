@@ -62,9 +62,9 @@ public class NoScriptAppCustomResourceLambda implements RequestHandler<Map<Strin
   /**
    * Implementation for the AWS Lambda function backing the NoScriptApp custom resource.
    * 
-   * <p>This lambda has the following keys in its request map (in addition
-   *    to the standard ones) provided via the Cloudformation stack template:
+   * <p>This lambda requires the following environment variables:
    * <ul>
+   *    <li>SimpleDBDomainName - name of the simpleDB domain for bookings and booking rules.</li>
    *    <li>WebsiteBucket - name of S3 bucket serving the booking website.</li>
    *    <li>ApiGatewayBaseUrl - base Url of the ApiGateway Api.</li>
    *    <li>Region - the AWS region in which the Cloudformation stack is created.</li>
@@ -90,16 +90,17 @@ public class NoScriptAppCustomResourceLambda implements RequestHandler<Map<Strin
         request, logger);
     String requestType = standardRequestParameters.get("RequestType");
 
-    // Handle custom request parameters
-    logger.log("Logging custom input parameters to custom resource request");
-    @SuppressWarnings("unchecked")
-    Map<String, Object> resourceProps = (Map<String, Object>) request.get("ResourceProperties");
-    String websiteBucket = (String) resourceProps.get("WebsiteBucket");
-    String apiGatewayBaseUrl = (String) resourceProps.get("ApiGatewayBaseUrl");
-    String region = (String) resourceProps.get("Region");
-    String revision = (String) resourceProps.get("Revision");
+    // Handle required environment variables
+    logger.log("Logging environment variables required by custom resource request");
 
-    // Log out our custom request parameters
+    String simpleDBDomainName = System.getenv("SimpleDBDomainName");
+    String websiteBucket = System.getenv("WebsiteBucket");
+    String apiGatewayBaseUrl = System.getenv("ApiGatewayBaseUrl");
+    String region = System.getenv("AWS_REGION");
+    String revision = System.getenv("Revision");
+
+    // Log out our required environment variables
+    logger.log("SimpleDBDomainName: " + simpleDBDomainName);
     logger.log("WebsiteBucket: " + websiteBucket);
     logger.log("ApiGatewayBaseUrl: " + apiGatewayBaseUrl);
     logger.log("Region: " + region);

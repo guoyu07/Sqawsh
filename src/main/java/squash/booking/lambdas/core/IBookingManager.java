@@ -18,7 +18,6 @@ package squash.booking.lambdas.core;
 
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 
-import java.io.IOException;
 import java.util.List;
 
 /**
@@ -33,7 +32,7 @@ public interface IBookingManager {
   /**
    * Initialises the manager with a CloudwatchLogs logger.
    */
-  void initialise(LambdaLogger logger) throws IOException;
+  void initialise(LambdaLogger logger) throws Exception;
 
   /**
    * Creates a court booking.
@@ -61,9 +60,9 @@ public interface IBookingManager {
   /**
    * Returns all court bookings for all dates.
    * 
-   * @throws IOException when the booking retrieval fails.
+   * @throws Exception when the booking retrieval fails.
    */
-  List<Booking> getAllBookings() throws IOException;
+  List<Booking> getAllBookings() throws Exception;
 
   /**
    * Deletes a court booking.
@@ -75,9 +74,9 @@ public interface IBookingManager {
 
   /**
    * Deletes all bookings for the previous day.
-   * @throws IOException when the deletion fails.
+   * @throws Exception when the deletion fails.
    */
-  void deleteYesterdaysBookings() throws IOException;
+  void deleteYesterdaysBookings() throws Exception;
 
   /**
    * Deletes all bookings for all dates.

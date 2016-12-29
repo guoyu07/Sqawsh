@@ -26,7 +26,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.contrib.java.lang.system.EnvironmentVariables;
 import org.junit.rules.ExpectedException;
 
 import com.amazonaws.AmazonClientException;
@@ -57,16 +56,12 @@ public class UpdateBookingsLambdaTest {
   String updateBookingsExceptionMessage;
 
   @Rule
-  public final EnvironmentVariables environmentVariables = new EnvironmentVariables();
-
-  @Rule
   public ExpectedException thrown = ExpectedException.none();
 
   @Before
   public void beforeTest() {
     mockery = new Mockery();
     revvingSuffix = "revvingSuffix";
-    environmentVariables.set("RevvingSuffix", revvingSuffix);
     updateBookingsLambda = new TestUpdateBookingsLambda();
     updateBookingsLambda.setPageManager(mockery.mock(IPageManager.class));
     updateBookingsLambda.setBookingManager(mockery.mock(IBookingManager.class));
@@ -148,6 +143,14 @@ public class UpdateBookingsLambdaTest {
     @Override
     protected List<String> getValidDates() {
       return validDates;
+    }
+
+    @Override
+    public String getEnvironmentVariable(String variableName, LambdaLogger logger) {
+      if (variableName.equals("RevvingSuffix")) {
+        return revvingSuffix;
+      }
+      return null;
     }
   }
 

@@ -126,8 +126,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
   /**
    * Implementation for the AWS Lambda function backing the ApiGateway resource.
    * 
-   * <p>This lambda has the following keys in its request map (in addition
-   *    to the standard ones) provided via the Cloudformation stack template:
+   * <p>This lambda requires the following environment variables:
    * 
    * <p>Keys suppling arn of other AWS lambda functions that the Api invokes:
    * <ul>
@@ -142,7 +141,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
    * <ul>
    *    <li>BookingsApiGatewayInvocationRole - role allowing Api to invoke these three lambda functions.</li>
    *    <li>WebsiteBucket - name of S3 bucket serving the booking website.</li>
-   *    <li>Stage Name - the name to give to the Api's stage.</li>
+   *    <li>StageName - the name to give to the Api's stage.</li>
    *    <li>Region - the AWS region in which the Cloudformation stack is created.</li>
    *    <li>Revision - integer incremented to force stack updates to update this resource.</li>
    * </ul>
@@ -166,28 +165,22 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
         request, logger);
     String requestType = standardRequestParameters.get("RequestType");
 
-    // Handle custom request parameters
-    logger.log("Logging custom input parameters to custom resource request");
-    @SuppressWarnings("unchecked")
-    Map<String, Object> resourceProps = (Map<String, Object>) request.get("ResourceProperties");
-    String region = (String) resourceProps.get("Region");
-    String revision = (String) resourceProps.get("Revision");
-    String validDatesGETLambdaURI = wrapURI(((String) resourceProps.get("ValidDatesGETLambdaURI")),
+    // Handle required environment variables
+    logger.log("Logging required environment variables for custom resource request");
+    String region = System.getenv("AWS_REGION");
+    String revision = System.getenv("Revision");
+    String validDatesGETLambdaURI = wrapURI((System.getenv("ValidDatesGETLambdaURI")), region);
+    String bookingsGETLambdaURI = wrapURI((System.getenv("BookingsGETLambdaURI")), region);
+    String bookingRulesGETLambdaURI = wrapURI((System.getenv("BookingRulesGETLambdaURI")), region);
+    String bookingsPUTDELETELambdaURI = wrapURI((System.getenv("BookingsPUTDELETELambdaURI")),
         region);
-    String bookingsGETLambdaURI = wrapURI(((String) resourceProps.get("BookingsGETLambdaURI")),
-        region);
-    String bookingRulesGETLambdaURI = wrapURI(
-        ((String) resourceProps.get("BookingRulesGETLambdaURI")), region);
-    String bookingsPUTDELETELambdaURI = wrapURI(
-        ((String) resourceProps.get("BookingsPUTDELETELambdaURI")), region);
     String bookingRuleOrExclusionPUTDELETELambdaURI = wrapURI(
-        ((String) resourceProps.get("BookingRuleOrExclusionPUTDELETELambdaURI")), region);
-    String bookingsApiGatewayInvocationRole = (String) resourceProps
-        .get("BookingsApiGatewayInvocationRole");
-    squashWebsiteBucket = (String) resourceProps.get("WebsiteBucket");
-    String stageName = (String) resourceProps.get("Stage Name");
+        System.getenv("BookingRuleOrExclusionPUTDELETELambdaURI"), region);
+    String bookingsApiGatewayInvocationRole = System.getenv("BookingsApiGatewayInvocationRole");
+    squashWebsiteBucket = System.getenv("WebsiteBucket");
+    String stageName = System.getenv("StageName");
 
-    // Log out our custom request parameters
+    // Log out our required environment variables
     logger.log("Logging custom parameters to ApiGateway custom resource request:");
     logger.log("ValidDatesGETLambdaURI: " + validDatesGETLambdaURI);
     logger.log("BookingsGETLambdaURI: " + bookingsGETLambdaURI);
@@ -197,7 +190,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
         + bookingRuleOrExclusionPUTDELETELambdaURI);
     logger.log("BookingsApiGatewayInvocationRole: " + bookingsApiGatewayInvocationRole);
     logger.log("Squash website bucket: " + squashWebsiteBucket);
-    logger.log("Stage Name: " + stageName);
+    logger.log("StageName: " + stageName);
     logger.log("Region: " + region);
     logger.log("Revision: " + revision);
 

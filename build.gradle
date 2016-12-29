@@ -99,8 +99,7 @@ dependencies {
                           'org.apache.velocity:velocity:1.7',
                           'org.apache.commons:commons-lang3:3.2'
 
-    testCompile           'com.github.stefanbirkner:system-rules:1.16.0',
-                          "junit:junit:$junitVersion",
+    testCompile           "junit:junit:$junitVersion",
                           "org.hamcrest:hamcrest-core:${hamcrestVersion}",
                           "org.hamcrest:hamcrest-library:${hamcrestVersion}",
                           "org.jmock:jmock:${jmockVersion}",
@@ -208,14 +207,14 @@ task uploadAngularjsZipToAws(type: Exec) {
 uploadAngularjsZipToAws.dependsOn(zipAngularjsApp)
 
 task uploadLambdaZipsToAws(type: Exec) {
-    description 'Uploads the zipped lambda code to the lambdas folder of the S3 bucket specified by the S3ZipBucketName property (defaults to squashzips). Appends an integer suffix specified by the ZipRevision property (defaults to 1).'
-    commandLine 'aws', 's3', 'cp', 'build/distributions/Squash.zip', "s3://$S3ZipBucketName/lambdas/Squash${ZipRevision}.zip"
+    description 'Uploads the zipped lambda code to the S3 bucket specified by the S3ZipBucketName property (defaults to squashzips). Appends an integer suffix specified by the ZipRevision property (defaults to 1).'
+    commandLine 'aws', 's3', 'cp', 'build/distributions/Squash.zip', "s3://$S3ZipBucketName/Squash${ZipRevision}.zip"
 }
 uploadLambdaZipsToAws.dependsOn(zipAllLambdas)
 
 task uploadCloudFormationTemplateToAws(type: Exec) {
-    description 'Uploads the cloudformation template to the lambdas folder of the S3 bucket specified by the S3ZipBucketName property (defaults to squashzips).'
-    commandLine 'aws', 's3', 'cp', 'src/main/resources/squash/deployment/templates/Squash.template', "s3://$S3ZipBucketName/lambdas/Squash.template"
+    description 'Uploads the cloudformation template to the S3 bucket specified by the S3ZipBucketName property (defaults to squashzips).'
+    commandLine 'aws', 's3', 'cp', 'src/main/resources/squash/deployment/templates/Squash.template', "s3://$S3ZipBucketName/Squash.template"
 }
 
 // Combo task to Upload both zips and the template

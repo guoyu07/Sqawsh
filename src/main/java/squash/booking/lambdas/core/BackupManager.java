@@ -43,8 +43,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
@@ -53,7 +51,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.Properties;
 
 /**
  * Manages backups of the bookings/rules database.
@@ -75,13 +72,13 @@ public class BackupManager implements IBackupManager {
 
   @Override
   public final void initialise(IBookingManager bookingManager, IRuleManager ruleManager,
-      LambdaLogger logger) throws IOException {
+      LambdaLogger logger) throws Exception {
     this.ruleManager = ruleManager;
     this.bookingManager = bookingManager;
     this.logger = logger;
-    databaseBackupBucketName = getStringProperty("databasebackupbucketname");
-    adminSnsTopicArn = getStringProperty("adminsnstopicarn");
-    region = Region.getRegion(Regions.fromName(getStringProperty("region")));
+    databaseBackupBucketName = getEnvironmentVariable("DatabaseBackupBucket");
+    adminSnsTopicArn = getEnvironmentVariable("AdminSNSTopicArn");
+    region = Region.getRegion(Regions.fromName(getEnvironmentVariable("AWS_REGION")));
 
     // Prepare to serialise bookings and booking rules as JSON.
     mapper = new ObjectMapper();
@@ -279,24 +276,20 @@ public class BackupManager implements IBackupManager {
   }
 
   /**
-   * Returns a named property from the SquashCustomResource settings file.
+   * Returns a named environment variable.
+   * @throws Exception 
    */
-  protected String getStringProperty(String propertyName) throws IOException {
+  protected String getEnvironmentVariable(String variableName) throws Exception {
     // Use a getter here so unit tests can substitute a mock value.
-    // We get the value from a settings file so that
-    // CloudFormation can substitute the actual value when the
-    // stack is created, by replacing the settings file.
+    // We get the value from an environment variable so that CloudFormation can
+    // set the actual value when the stack is created.
 
-    Properties properties = new Properties();
-    try (InputStream stream = BookingManager.class
-        .getResourceAsStream("/squash/booking/lambdas/SquashCustomResource.settings")) {
-      properties.load(stream);
-    } catch (IOException e) {
-      logger.log("Exception caught reading SquashCustomResource.settings properties file: "
-          + e.getMessage());
-      throw e;
+    String environmentVariable = System.getenv(variableName);
+    if (environmentVariable == null) {
+      logger.log("Environment variable: " + variableName + " is not defined, so throwing.");
+      throw new Exception("Environment variable: " + variableName + " should be defined.");
     }
-    return properties.getProperty(propertyName);
+    return environmentVariable;
   }
 
   /**

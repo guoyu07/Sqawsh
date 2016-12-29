@@ -117,7 +117,7 @@ public class OptimisticPersisterTest {
     mockery.assertIsSatisfied();
   }
 
-  private void initialiseOptimisticPersister() throws IOException {
+  private void initialiseOptimisticPersister() throws Exception {
     optimisticPersister.initialise(42, mockLogger);
   }
 
@@ -136,11 +136,11 @@ public class OptimisticPersisterTest {
     }
 
     @Override
-    protected String getStringProperty(String propertyName) throws IOException {
-      if (propertyName.equals("simpledbdomainname")) {
+    protected String getEnvironmentVariable(String variableName) throws IOException {
+      if (variableName.equals("SimpleDBDomainName")) {
         return testSimpleDBDomainName;
       }
-      if (propertyName.equals("region")) {
+      if (variableName.equals("AWS_REGION")) {
         return "eu-west-1";
       }
       return null;
@@ -148,7 +148,7 @@ public class OptimisticPersisterTest {
   }
 
   @Test
-  public void testInitialiseThrowsWhenOptimisticPersisterAlreadyInitialised() throws IOException {
+  public void testInitialiseThrowsWhenOptimisticPersisterAlreadyInitialised() throws Exception {
 
     // ARRANGE
     thrown.expect(Exception.class);
@@ -917,7 +917,7 @@ public class OptimisticPersisterTest {
     optimisticPersister.deleteAllAttributes(testItemName);
   }
 
-  public void testDeleteAllAttributesCorrectlyCallsTheDatabase() throws IOException {
+  public void testDeleteAllAttributesCorrectlyCallsTheDatabase() throws Exception {
     // ARRANGE
     initialiseOptimisticPersister();
 

@@ -21,7 +21,6 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.fasterxml.jackson.core.JsonProcessingException;
 
-import java.io.IOException;
 import java.util.List;
 
 /**
@@ -37,7 +36,7 @@ public interface IBackupManager {
    * Initialises the manager.
    */
   void initialise(IBookingManager bookingManager, IRuleManager ruleManager, LambdaLogger logger)
-      throws IOException;
+      throws Exception;
 
   /**
    * Backup a single court booking.

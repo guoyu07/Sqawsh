@@ -51,7 +51,6 @@ import com.google.common.collect.Lists;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.PrintStream;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
@@ -85,9 +84,9 @@ public class PageManager implements IPageManager {
   @Override
   public void initialise(IBookingManager bookingManager, LambdaLogger logger) throws Exception {
     this.logger = logger;
-    websiteBucketName = getStringProperty("s3websitebucketname");
-    adminSnsTopicArn = getStringProperty("adminsnstopicarn");
-    region = Region.getRegion(Regions.fromName(getStringProperty("region")));
+    websiteBucketName = getEnvironmentVariable("WebsiteBucket");
+    adminSnsTopicArn = getEnvironmentVariable("AdminSNSTopicArn");
+    region = Region.getRegion(Regions.fromName(getEnvironmentVariable("AWS_REGION")));
     this.bookingManager = bookingManager;
     initialised = true;
   }
@@ -608,24 +607,20 @@ public class PageManager implements IPageManager {
   }
 
   /**
-   * Returns a named property from the SquashCustomResource settings file.
+   * Returns a named environment variable.
+   * @throws Exception 
    */
-  protected String getStringProperty(String propertyName) throws Exception {
+  protected String getEnvironmentVariable(String variableName) throws Exception {
     // Use a getter here so unit tests can substitute a mock value.
-    // We get the value from a settings file so that
-    // CloudFormation can substitute the actual value when the
-    // stack is created, by replacing the settings file.
+    // We get the value from an environment variable so that CloudFormation can
+    // set the actual value when the stack is created.
 
-    Properties properties = new Properties();
-    try (InputStream stream = PageManager.class
-        .getResourceAsStream("/squash/booking/lambdas/SquashCustomResource.settings")) {
-      properties.load(stream);
-    } catch (IOException e) {
-      logger.log("Exception caught reading SquashCustomResource.settings properties file: "
-          + e.getMessage());
-      throw new Exception("Exception caught reading SquashCustomResource.settings properties file");
+    String environmentVariable = System.getenv(variableName);
+    if (environmentVariable == null) {
+      logger.log("Environment variable: " + variableName + " is not defined, so throwing.");
+      throw new Exception("Environment variable: " + variableName + " should be defined.");
     }
-    return properties.getProperty(propertyName);
+    return environmentVariable;
   }
 
   /**

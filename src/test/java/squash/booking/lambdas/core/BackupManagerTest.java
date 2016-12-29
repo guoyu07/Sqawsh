@@ -170,14 +170,14 @@ public class BackupManagerTest {
     }
 
     @Override
-    public String getStringProperty(String propertyName) {
-      if (propertyName.equals("databasebackupbucketname")) {
+    public String getEnvironmentVariable(String variableName) {
+      if (variableName.equals("DatabaseBackupBucketName")) {
         return databaseBackupBucketName;
       }
-      if (propertyName.equals("adminsnstopicarn")) {
+      if (variableName.equals("AdminSNSTopicArn")) {
         return adminSnsTopicArn;
       }
-      if (propertyName.equals("region")) {
+      if (variableName.equals("AWS_REGION")) {
         return "eu-west-1";
       }
       return null;

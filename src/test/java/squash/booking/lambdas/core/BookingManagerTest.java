@@ -308,11 +308,11 @@ public class BookingManagerTest {
     }
 
     @Override
-    public String getStringProperty(String propertyName) {
-      if (propertyName.equals("adminsnstopicarn")) {
+    public String getEnvironmentVariable(String variableName) {
+      if (variableName.equals("AdminSNSTopicArn")) {
         return adminSnsTopicArn;
       }
-      if (propertyName.equals("region")) {
+      if (variableName.equals("AWS_REGION")) {
         return "eu-west-1";
       }
       return null;

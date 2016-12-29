@@ -79,8 +79,7 @@ public class ScheduledCloudwatchEventCustomResourceLambda implements
   /**
    * Implementation for the AWS Lambda function backing the CloudwatchEvents resource.
    * 
-   * <p>This lambda has the following keys in its request map (in addition
-   *    to the standard ones) provided via the Cloudformation stack template:
+   * <p>This lambda requires the following environment variables:
    * <ul>
    *    <li>ApiGatewayBaseUrl - base Url of the ApiGateway Api.</li>
    *    <li>ApplyBookingRulesLambdaArn - arn of the lambda function to apply the booking rules.</li>
@@ -112,20 +111,17 @@ public class ScheduledCloudwatchEventCustomResourceLambda implements
         request, logger);
     String requestType = standardRequestParameters.get("RequestType");
 
-    // Handle custom request parameters
-    logger.log("Logging custom input parameters to custom resource request");
-    @SuppressWarnings("unchecked")
-    Map<String, Object> resourceProps = (Map<String, Object>) request.get("ResourceProperties");
-    String apiGatewayBaseUrl = (String) resourceProps.get("ApiGatewayBaseUrl");
-    String applyBookingRulesLambdaArn = ((String) resourceProps.get("ApplyBookingRulesLambdaArn"));
-    String databaseBackupLambdaArn = ((String) resourceProps.get("DatabaseBackupLambdaArn"));
-    String createOrDeleteBookingsLambdaArn = ((String) resourceProps
-        .get("CreateOrDeleteBookingsLambdaArn"));
-    String updateBookingsLambdaArn = ((String) resourceProps.get("UpdateBookingsLambdaArn"));
-    String region = (String) resourceProps.get("Region");
-    String revision = (String) resourceProps.get("Revision");
+    // Handle required environment variables
+    logger.log("Logging required environment variables for custom resource request");
+    String apiGatewayBaseUrl = System.getenv("ApiGatewayBaseUrl");
+    String applyBookingRulesLambdaArn = System.getenv("ApplyBookingRulesLambdaArn");
+    String databaseBackupLambdaArn = System.getenv("DatabaseBackupLambdaArn");
+    String createOrDeleteBookingsLambdaArn = System.getenv("CreateOrDeleteBookingsLambdaArn");
+    String updateBookingsLambdaArn = System.getenv("UpdateBookingsLambdaArn");
+    String region = System.getenv("AWS_REGION");
+    String revision = System.getenv("Revision");
 
-    // Log out our custom request parameters
+    // Log out our required environment variables
     logger.log("ApiGatewayBaseUrl: " + apiGatewayBaseUrl);
     logger.log("ApplyBookingRulesLambdaArn: " + applyBookingRulesLambdaArn);
     logger.log("DatabaseBackupLambdaArn: " + databaseBackupLambdaArn);

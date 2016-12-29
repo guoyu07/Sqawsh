@@ -108,8 +108,7 @@ public class CognitoCustomResourceLambda implements RequestHandler<Map<String, O
   /**
    * Implementation for the AWS Lambda function backing the Cognito resource.
    * 
-   * <p>This lambda has the following keys in its request map (in addition
-   *    to the standard ones) provided via the Cloudformation stack template:
+   * <p>This lambda requires the following environment variables:
    * <ul>
    *    <li>StackName - name of Cloudformation stack - used as the name of the identity pool.</li>
    *    <li>AuthenticatedRole - arn of role specifying permissions for authenticated users.</li>
@@ -146,21 +145,19 @@ public class CognitoCustomResourceLambda implements RequestHandler<Map<String, O
         request, logger);
     String requestType = standardRequestParameters.get("RequestType");
 
-    // Handle custom request parameters
-    logger.log("Logging custom input parameters to custom resource request");
-    @SuppressWarnings("unchecked")
-    Map<String, Object> resourceProps = (Map<String, Object>) request.get("ResourceProperties");
-    String stackName = (String) resourceProps.get("StackName");
-    String authenticatedRole = (String) resourceProps.get("AuthenticatedRole");
-    String authenticatedRoleName = (String) resourceProps.get("AuthenticatedRoleName");
-    String unauthenticatedRole = (String) resourceProps.get("UnauthenticatedRole");
-    String unauthenticatedRoleName = (String) resourceProps.get("UnauthenticatedRoleName");
-    String adminEmail = (String) resourceProps.get("AdminEmail");
-    String adminPassword = (String) resourceProps.get("AdminPassword");
-    String region = (String) resourceProps.get("Region");
-    String revision = (String) resourceProps.get("Revision");
+    // Handle required environment variables
+    logger.log("Logging required environment variables for custom resource request");
+    String stackName = System.getenv("StackName");
+    String authenticatedRole = System.getenv("AuthenticatedRole");
+    String authenticatedRoleName = System.getenv("AuthenticatedRoleName");
+    String unauthenticatedRole = System.getenv("UnauthenticatedRole");
+    String unauthenticatedRoleName = System.getenv("UnauthenticatedRoleName");
+    String adminEmail = System.getenv("AdminEmail");
+    String adminPassword = System.getenv("AdminPassword");
+    String region = System.getenv("AWS_REGION");
+    String revision = System.getenv("Revision");
 
-    // Log out our custom request parameters
+    // Log out our required environment variables
     logger.log("StackName: " + stackName);
     logger.log("Authenticated role: " + authenticatedRole);
     logger.log("Authenticated role name: " + authenticatedRoleName);
