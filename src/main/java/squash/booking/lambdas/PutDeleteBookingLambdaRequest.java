@@ -22,6 +22,7 @@ package squash.booking.lambdas;
  * @author robinsteel19@outlook.com (Robin Steel)
  */
 public class PutDeleteBookingLambdaRequest {
+  String requestId;
   String putOrDelete;
   String court;
   String courtSpan;
@@ -34,6 +35,19 @@ public class PutDeleteBookingLambdaRequest {
   String redirectUrl;
   String cognitoAuthenticationType;
   String cognitoIdentityPoolId;
+
+  public String getRequestId() {
+    return requestId;
+  }
+
+  /**
+   *  Sets the ApiGateway Request Id - used to allow end-end tracing.
+   *  
+   *  @param requestId is the ApiGateway request Id.
+   */
+  public void setRequestId(String requestId) {
+    this.requestId = requestId;
+  }
 
   public String getPutOrDelete() {
     return putOrDelete;

@@ -22,4 +22,19 @@ package squash.booking.lambdas;
  * @author robinsteel19@outlook.com (Robin Steel)
  */
 public class GetValidDatesLambdaRequest {
+
+  String requestId;
+
+  public String getRequestId() {
+    return requestId;
+  }
+
+  /**
+   *  Sets the ApiGateway Request Id - used to allow end-end tracing.
+   *  
+   *  @param requestId is the ApiGateway request Id.
+   */
+  public void setRequestId(String requestId) {
+    this.requestId = requestId;
+  }
 }

@@ -54,6 +54,7 @@
  
 ## next we set up our loop inside the output structure "{" and "}"
 {
+"requestId" : "$context.requestId",
 #foreach( $kvPair in $tokenisedEquals )
   ## finally we output the JSON for this pair and append a comma if this isn't the last pair
   #set($kvTokenised = $kvPair.split("="))

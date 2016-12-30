@@ -90,6 +90,8 @@ public class GetBookingRulesLambda {
     try {
       logger.log("About to get booking rules");
 
+      logger.log("ApiGateway request Id: " + request.getRequestId());
+
       // Query for booking rules (if any)
       logger.log("About to call rule manager to get booking rules");
       GetBookingRulesLambdaResponse response = new GetBookingRulesLambdaResponse();

@@ -777,7 +777,13 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     // variables to determine whether the caller was authenticated as admin.
     // This template just adds these Cognito variables to the others
     // already present in the request body.
-    String bookingsPutDeleteRequestTemplate = "{\n"
+    // N.B. We add the request id to the body of all integration requests to
+    // allow end-to-end tracing of calls - see, e.g.,
+    // https://aws.amazon.com/blogs/compute/techniques-and-tools-for-better-serverless-api-logging-with-amazon-api-gateway-and-aws-lambda/
+    // (In short: the browser response when it calls apiGateway has a
+    // x-amzn-RequestId header with this request id, allowing tracing the call
+    // from the browser right through to lambda.)
+    String bookingsPutDeleteRequestTemplate = "{\n" + "\"requestId\" : \"$context.requestId\",\n"
         + "\"apiGatewayBaseUrl\" : $input.json('$.apiGatewayBaseUrl'),\n"
         + "\"court\" : $input.json('$.court'),\n" + "\"courtSpan\" : $input.json('$.courtSpan'),\n"
         + "\"slot\" : $input.json('$.slot'),\n" + "\"slotSpan\" : $input.json('$.slotSpan'),\n"
@@ -789,6 +795,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
         + "\"cognitoIdentityPoolId\" : \"$context.identity.cognitoIdentityPoolId\"\n" + "}";
 
     String bookingRulesPutDeleteRequestTemplate = "{\n"
+        + "\"requestId\" : \"$context.requestId\",\n"
         + "\"bookingRule\" : $input.json('$.bookingRule'),\n"
         + "\"dateToExclude\" : $input.json('$.dateToExclude'),\n"
         + "\"putOrDelete\" : $input.json('$.putOrDelete'),\n"
@@ -811,8 +818,9 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       putIntegrationRequest.setHttpMethod("GET");
       putIntegrationRequest.setCredentials(extraParameters.get("BookingsApiGatewayInvocationRole"));
       response200Templates.put("application/json", "#set($inputRoot = $input.path('$'))\n"
-          + "{ \"dates\": " + "#foreach($elem in $inputRoot)\n" + "    $elem\n"
-          + "#if($foreach.hasNext),#end\n" + "#end\n" + "}");
+          + "{\"requestId\" : \"$context.requestId\",\n" + "\"dates\": "
+          + "#foreach($elem in $inputRoot)\n" + "    $elem\n" + "#if($foreach.hasNext),#end\n"
+          + "#end\n" + "}");
       response500Templates.put("application/json", errorResponseMappingTemplate);
       responseParameters
           .put("method.response.header.access-control-allow-methods", "'GET,OPTIONS'");
@@ -852,8 +860,8 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       putIntegrationRequest.setHttpMethod("GET");
       putIntegrationRequest.setCredentials(extraParameters.get("BookingsApiGatewayInvocationRole"));
       requestTemplates.put("application/json", "#set($inputRoot = $input.path('$'))\n" + "{\n"
-          + "\"date\" : \"$input.params('date')\",\n" + "\"redirectUrl\" : \"http://"
-          + squashWebsiteBucket + ".s3-website-" + region
+          + "\"requestId\" : \"$context.requestId\",\n" + "\"date\" : \"$input.params('date')\",\n"
+          + "\"redirectUrl\" : \"http://" + squashWebsiteBucket + ".s3-website-" + region
           + ".amazonaws.com?selectedDate=${input.params('date')}.html\"\n" + "}");
       responseParameters.put("method.response.header.access-control-allow-methods",
           "'GET,PUT,DELETE,POST,OPTIONS'");
@@ -1019,6 +1027,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       // N.B. Lambda uses POST even for GET methods
       putIntegrationRequest.setHttpMethod("GET");
       putIntegrationRequest.setCredentials(extraParameters.get("BookingsApiGatewayInvocationRole"));
+      requestTemplates.put("application/json", "{\"requestId\" : \"$context.requestId\"}");
       responseParameters.put("method.response.header.access-control-allow-methods",
           "'GET,PUT,DELETE,OPTIONS'");
       response500Templates.put("application/json", bookingRuleErrorResponseMappingTemplate);

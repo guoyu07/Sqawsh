@@ -24,11 +24,25 @@ import squash.booking.lambdas.core.BookingRule;
  * @author robinsteel19@outlook.com (Robin Steel)
  */
 public class PutDeleteBookingRuleOrExclusionLambdaRequest {
+  String requestId;
   String putOrDelete;
   BookingRule bookingRule;
   String dateToExclude;
   String cognitoAuthenticationType;
   String cognitoIdentityPoolId;
+
+  public String getRequestId() {
+    return requestId;
+  }
+
+  /**
+   *  Sets the ApiGateway Request Id - used to allow end-end tracing.
+   *  
+   *  @param requestId is the ApiGateway request Id.
+   */
+  public void setRequestId(String requestId) {
+    this.requestId = requestId;
+  }
 
   public String getPutOrDelete() {
     return putOrDelete;

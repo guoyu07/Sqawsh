@@ -24,6 +24,20 @@ package squash.booking.lambdas;
 public class GetBookingsLambdaRequest {
   String date;
   String redirectUrl;
+  String requestId;
+
+  public String getRequestId() {
+    return requestId;
+  }
+
+  /**
+   *  Sets the ApiGateway Request Id - used to allow end-end tracing.
+   *  
+   *  @param requestId is the ApiGateway request Id.
+   */
+  public void setRequestId(String requestId) {
+    this.requestId = requestId;
+  }
 
   public String getDate() {
     return date;

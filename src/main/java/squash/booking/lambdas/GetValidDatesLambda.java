@@ -69,6 +69,7 @@ public class GetValidDatesLambda {
   public GetValidDatesLambdaResponse getValidDates(GetValidDatesLambdaRequest request,
       Context context) throws Exception {
     try {
+      context.getLogger().log("ApiGateway request Id: " + request.getRequestId());
       return getValidDates(request);
     } catch (Exception e) {
       context.getLogger().log("Exception caught in getValidDates Lambda: " + e.getMessage());

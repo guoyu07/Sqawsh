@@ -145,6 +145,8 @@ public class PutDeleteBookingRuleOrExclusionLambda {
     try {
       logger.log("CreateOrDelete booking rule or exclusion for request: " + request.toString());
 
+      logger.log("ApiGateway request Id: " + request.getRequestId());
+
       logger.log("About to validate booking parameters");
       checkAuthenticationAndDates(request.getBookingRule(), request.getCognitoIdentityPoolId(),
           request.getCognitoAuthenticationType(), logger);

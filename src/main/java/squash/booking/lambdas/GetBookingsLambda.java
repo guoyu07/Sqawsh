@@ -85,6 +85,8 @@ public class GetBookingsLambda {
     LambdaLogger logger = context.getLogger();
     String redirectUrl = request.getRedirectUrl();
     try {
+      logger.log("ApiGateway request Id: " + request.getRequestId());
+
       // Validate the date that bookings are being requested for
       String requestedDate = request.getDate();
       logger.log("About to get bookings for date: " + requestedDate

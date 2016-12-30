@@ -149,6 +149,8 @@ public class PutDeleteBookingLambda {
         return new PutDeleteBookingLambdaResponse();
       }
 
+      logger.log("ApiGateway request Id: " + request.getRequestId());
+
       logger.log("About to validate booking parameters");
       Booking booking = convertBookingRequest(request);
       String password = request.getPassword();
