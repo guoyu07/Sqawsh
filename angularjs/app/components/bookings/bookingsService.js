@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Robin Steel
+ * Copyright 2016-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -55,32 +55,24 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
       })
     }
 
-    // AWS S3 client
+    // AWS S3 client for unauthenticated requests (so no need to update credentials first). See, e.g.
+    // https://github.com/aws/aws-sdk-js/commit/7a8e257f32d984821a8661422070fb861659015f
     var s3Client
     var getS3Client = function () {
       return $q(function (resolve, reject) {
-        IdentityService.updateCredentials().then(function () {
-          // Return existing client if we have one...
-          if (s3Client) {
-            resolve(s3Client)
-          }
-
-          // ...otherwise create a new one with credentials from Cognito
-          s3Client = new AWS.S3({
-            credentials: AWS.config.credentials,
-            region: comSquashRegion
-          })
-          resolve(s3Client)
-        })
+        if (!s3Client) {
+          s3Client = new AWS.S3({region: comSquashRegion})
+        }
+        resolve(s3Client)
       })
     }
 
     // Start asynchronous load of famous players list
-    var allFamousPlayers = 'undefined'
+    var allFamousPlayers = null
     getS3Client()
       .then(function (client) {
         // Query AWS for the list of famous players
-        return client.getObject({Bucket: comSquashWebsiteBucket, Key: 'famousplayers.json'}).promise()
+        return client.makeUnauthenticatedRequest('getObject', {Bucket: comSquashWebsiteBucket, Key: 'famousplayers.json'}).promise()
       })
       .then(function (players) {
         allFamousPlayers = JSON.parse(players.Body.toString()).famousplayers
@@ -106,7 +98,7 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
       getCourtNumbers: function () { return courtNumbers },
       getTimeSlots: function () { return timeSlots },
       getTwoFamousPlayers: function () {
-        if (typeof allFamousPlayers === 'undefined') {
+        if (allFamousPlayers === null) {
           // Full list not yet loaded - so return default players
           return ['A.Shabana', 'J.Power']
         }
@@ -122,7 +114,7 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
         return getS3Client()
           .then(function (client) {
             // Query AWS for the currently valid dates for viewing/mutating bookings
-            return client.getObject({Bucket: comSquashWebsiteBucket, Key: 'NoScript/validdates.json'}).promise()
+            return client.makeUnauthenticatedRequest('getObject', {Bucket: comSquashWebsiteBucket, Key: 'NoScript/validdates.json'}).promise()
           })
           .then(function (response) {
             // Array of valid dates in YYYY-MM-DD format
@@ -155,7 +147,7 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
         // Return the bookings for the specified date
         return getS3Client()
           .then(function (client) {
-            return client.getObject({Bucket: comSquashWebsiteBucket, Key: 'NoScript/' + builder.getSelectedDate() + '.json'}).promise()
+            return client.makeUnauthenticatedRequest('getObject', {Bucket: comSquashWebsiteBucket, Key: 'NoScript/' + builder.getSelectedDate() + '.json'}).promise()
           })
           .then(function (response) {
             builder.setBookings(JSON.parse(response.Body.toString()).bookings)

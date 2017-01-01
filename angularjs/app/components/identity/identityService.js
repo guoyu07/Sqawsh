@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Robin Steel
+ * Copyright 2016-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 'use strict'
 
 angular.module('squashApp.identityService', [])
-  .factory('IdentityService', ['$q', function ($q) {
+  .factory('IdentityService', ['$q', '$location', function ($q, $location) {
     var comSquashRegion = 'identityregiontobereplaced' // will be replaced at stack creation time
     var comSquashIdentityPoolId = 'identitypoolidtobereplaced' // will be replaced at stack creation time
     var comSquashUserPoolId = 'identityuserpoolidtobereplaced' // will be replaced at stack creation time
@@ -38,8 +38,12 @@ angular.module('squashApp.identityService', [])
 
     var doGetUserPoolSession = function () {
       // If we have a user in local storage, this gets their user pool session,
-      // refreshing the user pool tokens if necessary. N.B. It will fail if the
-      // user pool 'refresh token' itself has expired.
+      // refreshing the user pool tokens if necessary. If the user pool 'refresh token'
+      // itself has expired, this routes the user to the login screen to re-authenticate.
+      // N.B. If the user has logged out, they (the LastAuthUser key), as well as their
+      // three user pool session tokens, will no longer be in local storage (see
+      // CognitoUser::clearCachedTokens), so this will, correctly, not attempt to refresh
+      // their (non-existent) user pool session in that case.
       return $q(function (resolve, reject) {
         var poolData = {
           UserPoolId: comSquashUserPoolId,
@@ -49,18 +53,25 @@ angular.module('squashApp.identityService', [])
         var userPool = new AWSCognito.CognitoIdentityServiceProvider.CognitoUserPool(poolData)
         var cognitoUser = userPool.getCurrentUser()
         if (cognitoUser !== null) {
+          // User must have authenticated - though some of their tokens may since have expired. If
+          // necessary, this will attempt to use the refresh token to refresh the user pool session.
           cognitoUser.getSession(function (err, userPoolSession) {
-            // Return null unless we have a valid user pool session
             if ((userPoolSession !== null) && userPoolSession.isValid()) {
               resolve(userPoolSession)
             } else {
+              // Assume re-authentication is always required here, whether err is true or
+              // not - though think err will always be true here.
               if (err) {
+                // Think the user pool refresh token will have expired if we get here.
                 console.log('getSession gave error: ' + err)
               }
+              // FIXME: Should really show dialog here before routing
+              $location.url('/login')
               resolve()
             }
           })
         } else {
+          // User has either never logged in, or has since logged out - so we have no user pool session.
           resolve()
         }
       })
@@ -85,46 +96,24 @@ angular.module('squashApp.identityService', [])
           newLogins = null
         }
       }).catch(function (err) {
-        console.log('Swallowing errors whilst updating credentials: ' + err)
+        // Should not get here...
+        console.log('Caught error getting user pool session: ' + err)
       }).then(function () {
         // Ensure the credentials get refreshed if the logins have changed
         if (loginsAreDifferent(newLogins, AWS.config.credentials.params.Logins)) {
           // We've just launched and/or we've just changed the logins array
           AWS.config.credentials.params.Logins = newLogins
           isAuthenticated = newAuthenticatedState
-          if (AWS.config.credentials.params.Logins === null) {
-            // We've just launched, or we've just logged out - so ensure we don't try to refresh credentials for
-            // an authenticated id when we have no logins. Clearing the cached Cognito id means the refresh call
-            // will get a new guest id before getting new credentials for it. N.B. we can't reuse an old id:
-            // Cognito will have promoted or disabled it when we last logged-in.
-            AWS.config.credentials.clearCachedId()
-          }
-
-          // Don't expire for now - or else we end up get-ting new creds twice, since we currently do it manually here...
-          // AWS.config.credentials.expired = true
-          // Get new credentials - need to do this manually as the generated ApiGateway client does not support CognitoIdentityCredentials.
-          // Should subclass it so that it does...
-          return $q(function (resolve, reject) {
-            AWS.config.credentials.refresh(function (error) {
-              if (error) {
-                reject(error)
-              } else {
-                resolve()
-              }
-            })
-          })
-        } else {
-          // We have suitable, but possibly-expired, credentials - so refresh only if they've expired
-          return $q(function (resolve, reject) {
-            AWS.config.credentials.get(function (error) {
-              if (error) {
-                reject(error)
-              } else {
-                resolve()
-              }
-            })
-          })
         }
+        return $q(function (resolve, reject) {
+          AWS.config.credentials.get(function (error) {
+            if (error) {
+              reject(error)
+            } else {
+              resolve()
+            }
+          })
+        })
       }).catch(function (err) {
         throw err
       })
@@ -174,16 +163,37 @@ angular.module('squashApp.identityService', [])
           var cognitoUser = new AWSCognito.CognitoIdentityServiceProvider.CognitoUser(userData)
           cognitoUser.authenticateUser(authenticationDetails, {
             onSuccess: function (result) {
-              doUpdateAwsTemporaryCredentials().then(resolve())
+              if (typeof AWS.config.credentials !== 'undefined') {
+                // Expire so credentials are refreshed (getting authenticated credentials) before next use
+                AWS.config.credentials.expired = true
+              }
+              doUpdateAwsTemporaryCredentials().then(function () {
+                resolve()
+              })
             },
             onFailure: function (err) {
-              doUpdateAwsTemporaryCredentials().then(reject(err))
+              doUpdateAwsTemporaryCredentials().then(function () {
+                reject(err)
+              })
             }
           })
         })
       },
       logout: function () {
         return $q(function (resolve, reject) {
+          // Whenever a user logs in, the CognitoIdentityCredentials will ensure they get the same Cognito id
+          // (or at least some previous id already associated with their Login). When they use the system when logged
+          // out, we also want them to reuse a single guest Cognito id as much as possible (i.e. until they next log
+          // in - at which point their guest id gets promoted/disabled by Cognito), rather than repeatedly getting new
+          // guest ids, which works, but is wasteful. The CognitoIdentityCredentials will also handle this guest id reuse
+          // - but only if it doesn't have a cached authenticated id (if it does - it will try to refresh credentials for
+          // the cached authenticated id without supplying any Logins - and so throw an error). So we clear the cached
+          // authenticated id here when we logout - allowing CognitoIdentityCredentials to do its job for guests too.
+          if (typeof AWS.config.credentials !== 'undefined') {
+            AWS.config.credentials.clearCachedId()
+            // Expire so credentials are refreshed (for the new guest id) before next use
+            AWS.config.credentials.expired = true
+          }
           var poolData = {
             UserPoolId: comSquashUserPoolId,
             ClientId: comSquashClientAppId,
@@ -194,21 +204,36 @@ angular.module('squashApp.identityService', [])
           if (cognitoUser !== null) {
             cognitoUser.getSession(function (err, userPoolSession) {
               if (err) {
-                doUpdateAwsTemporaryCredentials().then(reject(err))
-              } else {
-                // FIXME: do only if session valid?
-                cognitoUser.globalSignOut({
-                  onSuccess: function (result) {
-                    doUpdateAwsTemporaryCredentials().then(resolve())
-                  },
-                  onFailure: function (err) {
-                    doUpdateAwsTemporaryCredentials().then(reject(err))
-                  }
-                })
+                // Could be bc refresh token expired, or other reason.
+                // Clear session and cached user - so we don't ask the user to login again immediately...
+                cognitoUser.clearCachedTokens()
               }
+              // Attempt to revoke access and refresh tokens. If getSession gave an error, it is
+              // unlikely globalSignOut will succeed - as need to be authenticated to call it. This
+              // is most likely bc refresh token has expired - in which case it doesn't really matter
+              // if globalSignOut fails - as we are effectively signed-out anyway.
+              cognitoUser.globalSignOut({
+                onSuccess: function (result) {
+                  doUpdateAwsTemporaryCredentials().then(function () {
+                    resolve()
+                  })
+                },
+                onFailure: function (err) {
+                  // May have failed to revoke tokens, but at least clear them from local storage.
+                  cognitoUser.clearCachedTokens()
+                  doUpdateAwsTemporaryCredentials().then(function () {
+                    reject(err)
+                  })
+                }
+              })
+            })
+          } else {
+            // User has either never logged in, or has since logged out - so we have no user pool session.
+            // Think we should never hit this - as a not-logged-in user could not call Logout.
+            doUpdateAwsTemporaryCredentials().then(function () {
+              resolve()
             })
           }
-          doUpdateAwsTemporaryCredentials().then(resolve())
         })
       }
     }

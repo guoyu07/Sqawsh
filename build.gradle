@@ -162,7 +162,6 @@ task zipAngularjsApp(type: Zip) {
         from('angularjs/dist/') {
             include 'sqawsh.min.js'
             include 'sqawsh.min.css'
-            include 'sqawshNoScript.min.css'
         }
         from('angularjs/app/') {
             include '**/*.html'
