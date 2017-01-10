@@ -19,6 +19,7 @@ package squash.booking.lambdas.core;
 import squash.deployment.lambdas.utils.RetryHelper;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.owasp.encoder.Encode;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.regions.Region;
@@ -306,10 +307,13 @@ public class BookingManager implements IBookingManager {
       throw new Exception("The booking time slot span is outside the valid range (1- (17 - slot))");
     }
 
-    // The booking name must not be empty. Could be stricter here?
+    // We reject booking names that are not valid as-is for HTML content and
+    // attributes, to prevent XSS issues. Also, the booking name must not be
+    // empty, or too long. N.B. Could improve this to handle, e.g., i18n.
     Pattern regex = Pattern.compile("^[a-z0-9A-Z\\. /-]*$");
-    if (!regex.matcher(booking.getName()).matches() || (booking.getName().trim().length() == 0)
-        || (booking.getName().length() > 30)) {
+    String name = booking.getName();
+    if (!Encode.forHtmlContent(name).equals(name) || !Encode.forHtmlAttribute(name).equals(name)
+        || !regex.matcher(name).matches() || (name.trim().length() == 0) || (name.length() > 30)) {
       logger.log("The booking must have a valid non-empty name");
       throw new Exception("The booking name must have a valid format");
     }

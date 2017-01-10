@@ -1,5 +1,5 @@
 <!--
-Copyright 2016 Robin Steel
+Copyright 2016-2017 Robin Steel
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -13,16 +13,18 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.-->
 
-<form novalidate class="login-form" ng-submit="ctrl.login(loginForm)" name="loginForm" ng-cloak>
-<h2>Please enter your administrator login details</h2>
+<form novalidate class="login-form" ng-submit="ctrl.login(loginForm)" name="loginForm" ng-show="ctrl.showLoginForm" ng-cloak>
+<h2>Please enter your login details</h2>
 <div class="form-container">
-Your username:<br>
-<input type="text" ng-model="ctrl.username" ng-model-options="{ updateOn: 'blur' }" placeholder="enter username" name="username" autocapitalize="off" autocorrect="off" required>
+Your username or email:<br>
+<input type="text" ng-model="ctrl.username" ng-model-options="{ updateOn: 'blur' }" placeholder="enter username or email" name="username" autocapitalize="off" autocorrect="off" required>
 <span class="error" ng-show="loginForm.username.$error.required && loginForm.$submitted">
   Required
 </span>
 <br>
-Your password:<br>
+Your password:
+<span class="link" ng-click="ctrl.forgotPassword()">Forgot Password?</span>
+<br>
 <input type="password" ng-model="ctrl.password" placeholder="enter password" name="password" required>
 <span class="error" ng-show="loginForm.password.$error.required && loginForm.$submitted">
   Required
@@ -38,5 +40,102 @@ Your password:<br>
 </div>
 <p>
 <button type="button" class="button-default" ng-click="ctrl.returnToBookings()">Return to bookings table without logging in</button>
+</p>
+</form>
+<form novalidate class="forced-password-change-form" ng-submit="ctrl.respondToNewPasswordChallenge(forcedPasswordChangeForm)" name="forcedPasswordChangeForm" ng-show="ctrl.showForcedPasswordChangeForm" ng-cloak>
+<h2>Please enter a new password</h2>
+<div class="form-container">
+New password:<br>
+<input type="password" ng-model="ctrl.newPassword" ng-model-options="{ updateOn: 'blur' }" placeholder="enter new password" name="newPassword" autocapitalize="off" autocorrect="off" required>
+<span class="error" ng-show="forcedPasswordChangeForm.newPassword.$error.required && forcedPasswordChangeForm.$submitted">
+  Required
+</span>
+<br>
+Re-type new password:<br>
+<input type="password" ng-model="ctrl.newPasswordCopy" placeholder="re-enter new password" name="newPasswordCopy" required>
+<span class="error" ng-show="forcedPasswordChangeForm.newPasswordCopy.$error.required && forcedPasswordChangeForm.$submitted">
+  Required
+</span>
+<span class="error" ng-show="ctrl.newPasswordsDontMatch && forcedPasswordChangeForm.$submitted">
+  Passwords must match
+</span>
+<span class="error" ng-show="ctrl.passwordNotStrongEnough && forcedPasswordChangeForm.$submitted">
+  Passwords must be at least 6 characters long
+</span>
+<p>
+<button type="submit" class="button-submit">Change password</button>
+</p>
+<p>
+<span class="error" ng-show="ctrl.forcedPasswordChangeFailed">
+  Login failed.
+</span>
+</p>
+</div>
+<p>
+<button type="button" class="button-default" ng-click="ctrl.returnToBookings()">Return to bookings table without logging in</button>
+</p>
+</form>
+<div ng-show="ctrl.passwordChangeSucceeded">
+<h2>Password change successful</h2>
+<button type="button" class="button-default" ng-click="ctrl.returnToBookings()">Return to bookings table</button>
+</div>
+<form novalidate class="forgot-password-form" ng-submit="ctrl.requestForgotPasswordCode(forgotPasswordForm)" name="forgotPasswordForm" ng-show="ctrl.showForgotPasswordForm" ng-cloak>
+<h2>Password assistance - please enter your username or email</h2>
+<div class="form-container">
+Your username or email:<br>
+<input type="text" ng-model="ctrl.username" ng-model-options="{ updateOn: 'blur' }" placeholder="enter username or email" name="username" autocapitalize="off" autocorrect="off" required>
+<span class="error" ng-show="forgotPasswordForm.username.$error.required && forgotPasswordForm.$submitted">
+  Required
+</span>
+<p>
+<button type="submit" class="button-submit">Continue</button>
+</p>
+<p>
+<span class="error" ng-show="ctrl.forgotPasswordFlowFailed">
+  Failed to reset password.
+</span>
+</p>
+</div>
+<p>
+<button type="button" class="button-default" ng-click="ctrl.returnToBookings()">Return to bookings table without resetting password</button>
+</p>
+</form>
+<form novalidate class="forgot-password-change-form" ng-submit="ctrl.resetPassword(forgotPasswordChangeForm)" name="forgotPasswordChangeForm" ng-show="ctrl.showForgotPasswordChangeForm" ng-cloak>
+<h2>Please enter a new password</h2>
+<div class="form-container">
+Emailed verification code:<br>
+<input type="text" ng-model="ctrl.verificationCode" ng-model-options="{ updateOn: 'blur' }" placeholder="enter verification code" name="verificationCode" autocapitalize="off" autocorrect="off" required>
+<span class="error" ng-show="forgotPasswordChangeForm.verificationCode.$error.required && forgotPasswordChangeForm.$submitted">
+  Required
+</span>
+<br>
+New password:<br>
+<input type="password" ng-model="ctrl.newPassword" ng-model-options="{ updateOn: 'blur' }" placeholder="enter new password" name="newPassword" autocapitalize="off" autocorrect="off" required>
+<span class="error" ng-show="forgotPasswordChangeForm.newPassword.$error.required && forgotPasswordChangeForm.$submitted">
+  Required
+</span>
+<br>
+Re-type new password:<br>
+<input type="password" ng-model="ctrl.newPasswordCopy" placeholder="re-enter new password" name="newPasswordCopy" required>
+<span class="error" ng-show="forgotPasswordChangeForm.newPasswordCopy.$error.required && forgotPasswordChangeForm.$submitted">
+  Required
+</span>
+<span class="error" ng-show="ctrl.newPasswordsDontMatch && forgotPasswordChangeForm.$submitted">
+  Passwords must match
+</span>
+<span class="error" ng-show="ctrl.passwordNotStrongEnough && forgotPasswordChangeForm.$submitted">
+  Passwords must be at least 6 characters long
+</span>
+<p>
+<button type="submit" class="button-submit">Reset password</button>
+</p>
+<p>
+<span class="error" ng-show="ctrl.forgotPasswordFlowFailed">
+  Failed to reset password.
+</span>
+</p>
+</div>
+<p>
+<button type="button" class="button-default" ng-click="ctrl.returnToBookings()">Return to bookings table without resetting password</button>
 </p>
 </form>

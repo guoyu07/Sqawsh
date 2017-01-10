@@ -1,5 +1,5 @@
 /**
- * Copyright 2016-2017 Robin Steel
+ * Copyright 2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -14,33 +14,15 @@
  * limitations under the License.
  */
 
-/* app css stylesheet */
-
-.menu {
-  list-style: none;
-  border-bottom: 0.1em solid black;
-  margin-bottom: 2em;
-  padding: 0 0 0.5em;
+@import "../shared.less";
+.link {
+  color: @form-submit-button-background-colour;
+  margin-left: 0.5em;
 }
-
-.menu:before {
-  content: "[";
+.link:hover {
+  text-decoration: underline;
+  cursor: pointer;
 }
-
-.menu:after {
-  content: "]";
-}
-
-.menu > li {
-  display: inline;
-}
-
-.menu > li:before {
-  content: "|";
-  padding-right: 0.3em;
-}
-
-.menu > li:nth-child(1):before {
-  content: "";
-  padding: 0;
+.link:active {
+  text-decoration: none;
 }

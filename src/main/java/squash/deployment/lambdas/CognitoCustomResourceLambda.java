@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2016 Robin Steel
+ * Copyright 2015-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,8 @@ import com.amazonaws.services.cognitoidentity.model.SetIdentityPoolRolesRequest;
 import com.amazonaws.services.cognitoidentity.model.UpdateIdentityPoolRequest;
 import com.amazonaws.services.cognitoidp.AWSCognitoIdentityProvider;
 import com.amazonaws.services.cognitoidp.AWSCognitoIdentityProviderClient;
-import com.amazonaws.services.cognitoidp.model.AdminConfirmSignUpRequest;
+import com.amazonaws.services.cognitoidp.model.AdminCreateUserConfigType;
+import com.amazonaws.services.cognitoidp.model.AdminCreateUserRequest;
 import com.amazonaws.services.cognitoidp.model.AttributeType;
 import com.amazonaws.services.cognitoidp.model.CreateUserPoolClientRequest;
 import com.amazonaws.services.cognitoidp.model.CreateUserPoolClientResult;
@@ -44,8 +45,8 @@ import com.amazonaws.services.cognitoidp.model.CreateUserPoolRequest;
 import com.amazonaws.services.cognitoidp.model.CreateUserPoolResult;
 import com.amazonaws.services.cognitoidp.model.DeleteUserPoolRequest;
 import com.amazonaws.services.cognitoidp.model.ListUserPoolsRequest;
+import com.amazonaws.services.cognitoidp.model.MessageTemplateType;
 import com.amazonaws.services.cognitoidp.model.PasswordPolicyType;
-import com.amazonaws.services.cognitoidp.model.SignUpRequest;
 import com.amazonaws.services.cognitoidp.model.UserPoolDescriptionType;
 import com.amazonaws.services.cognitoidp.model.UserPoolPolicyType;
 import com.amazonaws.services.identitymanagement.AmazonIdentityManagement;
@@ -56,6 +57,7 @@ import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -116,7 +118,7 @@ public class CognitoCustomResourceLambda implements RequestHandler<Map<String, O
    *    <li>UnauthenticatedRole - arn of role specifying permissions for guest users.</li>
    *    <li>UnauthenticatedRoleName - name of the unauthenticated role.</li>
    *    <li>AdminEmail - initial email address for the admin user</li>
-   *    <li>AdminPassword - initial password for the admin user</li>
+   *    <li>LoginUrl - url of login page for admin user</li>
    *    <li>Region - the AWS region in which the Cloudformation stack is created.</li>
    *    <li>Revision - integer incremented to force stack updates to update this resource.</li>
    * </ul>
@@ -153,7 +155,7 @@ public class CognitoCustomResourceLambda implements RequestHandler<Map<String, O
     String unauthenticatedRole = System.getenv("UnauthenticatedRole");
     String unauthenticatedRoleName = System.getenv("UnauthenticatedRoleName");
     String adminEmail = System.getenv("AdminEmail");
-    String adminPassword = System.getenv("AdminPassword");
+    String loginUrl = System.getenv("LoginUrl");
     String region = System.getenv("AWS_REGION");
     String revision = System.getenv("Revision");
 
@@ -164,7 +166,7 @@ public class CognitoCustomResourceLambda implements RequestHandler<Map<String, O
     logger.log("Unauthenticated role: " + unauthenticatedRole);
     logger.log("Unauthenticated role name: " + unauthenticatedRoleName);
     logger.log("Initial email address of admin user: " + adminEmail);
-    logger.log("Initial password of the admin user: <redacted>");
+    logger.log("Login url for the admin user: " + loginUrl);
     logger.log("Region: " + region);
     logger.log("Revision: " + revision);
 
@@ -241,10 +243,23 @@ public class CognitoCustomResourceLambda implements RequestHandler<Map<String, O
             + " does not exist, so creating it");
         CreateUserPoolRequest createUserPoolRequest = new CreateUserPoolRequest();
         createUserPoolRequest.setPoolName(identityPoolName);
+        // Prevent users signing themselves up
+        AdminCreateUserConfigType adminCreateUserConfigType = new AdminCreateUserConfigType();
+        adminCreateUserConfigType.setAllowAdminCreateUserOnly(true);
+        adminCreateUserConfigType.setUnusedAccountValidityDays(1);
+        MessageTemplateType inviteMessageTemplateType = new MessageTemplateType();
+        inviteMessageTemplateType.setEmailSubject("Your squash account details");
+        inviteMessageTemplateType
+            .setEmailMessage("Welcome! Your username is: {username} and your temporary password is: {####} (valid for 24 hours). Please login at: "
+                + loginUrl);
+        adminCreateUserConfigType.setInviteMessageTemplate(inviteMessageTemplateType);
+        createUserPoolRequest.setAdminCreateUserConfig(adminCreateUserConfigType);
+
         // Allow user to sign in using their email
         List<String> aliasAttributes = new ArrayList<>();
         aliasAttributes.add("email");
         createUserPoolRequest.setAliasAttributes(aliasAttributes);
+
         // Don't force password to include symbols
         PasswordPolicyType passwordPolicy = new PasswordPolicyType();
         passwordPolicy.setMinimumLength(6);
@@ -252,14 +267,21 @@ public class CognitoCustomResourceLambda implements RequestHandler<Map<String, O
         UserPoolPolicyType userPoolPolicy = new UserPoolPolicyType();
         userPoolPolicy.setPasswordPolicy(passwordPolicy);
         createUserPoolRequest.setPolicies(userPoolPolicy);
-        // Require email to be verified by entering a code
+
+        // Require email to be verified by entering a code.
+        // N.B. Think this attribute is called "auto" verified bc, after a user
+        // signs up, Cognito sends out an email to the user without us doing
+        // anything more i.e. automatically. (And not bc the verification itself
+        // is automatic). Note self-signUp is currently disabled.
         List<String> autoVerifiedAttributes = new ArrayList<>();
         autoVerifiedAttributes.add("email");
         createUserPoolRequest.setAutoVerifiedAttributes(autoVerifiedAttributes);
-        // Customise the email verification message
-        createUserPoolRequest.setEmailVerificationSubject("Your squash signup code");
+        // Customise the email verification message. This is used to send a code
+        // during the forgot-password flow. It would also be sent to users
+        // signing themselves up - though self-signup is currently disabled.
+        createUserPoolRequest.setEmailVerificationSubject("Your squash verification code");
         createUserPoolRequest
-            .setEmailVerificationMessage("Welcome! Please use the following code to verify your new squash account: {####}. The code is valid for 24 hours.");
+            .setEmailVerificationMessage("Please use the following code: {####} (valid for 24 hours).");
         CreateUserPoolResult result = providerClient.createUserPool(createUserPoolRequest);
         userPoolId = result.getUserPool().getId();
         logger.log("Created user pool with id: " + userPoolId);
@@ -306,13 +328,14 @@ public class CognitoCustomResourceLambda implements RequestHandler<Map<String, O
             authenticatedRole, identityPoolId, identityClient, logger);
         logger.log("Created identity pool with id: " + identityPoolId);
 
-        // Sign-up and confirm our Admin user with this user pool
-        logger.log("Signing-up admin user with user pool");
-        SignUpRequest signUpRequest = new SignUpRequest();
-        signUpRequest.setClientId(adminClientAppId);
-        // Set username and password
-        signUpRequest.setUsername("admin");
-        signUpRequest.setPassword(adminPassword);
+        // Create our Admin user with this user pool. This user will have to
+        // change their password when they first sign in in order to
+        // authenticate.
+        logger.log("Creating admin user with user pool");
+        AdminCreateUserRequest adminCreateUserRequest = new AdminCreateUserRequest();
+        adminCreateUserRequest.setDesiredDeliveryMediums(Arrays.asList("EMAIL"));
+        adminCreateUserRequest.setUsername("admin");
+        adminCreateUserRequest.setUserPoolId(userPoolId);
         // Set some attributes for the admin user
         List<AttributeType> userAttributes = new ArrayList<>();
         AttributeType nameAttribute = new AttributeType();
@@ -323,17 +346,16 @@ public class CognitoCustomResourceLambda implements RequestHandler<Map<String, O
         emailAttribute.setName("email");
         emailAttribute.setValue(adminEmail);
         userAttributes.add(emailAttribute);
-        signUpRequest.setUserAttributes(userAttributes);
-        providerClient.signUp(signUpRequest);
-        logger.log("Signed-up admin user with user pool");
-
-        logger.log("Confirming admin user with user pool");
-        // N.B. May also need to verify email to enable forgotten password flow?
-        AdminConfirmSignUpRequest adminConfirmSignUpRequest = new AdminConfirmSignUpRequest();
-        adminConfirmSignUpRequest.setUserPoolId(userPoolId);
-        adminConfirmSignUpRequest.setUsername("admin");
-        providerClient.adminConfirmSignUp(adminConfirmSignUpRequest);
-        logger.log("Confirmed admin user with user pool");
+        // Must set email as verified to enable forgot-password flow (the user's
+        // use of their initial random password does not set their email to
+        // verified for some reason)
+        AttributeType emailVerifiedAttribute = new AttributeType();
+        emailVerifiedAttribute.setName("email_verified");
+        emailVerifiedAttribute.setValue("True");
+        userAttributes.add(emailVerifiedAttribute);
+        adminCreateUserRequest.setUserAttributes(userAttributes);
+        providerClient.adminCreateUser(adminCreateUserRequest);
+        logger.log("Created admin user with user pool");
 
         // Set user pool identity providers in the identity pool. This allows
         // Cognito to dish out temporary credentials for users who are

@@ -1101,6 +1101,15 @@ public class BookingManagerTest {
   }
 
   @Test
+  public void testValidateBookingThrowsIfBookingNameInWrongFormat_PotentialXssContent()
+      throws Exception {
+    // Booking names (and hence also Booking Rule names) should be rejected if
+    // they contain content that might cause XSS. We check for one example here.
+    doTestValidateBookingThrowsIfBookingInvalid(1, 2, 3, 4, "<script>Alert('Boo!')</script>",
+        "The booking name must have a valid format");
+  }
+
+  @Test
   public void testValidateBookingThrowsIfBookingNameInWrongFormat_EmptyName() throws Exception {
     doTestValidateBookingThrowsIfBookingInvalid(1, 2, 3, 4, "",
         "The booking name must have a valid format");

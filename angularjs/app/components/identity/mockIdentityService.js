@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Robin Steel
+ * Copyright 2016-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,21 @@ angular.module('squashApp.identityService', [])
       updateCredentials: function () {},
       isLoggedIn: function () { return false },
       login: function (username, password) {
+        return $q(function (resolve, reject) {
+          resolve()
+        })
+      },
+      completeNewPasswordChallenge: function (newPassword, userAttributes) {
+        return $q(function (resolve, reject) {
+          resolve(false)
+        })
+      },
+      requestForgotPasswordCode: function (username) {
+        return $q(function (resolve, reject) {
+          resolve()
+        })
+      },
+      resetPassword: function (verificationCode, newPassword) {
         return $q(function (resolve, reject) {
           resolve()
         })

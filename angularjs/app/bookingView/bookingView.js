@@ -16,7 +16,7 @@
 
 'use strict'
 
-angular.module('squashApp.bookingView', ['ngRoute', 'squashApp.bookingsService', 'squashApp.identityService'])
+angular.module('squashApp.bookingView', ['ngRoute', 'ngTouch', 'squashApp.bookingsService', 'squashApp.identityService'])
 
   .config(['$routeProvider', function ($routeProvider) {
     $routeProvider.when('/bookings', {

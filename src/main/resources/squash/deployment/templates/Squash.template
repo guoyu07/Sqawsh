@@ -4,7 +4,7 @@
   "Description" : "Creates all resources for the squash booking website",
 
   "Metadata" : {
-    "Comment" : "Copyright 2015-2016 Robin Steel",
+    "Comment" : "Copyright 2015-2017 Robin Steel",
     "Comment" : "",
     "Comment" : "Licensed under the Apache License, Version 2.0 (the \"License\");",
     "Comment" : "you may not use this file except in compliance with the License.",
@@ -95,8 +95,8 @@
       "Default" : "robinsteel19@outlook.com",
       "ConstraintDescription" : "Must be a valid email address."
     },
-    "AdminPassword": {
-      "Description" : "Initial password of admin user",
+    "BookingPassword": {
+      "Description" : "Initial password for making and cancelling bookings",
       "Type": "String",
       "MinLength": "1",
       "MaxLength": "255",
@@ -444,8 +444,7 @@
                   "cognito-idp:ListUserPools",
                   "cognito-idp:CreateUserPool",
                   "cognito-idp:CreateUserPoolClient",
-                  "cognito-idp:SignUp",
-                  "cognito-idp:AdminConfirmSignUp",
+                  "cognito-idp:AdminCreateUser",
                   "cognito-idp:DeleteUserPool"
                 ],
                 "Resource": "*"
@@ -1420,7 +1419,7 @@
           "Variables" : {
             "StackName" : { "Ref" : "AWS::StackName" },
             "AdminEmail" : {"Ref" : "AdminEmail"},
-            "AdminPassword" : {"Ref" : "AdminPassword"},
+            "LoginUrl" : {"Fn::Join" : ["", ["http://", {"Ref" : "WebsiteBucketName"}, ".s3-website-", { "Ref" : "AWS::Region" }, ".amazonaws.com/app/index.html#/login"]]},
             "AuthenticatedRole" : { "Fn::GetAtt" : ["SquashCognitoAuthenticatedRole", "Arn"] },
             "AuthenticatedRoleName" : {"Ref" : "SquashCognitoAuthenticatedRole"},
             "UnauthenticatedRole" : { "Fn::GetAtt" : ["SquashCognitoUnauthenticatedRole", "Arn"] },

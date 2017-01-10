@@ -20,6 +20,7 @@
 
 angular.module('squashApp.identityService', [])
   .factory('IdentityService', ['$q', '$location', function ($q, $location) {
+    var self = this
     var comSquashRegion = 'identityregiontobereplaced' // will be replaced at stack creation time
     var comSquashIdentityPoolId = 'identitypoolidtobereplaced' // will be replaced at stack creation time
     var comSquashUserPoolId = 'identityuserpoolidtobereplaced' // will be replaced at stack creation time
@@ -143,6 +144,7 @@ angular.module('squashApp.identityService', [])
         return isAuthenticated
       },
       login: function (username, password) {
+        self.cognitoUserSettingPassword = null
         return $q(function (resolve, reject) {
           sjcl.random.startCollectors()
           var authenticationData = {
@@ -175,6 +177,77 @@ angular.module('squashApp.identityService', [])
               doUpdateAwsTemporaryCredentials().then(function () {
                 reject(err)
               })
+            },
+            newPasswordRequired: function (userAttributes, requiredAttributes) {
+              // User was signed up by an admin and must provide new password to complete authentication.
+              // userAttributes: object, which is the user's current profile. It will list all attributes
+              // that are associated with the user. Required attributes according to schema, which don’t
+              // have any values yet, will have blank values. requiredAttributes: list of attributes that
+              // must be set by the user along with new password to complete the sign-in.
+              self.cognitoUserSettingPassword = cognitoUser
+              resolve(userAttributes)
+            }
+          })
+        })
+      },
+      completeNewPasswordChallenge: function (newPassword, userAttributes) {
+        // Called to complete the very first login
+        return $q(function (resolve, reject) {
+          sjcl.random.startCollectors()
+          self.cognitoUserSettingPassword.completeNewPasswordChallenge(newPassword, null, {
+            onSuccess: function (result) {
+              if (typeof AWS.config.credentials !== 'undefined') {
+                // Expire so credentials are refreshed (getting authenticated credentials) before next use
+                AWS.config.credentials.expired = true
+              }
+              self.cognitoUserSettingPassword = null
+              doUpdateAwsTemporaryCredentials().then(function () {
+                resolve(false)
+              })
+            },
+            onFailure: function (err) {
+              doUpdateAwsTemporaryCredentials().then(function () {
+                reject(err)
+              })
+            }
+          })
+        })
+      },
+      requestForgotPasswordCode: function (username) {
+        // Called to begin a forgot-password flow
+        var poolData = {
+          UserPoolId: comSquashUserPoolId,
+          ClientId: comSquashClientAppId,
+          Paranoia: 7
+        }
+        var userPool = new AWSCognito.CognitoIdentityServiceProvider.CognitoUserPool(poolData)
+        var userData = {
+          Username: username,
+          Pool: userPool
+        }
+        var cognitoUser = new AWSCognito.CognitoIdentityServiceProvider.CognitoUser(userData)
+        return $q(function (resolve, reject) {
+          cognitoUser.forgotPassword({
+            onSuccess: function (result) {
+              self.cognitoUserSettingPassword = cognitoUser
+              resolve()
+            },
+            onFailure: function (err) {
+              reject(err)
+            }
+          })
+        })
+      },
+      resetPassword: function (verificationCode, newPassword) {
+        // Called to complete a forgot-password flow
+        return $q(function (resolve, reject) {
+          self.cognitoUserSettingPassword.confirmPassword(verificationCode, newPassword, {
+            onSuccess: function (result) {
+              self.cognitoUserSettingPassword = null
+              resolve()
+            },
+            onFailure: function (err) {
+              reject(err)
             }
           })
         })

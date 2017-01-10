@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.-->
 
 <div class="booking-view" ng-show="!ctrl.loadFailure && ctrl.initialLoadSucceeded" ng-cloak>
-  <div class="booking-view-header">
+  <div class="booking-view-header" ng-swipe-left="ctrl.incrementOrDecrementDate(1)" ng-swipe-right="ctrl.incrementOrDecrementDate(-1)">
     <span class="date-panel">
     <button class="date-button button-default" ng-click="ctrl.incrementOrDecrementDate(-1)" ng-disabled="ctrl.isEarliestDate()">Earlier</button>
     <select ng-options="date as (date | date:'fullDate') for date in ctrl.validDates" ng-model="ctrl.selectedDate" ng-change="ctrl.selectedDateChanged()"></select>
