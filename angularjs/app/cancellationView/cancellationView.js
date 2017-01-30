@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Robin Steel
+ * Copyright 2016-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -58,18 +58,30 @@ angular.module('squashApp.cancellationView', ['ngRoute', 'squashApp.bookingsServ
       self.unauthenticatedBlockBookingError = false
       self.bookingCancellationFailed = false
       self.cancellationFailed = false
+      self.isRetired = false
+      self.isReadonly = false
       BookingService.cancelCourt(self.activeCourt, self.activeCourtSpan, self.activeSlotIndex + 1, self.activeSlotSpan, self.activeDate, self.activeName, self.password)
         .then(function (result) {
           self.returnToBookings()
           updateUi()
         })
         .catch(function (error) {
-          if (typeof error.data !== 'undefined' && error.data.indexOf('The password is incorrect') > -1) {
-            self.passwordIncorrect = true
-          } else if (typeof error.data !== 'undefined' && error.data.indexOf('You must login to manage block bookings') > -1) {
-            self.unauthenticatedBlockBookingError = true
-          } else if (typeof error.data !== 'undefined' && error.data.indexOf('Booking cancellation failed') > -1) {
-            self.bookingCancellationFailed = true
+          if ((typeof error.data !== 'undefined') && (error.data.hasOwnProperty('errorMessage'))) {
+            if (error.data.errorMessage.startsWith('Cannot access bookings')) {
+              // Service is retired - so extract the forwarding url from the error message.
+              var message = error.data.errorMessage
+              var httpIndex = message.lastIndexOf('http')
+              self.forwardingUrl = message.substring(httpIndex)
+              self.isRetired = true
+            } else if (error.data.errorMessage.startsWith('Cannot mutate bookings or rules - booking service is temporarily readonly')) {
+              self.isReadonly = true
+            } else if (error.data.errorMessage.indexOf('The password is incorrect') > -1) {
+              self.passwordIncorrect = true
+            } else if (error.data.errorMessage.indexOf('You must login to manage block bookings') > -1) {
+              self.unauthenticatedBlockBookingError = true
+            } else if (error.data.errorMessage.indexOf('Booking cancellation failed') > -1) {
+              self.bookingCancellationFailed = true
+            }
           }
           self.cancellationFailed = true
           updateUi()

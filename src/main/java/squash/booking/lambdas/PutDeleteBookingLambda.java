@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2016 Robin Steel
+ * Copyright 2015-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,8 +22,10 @@ import squash.booking.lambdas.core.BookingManager;
 import squash.booking.lambdas.core.BookingsUtilities;
 import squash.booking.lambdas.core.IBackupManager;
 import squash.booking.lambdas.core.IBookingManager;
+import squash.booking.lambdas.core.ILifecycleManager;
 import squash.booking.lambdas.core.IPageManager;
 import squash.booking.lambdas.core.IRuleManager;
+import squash.booking.lambdas.core.LifecycleManager;
 import squash.booking.lambdas.core.PageManager;
 import squash.booking.lambdas.core.RuleManager;
 import squash.deployment.lambdas.utils.ExceptionUtils;
@@ -47,12 +49,14 @@ import java.util.Optional;
 public class PutDeleteBookingLambda {
 
   private Optional<IBackupManager> backupManager;
+  private Optional<ILifecycleManager> lifecycleManager;
   private Optional<IRuleManager> ruleManager;
   private Optional<IBookingManager> bookingManager;
   private Optional<IPageManager> pageManager;
 
   public PutDeleteBookingLambda() {
     backupManager = Optional.empty();
+    lifecycleManager = Optional.empty();
     ruleManager = Optional.empty();
     bookingManager = Optional.empty();
     pageManager = Optional.empty();
@@ -65,9 +69,21 @@ public class PutDeleteBookingLambda {
     // Use a getter here so unit tests can substitute a mock manager
     if (!ruleManager.isPresent()) {
       ruleManager = Optional.of(new RuleManager());
-      ruleManager.get().initialise(getBookingManager(logger), logger);
+      ruleManager.get().initialise(getBookingManager(logger), getLifecycleManager(logger), logger);
     }
     return ruleManager.get();
+  }
+
+  /**
+   * Returns the {@link squash.booking.lambdas.core.ILifecycleManager}.
+   */
+  protected ILifecycleManager getLifecycleManager(LambdaLogger logger) throws Exception {
+    // Use a getter here so unit tests can substitute a mock manager
+    if (!lifecycleManager.isPresent()) {
+      lifecycleManager = Optional.of(new LifecycleManager());
+      lifecycleManager.get().initialise(logger);
+    }
+    return lifecycleManager.get();
   }
 
   /**
@@ -101,7 +117,7 @@ public class PutDeleteBookingLambda {
     // Use a getter here so unit tests can substitute a mock manager
     if (!pageManager.isPresent()) {
       pageManager = Optional.of(new PageManager());
-      pageManager.get().initialise(getBookingManager(logger), logger);
+      pageManager.get().initialise(getBookingManager(logger), getLifecycleManager(logger), logger);
     }
     return pageManager.get();
   }
@@ -185,6 +201,18 @@ public class PutDeleteBookingLambda {
       throw new Exception("Apologies - something has gone wrong. Please try again." + redirectUrl,
           e);
     } catch (Exception e) {
+      if ((e.getMessage() != null)
+          && e.getMessage()
+              .contains(
+                  "Cannot access bookings or rules - there is an updated version of the booking service.")
+          && !e.getMessage().contains("UrlNotPresent")) {
+        // In case where service is RETIRED and we have a valid forwarding url,
+        // use that url instead of our generic redirectUrl. If we have no valid
+        // forwarding url (which should never happen), we fall through to
+        // showing the user a general error message.
+        throw new Exception(e.getMessage().replace(" Forwarding Url:", ""), e);
+      }
+
       switch (e.getMessage()) {
       // For now, we add the request.redirectUrl to the message. ApiGateway will
       // parse this out.
@@ -220,6 +248,10 @@ public class PutDeleteBookingLambda {
         throw new Exception("Booking creation failed. Please try again." + redirectUrl, e);
       case "Booking deletion failed":
         throw new Exception("Booking cancellation failed. Please try again." + redirectUrl, e);
+      case "Cannot mutate bookings or rules - booking service is temporarily readonly whilst site maintenance is in progress":
+        throw new Exception(
+            "Cannot mutate bookings or rules - booking service is temporarily readonly whilst site maintenance is in progress."
+                + redirectUrl, e);
       default:
         throw new Exception(
             "Apologies - something has gone wrong. Please try again." + redirectUrl, e);
@@ -233,7 +265,7 @@ public class PutDeleteBookingLambda {
     LambdaLogger logger = context.getLogger();
     logger.log("About to create booking for request: " + request.toString());
     IBookingManager bookingManager = getBookingManager(logger);
-    List<Booking> bookings = bookingManager.createBooking(booking);
+    List<Booking> bookings = bookingManager.createBooking(booking, true);
     logger.log("Created booking");
 
     // We've created the booking - so update the corresponding booking page
@@ -261,7 +293,7 @@ public class PutDeleteBookingLambda {
     LambdaLogger logger = context.getLogger();
     logger.log("About to delete booking for request: " + request.toString());
     IBookingManager bookingManager = getBookingManager(logger);
-    List<Booking> bookings = bookingManager.deleteBooking(booking);
+    List<Booking> bookings = bookingManager.deleteBooking(booking, true);
     logger.log("Deleted booking");
 
     // We've deleted the booking - so update the corresponding booking page

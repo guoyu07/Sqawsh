@@ -1,4 +1,4 @@
-## Copyright 2015-2016 Robin Steel
+## Copyright 2015-2017 Robin Steel
 ##
 ## Licensed under the Apache License, Version 2.0 (the "License");
 ## you may not use this file except in compliance with the License.
@@ -16,6 +16,9 @@
 <head>
 <title>Court Bookings</title>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+#if($lifecycleState == "RETIRED")
+<meta http-equiv="refresh" content="0;URL='$forwardingUrl'" />
+#end
 ## Meta headers to force date dropdown to always return to the server when Go-button clicked or new date selected
 <meta http-equiv="cache-control" content="max-age=0" />
 <meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate" />
@@ -24,7 +27,18 @@
 <meta http-equiv="pragma" content="no-cache" />
 <link type="text/css" rel="stylesheet" href="../app/sqawsh.min_${revvingSuffix}.css">
 </head>
-<body>
+<body class="booking-view">
+#if($lifecycleState == "RETIRED")
+<p align='left'>
+  <a href= '$forwardingUrl'>There is an updated version of the booking site. Please click here if you are not redirected automatically within a few seconds.</a>
+</p>
+#else
+#if($lifecycleState == "READONLY")
+#set($buttonsDisabled = true)
+<div class="maintenance-banner">Apologies - bookings are temporarily readonly whilst site maintenance is in progress</div>
+#else
+#set($buttonsDisabled = false)
+#end
 ## This guid is used by the AATs to handle S3 eventual-consistency
 <div id="pageGuid" style="display: none;">$pageGuid</div>
 <div class="booking-view">
@@ -75,11 +89,19 @@
       <input type=hidden name=date value="$pagesDate">
       <input type=hidden name=dateLong value="$pagesDateLong">
   #if($slotBookedState)
-      <input type="submit" value="$name.get($foreach.index)" class="cancellation-button" data-court="$court" data-time_slot="$timeSlotIndex">
+  #if($buttonsDisabled)
+    <input type="submit" value="$name.get($foreach.index)" class="cancellation-button" data-court="$court" data-time_slot="$timeSlotIndex" disabled="disabled">
   #else
-      <input type="submit" value="Reserve" class="reservation-button" data-court="$court" data-time_slot="$timeSlotIndex">
+    <input type="submit" value="$name.get($foreach.index)" class="cancellation-button" data-court="$court" data-time_slot="$timeSlotIndex">
   #end
-    </form>
+  #else
+  #if($buttonsDisabled)
+    <input type="submit" value="Reserve" class="reservation-button" data-court="$court" data-time_slot="$timeSlotIndex" disabled="disabled">
+  #else
+    <input type="submit" value="Reserve" class="reservation-button" data-court="$court" data-time_slot="$timeSlotIndex">
+  #end
+  #end
+  </form>
   </td>
   #end
 #end
@@ -130,5 +152,6 @@
   </tfoot>
 </table>
 </div>
+#end
 </body>
 </html>

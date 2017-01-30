@@ -1,5 +1,5 @@
 /**
- * Copyright 2016-2017 Robin Steel
+ * Copyright 2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,37 +16,27 @@
 
 package squash.booking.lambdas;
 
-import squash.booking.lambdas.core.BookingRule;
-
-import java.util.List;
+import squash.booking.lambdas.core.ILifecycleManager;
 
 /**
- * Response for the {@link GetBookingRulesLambda GetBookingRules} lambda function.
+ * Request parameter for the {@link UpdateLifecycleStateLambda UpdateLifecycleState} lambda function.
  * 
  * @author robinsteel19@outlook.com (Robin Steel)
  */
-public class GetBookingRulesLambdaResponse {
-  List<BookingRule> bookingRules;
+public class UpdateLifecycleStateLambdaRequest {
   String lifecycleState;
   String forwardingUrl;
-
-  /**
-   *  Returns the {@link squash.booking.lambdas.core.BookingRule booking rules}.
-   */
-  public List<BookingRule> getBookingRules() {
-    return bookingRules;
-  }
-
-  public void setBookingRules(List<BookingRule> bookingRules) {
-    this.bookingRules = bookingRules;
-  }
 
   public String getForwardingUrl() {
     return forwardingUrl;
   }
 
   /**
-   * Sets the forwarding Url to the updated booking site - if in RETIRED lifecycle state.
+   * Sets the forwarding Url to the updated booking site.
+   * 
+   * This should be provided only when setting the lifecycle state to RETIRED,
+   * and the url should be for the Angularjs version of the new site, e.g.
+   * http://newsquashwebsite.s3-website-eu-west-1.amazonaws.com/app/index.html
    * 
    */
   public void setForwardingUrl(String forwardingUrl) {
@@ -60,6 +50,7 @@ public class GetBookingRulesLambdaResponse {
   /**
    * Sets the lifecycle state of the current booking site.
    * 
+   * Can be one of the states defined by the {@link ILifecycleManager LifecycleState} manager.
    */
   public void setLifecycleState(String lifecycleState) {
     this.lifecycleState = lifecycleState;

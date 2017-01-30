@@ -28,6 +28,8 @@ import java.util.List;
 public class GetBookingsLambdaResponse {
   String date;
   List<Booking> bookings;
+  String lifecycleState;
+  String forwardingUrl;
 
   /**
    *  Returns the date to which the bookings correspond, in YYYY-MM-DD format.
@@ -49,5 +51,29 @@ public class GetBookingsLambdaResponse {
 
   public void setBookings(List<Booking> bookings) {
     this.bookings = bookings;
+  }
+
+  public String getForwardingUrl() {
+    return forwardingUrl;
+  }
+
+  /**
+   * Sets the forwarding Url to the updated booking site - if in RETIRED lifecycle state.
+   * 
+   */
+  public void setForwardingUrl(String forwardingUrl) {
+    this.forwardingUrl = forwardingUrl;
+  }
+
+  public String getLifecycleState() {
+    return lifecycleState;
+  }
+
+  /**
+   * Sets the lifecycle state of the current booking site.
+   * 
+   */
+  public void setLifecycleState(String lifecycleState) {
+    this.lifecycleState = lifecycleState;
   }
 }

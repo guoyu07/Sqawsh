@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2016 Robin Steel
+ * Copyright 2015-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.transfer.Transfer;
-import com.amazonaws.services.s3.transfer.TransferManager;
+import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
 
 import java.util.Optional;
 
@@ -95,7 +95,7 @@ public class TransferUtils {
     }
 
     ObjectListing objectListing;
-    AmazonS3 client = new TransferManager().getAmazonS3Client();
+    AmazonS3 client = TransferManagerBuilder.defaultTransferManager().getAmazonS3Client();
     do {
       objectListing = client.listObjects(listObjectsRequest);
       for (S3ObjectSummary objectSummary : objectListing.getObjectSummaries()) {
@@ -135,7 +135,7 @@ public class TransferUtils {
     }
 
     ObjectListing objectListing;
-    AmazonS3 client = new TransferManager().getAmazonS3Client();
+    AmazonS3 client = TransferManagerBuilder.defaultTransferManager().getAmazonS3Client();
     do {
       objectListing = client.listObjects(listObjectsRequest);
       for (S3ObjectSummary objectSummary : objectListing.getObjectSummaries()) {
@@ -187,7 +187,7 @@ public class TransferUtils {
     }
 
     ObjectListing objectListing;
-    AmazonS3 client = new TransferManager().getAmazonS3Client();
+    AmazonS3 client = TransferManagerBuilder.defaultTransferManager().getAmazonS3Client();
     do {
       objectListing = client.listObjects(listObjectsRequest);
       for (S3ObjectSummary objectSummary : objectListing.getObjectSummaries()) {

@@ -1,5 +1,5 @@
 <!--
-Copyright 2016 Robin Steel
+Copyright 2016-2017 Robin Steel
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -40,13 +40,19 @@ limitations under the License.-->
 <span class="error" ng-show="ctrl.cancellationFailed && ctrl.passwordIncorrect">
   The password did not match.
 </span>
-<span class="error" ng-show="ctrl.bookingFailed && ctrl.unauthenticatedBlockBookingError">
+<span class="error" ng-show="ctrl.cancellationFailed && ctrl.unauthenticatedBlockBookingError">
   You must login to cancel block bookings.
 </span>
-<span class="error" ng-show="ctrl.bookingFailed && ctrl.bookingCancellationFailed">
+<span class="error" ng-show="ctrl.cancellationFailed && ctrl.bookingCancellationFailed">
   Failed to cancel the booking - please check if court was booked.
 </span>
-<span class="error" ng-show="ctrl.cancellationFailed && !ctrl.passwordIncorrect && !ctrl.bookingCancellationFailed">
+<span class="error" ng-show="ctrl.cancellationFailed && ctrl.isReadonly">
+  Apologies - failed to cancel the booking - bookings are temporarily readonly whilst site maintenance is in progress.
+</span>
+<span class="error" ng-show="ctrl.cancellationFailed && ctrl.isRetired" >
+  Apologies - failed to cancel the booking - please use the <a ng-href="{{ctrl.forwardingUrl}}">updated booking service</a> instead
+</span>
+<span class="error" ng-show="ctrl.cancellationFailed && !ctrl.isReadonly && !ctrl.isRetired && !ctrl.passwordIncorrect && !ctrl.unauthenticatedBlockBookingError && !ctrl.bookingCancellationFailed">
   Apologies - something has gone wrong whilst cancelling the booking.
 </span>
 </p>

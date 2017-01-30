@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2016 Robin Steel
+ * Copyright 2015-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,10 +32,8 @@ import org.apache.velocity.app.VelocityEngine;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
-import com.amazonaws.regions.Region;
-import com.amazonaws.regions.Regions;
 import com.amazonaws.services.apigateway.AmazonApiGateway;
-import com.amazonaws.services.apigateway.AmazonApiGatewayClient;
+import com.amazonaws.services.apigateway.AmazonApiGatewayClientBuilder;
 import com.amazonaws.services.apigateway.model.CreateDeploymentRequest;
 import com.amazonaws.services.apigateway.model.CreateDeploymentResult;
 import com.amazonaws.services.apigateway.model.CreateResourceRequest;
@@ -67,7 +65,7 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.DeleteVersionRequest;
 import com.amazonaws.services.s3.model.ListVersionsRequest;
 import com.amazonaws.services.s3.model.VersionListing;
-import com.amazonaws.services.s3.transfer.TransferManager;
+import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
 import com.google.common.io.CharStreams;
 
 import java.io.File;
@@ -214,8 +212,8 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       cloudFormationResponder.initialise();
 
       // Create ApiGateway client
-      AmazonApiGateway apiGatewayClient = new AmazonApiGatewayClient();
-      apiGatewayClient.setRegion(Region.getRegion(Regions.fromName(region)));
+      AmazonApiGateway apiGatewayClient = AmazonApiGatewayClientBuilder.standard()
+          .withRegion(region).build();
 
       String apiName = "SquashApi" + standardRequestParameters.get("StackId");
       logger.log("Setting api name to: " + apiName);
@@ -516,8 +514,8 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
 
       // Upload the sdk from the temporary filesystem to S3.
       logger.log("Uploading unzipped Javascript SDK to S3 bucket: " + squashWebsiteBucket);
-      TransferUtils.waitForS3Transfer(
-          new TransferManager().uploadDirectory(squashWebsiteBucket, "", sdkFolder, true), logger);
+      TransferUtils.waitForS3Transfer(TransferManagerBuilder.defaultTransferManager()
+          .uploadDirectory(squashWebsiteBucket, "", sdkFolder, true), logger);
       logger.log("Uploaded sdk successfully to S3");
 
       // Add gzip content-encoding metadata to zip-ed files
@@ -743,6 +741,8 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     // "application/json" : "json 200 response template",
     // "application/xml" : "xml 200 response template"
     // }
+    // The response template to use will be chosen by Apigateway based on e.g.
+    // the Accept header in the client's request.
     Map<String, String> response200Templates = new HashMap<>();
     Map<String, String> response500Templates = new HashMap<>();
     Map<String, String> response400Templates = new HashMap<>();
@@ -766,12 +766,6 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
         + "<p align='left'>\n"
         + "<a href= '$redirectUrl'>Please click here if you are not redirected automatically within a few seconds</a>\n"
         + "</p>\n" + "</body>\n";
-
-    // Booking rules are visible only via the angular app - so their errors have
-    // no redirect url
-    String bookingRuleErrorResponseMappingTemplate = "#set($inputRoot = $input.path('$'))\n"
-        + "<head>\n" + "<title>Grrr</title>\n" + "</head>\n" + "<body>\n"
-        + "$inputRoot.errorMessage\n" + "</body>\n";
 
     // The PUT and DELETE lambda methods currently use the Cognito context
     // variables to determine whether the caller was authenticated as admin.
@@ -865,11 +859,11 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
           + ".amazonaws.com?selectedDate=${input.params('date')}.html\"\n" + "}");
       responseParameters.put("method.response.header.access-control-allow-methods",
           "'GET,PUT,DELETE,POST,OPTIONS'");
-      response500Templates.put("application/json", errorResponseMappingTemplate);
-      response400Templates.put("application/json", errorResponseMappingTemplate);
       putIntegration500ResponseRequest
           .setSelectionPattern("Apologies - something has gone wrong. Please try again.");
-      putIntegration400ResponseRequest.setSelectionPattern("The booking date.*");
+      putIntegration400ResponseRequest
+          .setSelectionPattern("The booking date.*|Cannot access bookings or rules.*");
+      responseParameters.put("method.response.header.content-type", "'application/json'");
     } else if (methodName.equals("BookingsPUT")) {
       putMethodRequest.setHttpMethod("PUT");
       // Set IAM authorisation so ApiGateway provides the Cognito context
@@ -890,14 +884,13 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       putIntegrationRequest.setHttpMethod("PUT");
       putIntegrationRequest.setCredentials(extraParameters.get("BookingsApiGatewayInvocationRole"));
       requestTemplates.put("application/json", bookingsPutDeleteRequestTemplate);
-      response500Templates.put("application/json", errorResponseMappingTemplate);
-      response400Templates.put("application/json", errorResponseMappingTemplate);
       responseParameters.put("method.response.header.access-control-allow-methods",
           "'GET,PUT,DELETE,POST,OPTIONS'");
       putIntegration500ResponseRequest
           .setSelectionPattern("Apologies - something has gone wrong. Please try again.");
       putIntegration400ResponseRequest
-          .setSelectionPattern("The booking court.*|The booking time.*|The booking name.*|The booking date.*|The password is incorrect.*|You must login to manage block bookings.*|Booking creation failed.*|Booking cancellation failed.*");
+          .setSelectionPattern("The booking court.*|The booking time.*|The booking name.*|The booking date.*|The password is incorrect.*|You must login to manage block bookings.*|Booking creation failed.*|Booking cancellation failed.*|Cannot mutate bookings or rules.*|Cannot access bookings or rules.*");
+      responseParameters.put("method.response.header.content-type", "'application/json'");
     } else if (methodName.equals("BookingsDELETE")) {
       putMethodRequest.setHttpMethod("DELETE");
       // Set IAM authorisation so ApiGateway provides the Cognito context
@@ -918,14 +911,13 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       putIntegrationRequest.setHttpMethod("DELETE");
       putIntegrationRequest.setCredentials(extraParameters.get("BookingsApiGatewayInvocationRole"));
       requestTemplates.put("application/json", bookingsPutDeleteRequestTemplate);
-      response500Templates.put("application/json", errorResponseMappingTemplate);
-      response400Templates.put("application/json", errorResponseMappingTemplate);
       responseParameters.put("method.response.header.access-control-allow-methods",
           "'GET,PUT,DELETE,POST,OPTIONS'");
       putIntegration500ResponseRequest
-          .setSelectionPattern("Apologies - something has gone wrong. Please try again.");
+          .setSelectionPattern("Apologies - something has gone wrong. Please try again.|Booking creation failed.*|Booking cancellation failed.*|Cannot mutate bookings or rules.*|Cannot access bookings or rules.*");
       putIntegration400ResponseRequest
-          .setSelectionPattern("The booking court.*|The booking time.*|The booking name.*|The booking date.*|The password is incorrect.*|You must login to manage block bookings.*|Booking creation failed.*|Booking cancellation failed.*");
+          .setSelectionPattern("The booking court.*|The booking time.*|The booking name.*|The booking date.*|The password is incorrect.*|You must login to manage block bookings.*");
+      responseParameters.put("method.response.header.content-type", "'application/json'");
     } else if (methodName.equals("BookingsPOST")) {
       // Redirect to the mutated booking page after creating or cancelling a
       // booking
@@ -996,9 +988,9 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       responseParameters.put("method.response.header.location",
           "integration.response.body.redirectUrl");
       putIntegration500ResponseRequest
-          .setSelectionPattern("Apologies - something has gone wrong. Please try again.");
+          .setSelectionPattern("Apologies - something has gone wrong. Please try again.|Booking creation failed.*|Booking cancellation failed.*|Cannot mutate bookings or rules.*|Cannot access bookings or rules.*");
       putIntegration400ResponseRequest
-          .setSelectionPattern("The booking court.*|The booking time.*|The booking name.*|The booking date.*|The password is incorrect.*|Booking creation failed.*|Booking cancellation failed.*");
+          .setSelectionPattern("The booking court.*|The booking time.*|The booking name.*|The booking date.*|The password is incorrect.*");
     } else if (methodName.equals("BookingsOPTIONS")) {
       // OPTIONS method is required for CORS.
       putMethodRequest.setHttpMethod("OPTIONS");
@@ -1030,10 +1022,9 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       requestTemplates.put("application/json", "{\"requestId\" : \"$context.requestId\"}");
       responseParameters.put("method.response.header.access-control-allow-methods",
           "'GET,PUT,DELETE,OPTIONS'");
-      response500Templates.put("application/json", bookingRuleErrorResponseMappingTemplate);
-      response400Templates.put("application/json", bookingRuleErrorResponseMappingTemplate);
       putIntegration500ResponseRequest
-          .setSelectionPattern("Apologies - something has gone wrong. Please try again.");
+          .setSelectionPattern("Apologies - something has gone wrong. Please try again.|Cannot mutate bookings or rules.*|Cannot access bookings or rules.*");
+      responseParameters.put("method.response.header.content-type", "'application/json'");
     } else if (methodName.equals("BookingrulesPUT")) {
       putMethodRequest.setHttpMethod("PUT");
       // Set IAM authorisation so ApiGateway provides the Cognito context
@@ -1054,14 +1045,13 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       putIntegrationRequest.setHttpMethod("PUT");
       putIntegrationRequest.setCredentials(extraParameters.get("BookingsApiGatewayInvocationRole"));
       requestTemplates.put("application/json", bookingRulesPutDeleteRequestTemplate);
-      response500Templates.put("application/json", bookingRuleErrorResponseMappingTemplate);
-      response400Templates.put("application/json", bookingRuleErrorResponseMappingTemplate);
       responseParameters.put("method.response.header.access-control-allow-methods",
           "'GET,PUT,DELETE,OPTIONS'");
       putIntegration500ResponseRequest
-          .setSelectionPattern("Apologies - something has gone wrong. Please try again.");
+          .setSelectionPattern("Apologies - something has gone wrong. Please try again.|Cannot mutate bookings or rules.*|Cannot access bookings or rules.*");
       putIntegration400ResponseRequest
           .setSelectionPattern("You must login to manage booking rules.*|Booking rule creation failed.*|Booking rule addition failed - too many rules.*|Booking rule exclusion addition failed - too many exclusions.*|Booking rule creation failed - new rule would clash.*");
+      responseParameters.put("method.response.header.content-type", "'application/json'");
     } else if (methodName.equals("BookingrulesDELETE")) {
       putMethodRequest.setHttpMethod("DELETE");
       // Set IAM authorisation so ApiGateway provides the Cognito context
@@ -1082,14 +1072,13 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       putIntegrationRequest.setHttpMethod("DELETE");
       putIntegrationRequest.setCredentials(extraParameters.get("BookingsApiGatewayInvocationRole"));
       requestTemplates.put("application/json", bookingRulesPutDeleteRequestTemplate);
-      response500Templates.put("application/json", bookingRuleErrorResponseMappingTemplate);
-      response400Templates.put("application/json", bookingRuleErrorResponseMappingTemplate);
       responseParameters.put("method.response.header.access-control-allow-methods",
           "'GET,PUT,DELETE,OPTIONS'");
       putIntegration500ResponseRequest
-          .setSelectionPattern("Apologies - something has gone wrong. Please try again.");
+          .setSelectionPattern("Apologies - something has gone wrong. Please try again.|Cannot mutate bookings or rules.*|Cannot access bookings or rules.*");
       putIntegration400ResponseRequest
           .setSelectionPattern("You must login to manage booking rules.*|Booking rule deletion failed.*|Booking rule exclusion deletion failed - latent clash exists.*");
+      responseParameters.put("method.response.header.content-type", "'application/json'");
     } else if (methodName.equals("BookingrulesOPTIONS")) {
       // OPTIONS method is required for CORS.
       putMethodRequest.setHttpMethod("OPTIONS");

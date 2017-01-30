@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Robin Steel
+ * Copyright 2016-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -114,7 +114,7 @@ describe('squashApp.cancellationView module', function () {
     it('should set the password error flag when a cancellation is submitted with an invalid password', inject(function ($rootScope, $location, $q) {
       // Configure the cancelCourt mock to return the wrong-password error
       cancelCourtSpy.and.returnValue(
-        $q(function (resolve, reject) { reject({'data': 'The password is incorrect'}) })
+        $q(function (resolve, reject) { reject({'data': {'errorMessage': 'The password is incorrect'}}) })
       )
 
       // Submit a valid cancellation
@@ -126,12 +126,16 @@ describe('squashApp.cancellationView module', function () {
       expect(cancellationViewCtrl.bookingCancellationFailed).toBe(false)
       expect(cancellationViewCtrl.passwordIncorrect).toBe(false)
       expect(cancellationViewCtrl.unauthenticatedBlockBookingError).toBe(false)
+      expect(cancellationViewCtrl.isReadonly).toBe(false)
+      expect(cancellationViewCtrl.isRetired).toBe(false)
       expect(cancellationViewCtrl.cancellationFailed).toBe(false)
       $rootScope.$apply()
 
       expect(cancellationViewCtrl.bookingCancellationFailed).toBe(false)
       expect(cancellationViewCtrl.passwordIncorrect).toBe(true)
       expect(cancellationViewCtrl.unauthenticatedBlockBookingError).toBe(false)
+      expect(cancellationViewCtrl.isReadonly).toBe(false)
+      expect(cancellationViewCtrl.isRetired).toBe(false)
       expect(cancellationViewCtrl.cancellationFailed).toBe(true)
 
       // Verify we do not navigate away from the cancellation form
@@ -141,7 +145,7 @@ describe('squashApp.cancellationView module', function () {
     it('should set the unauthenticated block booking error flag when a block-booking cancellation is submitted whilst unauthenticated', inject(function ($rootScope, $location, $q) {
       // Configure the cancelCourt mock to return the unauthenticated block booking error
       cancelCourtSpy.and.returnValue(
-        $q(function (resolve, reject) { reject({'data': 'You must login to manage block bookings'}) })
+        $q(function (resolve, reject) { reject({'data': {'errorMessage': 'You must login to manage block bookings'}}) })
       )
 
       // Submit a valid cancellation
@@ -153,12 +157,16 @@ describe('squashApp.cancellationView module', function () {
       expect(cancellationViewCtrl.bookingCancellationFailed).toBe(false)
       expect(cancellationViewCtrl.passwordIncorrect).toBe(false)
       expect(cancellationViewCtrl.unauthenticatedBlockBookingError).toBe(false)
+      expect(cancellationViewCtrl.isReadonly).toBe(false)
+      expect(cancellationViewCtrl.isRetired).toBe(false)
       expect(cancellationViewCtrl.cancellationFailed).toBe(false)
       $rootScope.$apply()
 
       expect(cancellationViewCtrl.bookingCancellationFailed).toBe(false)
       expect(cancellationViewCtrl.passwordIncorrect).toBe(false)
       expect(cancellationViewCtrl.unauthenticatedBlockBookingError).toBe(true)
+      expect(cancellationViewCtrl.isReadonly).toBe(false)
+      expect(cancellationViewCtrl.isRetired).toBe(false)
       expect(cancellationViewCtrl.cancellationFailed).toBe(true)
 
       // Verify we do not navigate away from the cancellation form
@@ -171,7 +179,7 @@ describe('squashApp.cancellationView module', function () {
 
       // Configure the cancelCourt mock to return the cancellation-failed error
       cancelCourtSpy.and.returnValue(
-        $q(function (resolve, reject) { reject({'data': 'Booking cancellation failed'}) })
+        $q(function (resolve, reject) { reject({'data': {'errorMessage': 'Booking cancellation failed'}}) })
       )
 
       // Submit a valid cancellation
@@ -183,12 +191,80 @@ describe('squashApp.cancellationView module', function () {
       expect(cancellationViewCtrl.bookingCancellationFailed).toBe(false)
       expect(cancellationViewCtrl.passwordIncorrect).toBe(false)
       expect(cancellationViewCtrl.unauthenticatedBlockBookingError).toBe(false)
+      expect(cancellationViewCtrl.isReadonly).toBe(false)
+      expect(cancellationViewCtrl.isRetired).toBe(false)
       expect(cancellationViewCtrl.cancellationFailed).toBe(false)
       $rootScope.$apply()
 
       expect(cancellationViewCtrl.bookingCancellationFailed).toBe(true)
       expect(cancellationViewCtrl.passwordIncorrect).toBe(false)
       expect(cancellationViewCtrl.unauthenticatedBlockBookingError).toBe(false)
+      expect(cancellationViewCtrl.isReadonly).toBe(false)
+      expect(cancellationViewCtrl.isRetired).toBe(false)
+      expect(cancellationViewCtrl.cancellationFailed).toBe(true)
+
+      // Verify we do not navigate away from the cancellation form
+      expect($location.url).not.toHaveBeenCalled()
+    }))
+
+    it('should set the isReadonly error flag when a cancellation is submitted while the booking service is in Readonly lifecycle state', inject(function ($rootScope, $location, $q) {
+      // Booking service will be Readonly during maintenance.
+
+      // Configure the cancelCourt mock to return the readonly error
+      cancelCourtSpy.and.returnValue(
+        $q(function (resolve, reject) { reject({'data': {'errorMessage': 'Cannot mutate bookings or rules - booking service is temporarily readonly'}}) })
+      )
+
+      // Submit a valid cancellation
+      cancellationViewCtrl.password = 'TheBogieman'
+      cancellationViewCtrl.submitCancellation({'$invalid': false})
+
+      // Trigger the promise chain
+      spyOn($location, 'url')
+      expect(cancellationViewCtrl.bookingCancellationFailed).toBe(false)
+      expect(cancellationViewCtrl.passwordIncorrect).toBe(false)
+      expect(cancellationViewCtrl.unauthenticatedBlockBookingError).toBe(false)
+      expect(cancellationViewCtrl.isReadonly).toBe(false)
+      expect(cancellationViewCtrl.isRetired).toBe(false)
+      expect(cancellationViewCtrl.cancellationFailed).toBe(false)
+      $rootScope.$apply()
+
+      expect(cancellationViewCtrl.bookingCancellationFailed).toBe(false)
+      expect(cancellationViewCtrl.passwordIncorrect).toBe(false)
+      expect(cancellationViewCtrl.unauthenticatedBlockBookingError).toBe(false)
+      expect(cancellationViewCtrl.isReadonly).toBe(true)
+      expect(cancellationViewCtrl.isRetired).toBe(false)
+      expect(cancellationViewCtrl.cancellationFailed).toBe(true)
+
+      // Verify we do not navigate away from the cancellation form
+      expect($location.url).not.toHaveBeenCalled()
+    }))
+
+    it('should set the isRetired error flag when a cancellation is submitted while the booking service is in Retired lifecycle state', inject(function ($rootScope, $location, $q) {
+      // Configure the cancelCourt mock to return the retired error
+      cancelCourtSpy.and.returnValue(
+        $q(function (resolve, reject) { reject({'data': {'errorMessage': 'Cannot access bookings'}}) })
+      )
+
+      // Submit a valid cancellation
+      cancellationViewCtrl.password = 'TheBogieman'
+      cancellationViewCtrl.submitCancellation({'$invalid': false})
+
+      // Trigger the promise chain
+      spyOn($location, 'url')
+      expect(cancellationViewCtrl.bookingCancellationFailed).toBe(false)
+      expect(cancellationViewCtrl.passwordIncorrect).toBe(false)
+      expect(cancellationViewCtrl.unauthenticatedBlockBookingError).toBe(false)
+      expect(cancellationViewCtrl.isReadonly).toBe(false)
+      expect(cancellationViewCtrl.isRetired).toBe(false)
+      expect(cancellationViewCtrl.cancellationFailed).toBe(false)
+      $rootScope.$apply()
+
+      expect(cancellationViewCtrl.bookingCancellationFailed).toBe(false)
+      expect(cancellationViewCtrl.passwordIncorrect).toBe(false)
+      expect(cancellationViewCtrl.unauthenticatedBlockBookingError).toBe(false)
+      expect(cancellationViewCtrl.isReadonly).toBe(false)
+      expect(cancellationViewCtrl.isRetired).toBe(true)
       expect(cancellationViewCtrl.cancellationFailed).toBe(true)
 
       // Verify we do not navigate away from the cancellation form

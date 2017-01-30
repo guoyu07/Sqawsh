@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2017 Robin Steel
+ * Copyright 2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@
 package squash.booking.lambdas;
 
 /**
- * Request parameter for the {@link UpdateBookingsLambda UpdateBookings} lambda function.
+ * Response for the {@link UpdateLifecycleStateLambda UpdateLifecycleState} lambda function.
  * 
  * @author robinsteel19@outlook.com (Robin Steel)
  */
-public class UpdateBookingsLambdaRequest {
+public class UpdateLifecycleStateLambdaResponse {
 }

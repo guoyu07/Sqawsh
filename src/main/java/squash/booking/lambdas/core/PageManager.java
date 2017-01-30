@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2016 Robin Steel
+ * Copyright 2015-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package squash.booking.lambdas.core;
 
+import squash.booking.lambdas.core.ILifecycleManager.LifecycleState;
 import squash.deployment.lambdas.utils.ExceptionUtils;
 import squash.deployment.lambdas.utils.FileUtils;
 import squash.deployment.lambdas.utils.IS3TransferManager;
@@ -23,6 +24,7 @@ import squash.deployment.lambdas.utils.S3TransferManager;
 import squash.deployment.lambdas.utils.TransferUtils;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.velocity.Template;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
@@ -39,7 +41,7 @@ import com.amazonaws.services.s3.model.DeleteObjectRequest;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.sns.AmazonSNS;
-import com.amazonaws.services.sns.AmazonSNSClient;
+import com.amazonaws.services.sns.AmazonSNSClientBuilder;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -60,6 +62,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.TimeZone;
 import java.util.UUID;
@@ -78,16 +81,19 @@ public class PageManager implements IPageManager {
   private Region region;
   private String adminSnsTopicArn;
   private IBookingManager bookingManager;
+  private ILifecycleManager lifecycleManager;
   private LambdaLogger logger;
   private Boolean initialised = false;
 
   @Override
-  public void initialise(IBookingManager bookingManager, LambdaLogger logger) throws Exception {
+  public void initialise(IBookingManager bookingManager, ILifecycleManager lifecycleManager,
+      LambdaLogger logger) throws Exception {
     this.logger = logger;
     websiteBucketName = getEnvironmentVariable("WebsiteBucket");
     adminSnsTopicArn = getEnvironmentVariable("AdminSNSTopicArn");
     region = Region.getRegion(Regions.fromName(getEnvironmentVariable("AWS_REGION")));
     this.bookingManager = bookingManager;
+    this.lifecycleManager = lifecycleManager;
     initialised = true;
   }
 
@@ -112,7 +118,7 @@ public class PageManager implements IPageManager {
     logger.log("Created booking page with guid: " + pageGuid);
 
     logger.log("About to copy booking page to S3");
-    copyUpdatedBookingPageToS3(date, newPage, createDuplicate ? pageGuid : "");
+    copyUpdatedBookingPageToS3(date, newPage, createDuplicate ? pageGuid : "", true);
     logger.log("Copied booking page to S3");
 
     // Create cached booking data as JSON for the Angularjs app to use
@@ -136,19 +142,22 @@ public class PageManager implements IPageManager {
       // and the index page to the S3 bucket. N.B. This should upload for the
       // most-future date first to ensure all links are valid during the several
       // seconds the update takes to complete.
-      logger.log("About to refresh S3 website at midnight");
+      logger.log("About to refresh S3 website");
       logger.log("Using valid dates: " + validDates);
       logger.log("Using ApigatewayBaseUrl: " + apiGatewayBaseUrl);
 
       // Log time to sanity check it does occur at midnight. (_Think_ this
-      // accounts for BST?)
+      // accounts for BST?). N.B. Manual executions may be at other times.
       logger.log("Current London time is: "
           + Calendar.getInstance().getTime().toInstant()
               .atZone(TimeZone.getTimeZone("Europe/London").toZoneId())
               .format(DateTimeFormatter.ofPattern("h:mm a")));
 
-      uploadBookingsPagesToS3(validDates, apiGatewayBaseUrl, revvingSuffix);
-      logger.log("Uploaded new set of bookings pages to S3 at midnight");
+      ImmutablePair<ILifecycleManager.LifecycleState, Optional<String>> lifecycleState = lifecycleManager
+          .getLifecycleState();
+
+      uploadBookingsPagesToS3(validDates, apiGatewayBaseUrl, revvingSuffix, lifecycleState);
+      logger.log("Uploaded new set of bookings pages to S3");
 
       // Save the valid dates in JSON form
       logger.log("About to create and upload cached valid dates data to S3");
@@ -218,14 +227,21 @@ public class PageManager implements IPageManager {
    * @param bookings the bookings for the specified date.
    * @param pageGuid the guid to embed within the page - used by AATs.
    * @param revvingSuffix the suffix to use for the linked css file, used for cache rev-ing.
+   * @throws Exception 
    */
   protected String createBookingPage(String date, List<String> validDates,
       String reservationFormGetUrl, String cancellationFormGetUrl, String s3WebsiteUrl,
-      List<Booking> bookings, String pageGuid, String revvingSuffix)
-      throws IllegalArgumentException {
+      List<Booking> bookings, String pageGuid, String revvingSuffix) throws Exception {
+
+    ImmutablePair<LifecycleState, Optional<String>> lifecycleState = lifecycleManager
+        .getLifecycleState();
 
     // N.B. we assume that the date is known to be a valid date
     logger.log("About to create booking page");
+    logger.log("Lifecycle state is: " + lifecycleState.left.name());
+    if (lifecycleState.left.equals(LifecycleState.RETIRED)) {
+      logger.log("Lifecycle state forwarding url is: " + lifecycleState.right.get());
+    }
 
     Integer numCourts = 5;
 
@@ -303,6 +319,9 @@ public class PageManager implements IPageManager {
     context.put("isBlockInterior", isBlockInterior);
     context.put("names", names);
     context.put("revvingSuffix", revvingSuffix);
+    context.put("lifecycleState", lifecycleState.left.name());
+    context
+        .put("forwardingUrl", lifecycleState.right.isPresent() ? lifecycleState.right.get() : "");
     logger.log("Set up velocity context");
 
     // TODO assert some sensible invariants on data sizes?
@@ -324,13 +343,20 @@ public class PageManager implements IPageManager {
    * @param date the date in YYYY-MM-DD format.
    * @param validDates the dates for which bookings can be made, in YYYY-MM-DD format.
    * @param bookings the bookings for the specified date.
-   * @throws IOException
+   * @throws Exception 
    */
   protected String createCachedBookingData(String date, List<String> validDates,
-      List<Booking> bookings) throws IllegalArgumentException, IOException {
+      List<Booking> bookings) throws Exception {
+
+    ImmutablePair<LifecycleState, Optional<String>> lifecycleState = lifecycleManager
+        .getLifecycleState();
 
     // N.B. we assume that the date is known to be a valid date
     logger.log("About to create cached booking data");
+    logger.log("Lifecycle state is: " + lifecycleState.left.name());
+    if (lifecycleState.left.equals(LifecycleState.RETIRED)) {
+      logger.log("Lifecycle state forwarding url is: " + lifecycleState.right.get());
+    }
 
     // Encode bookings as JSON
     // Create the node factory that gives us nodes.
@@ -355,6 +381,11 @@ public class PageManager implements IPageManager {
       bookingNode.put("name", booking.getName());
       bookingsNode.add(bookingNode);
     }
+    // This gives the Angularjs app access to the lifecycle state.
+    ObjectNode lifecycleStateNode = rootNode.putObject("lifecycleState");
+    lifecycleStateNode.put("state", lifecycleState.left.name());
+    lifecycleStateNode.put("url", lifecycleState.right.isPresent() ? lifecycleState.right.get()
+        : "");
 
     ByteArrayOutputStream bookingDataStream = new ByteArrayOutputStream();
     PrintStream printStream = new PrintStream(bookingDataStream);
@@ -462,12 +493,12 @@ public class PageManager implements IPageManager {
     }
   }
 
-  private void copyUpdatedBookingPageToS3(String pageBaseName, String page, String uidSuffix)
-      throws Exception {
+  private void copyUpdatedBookingPageToS3(String pageBaseName, String page, String uidSuffix,
+      boolean usePrefix) throws Exception {
 
     logger.log("About to copy booking page to S3");
 
-    String pageBaseNameWithPrefix = "NoScript/" + pageBaseName;
+    String pageBaseNameWithPrefix = usePrefix ? "NoScript/" + pageBaseName : pageBaseName;
     try {
       logger.log("Uploading booking page to S3 bucket: " + websiteBucketName
           + "s3websitebucketname" + " and key: " + pageBaseNameWithPrefix + uidSuffix + ".html");
@@ -521,8 +552,14 @@ public class PageManager implements IPageManager {
   }
 
   private void uploadBookingsPagesToS3(List<String> validDates, String apiGatewayBaseUrl,
-      String revvingSuffix) throws Exception {
+      String revvingSuffix,
+      ImmutablePair<ILifecycleManager.LifecycleState, Optional<String>> lifecycleState)
+      throws Exception {
     logger.log("About to upload booking page for each valid date");
+    logger.log("Lifecycle state is: " + lifecycleState.left.name());
+    if (lifecycleState.left.equals(LifecycleState.RETIRED)) {
+      logger.log("Lifecycle state forwarding url is: " + lifecycleState.right.get());
+    }
 
     String currentDate = validDates.get(0);
     logger.log("About to refresh index pages for: " + currentDate);
@@ -535,7 +572,7 @@ public class PageManager implements IPageManager {
     List<Booking> bookings;
     for (String validDate : Lists.reverse(validDates)) {
       logger.log("About to upload booking page for: " + validDate);
-      bookings = bookingManager.getBookings(validDate);
+      bookings = bookingManager.getBookings(validDate, false);
       refreshPage(validDate, validDates, // Still in forward time order
           apiGatewayBaseUrl, false, bookings, revvingSuffix);
     }
@@ -551,14 +588,19 @@ public class PageManager implements IPageManager {
     // javascript-disabled clients. Noscript.html is there for the AngularApp
     // to redirect to when javascript is disabled. It differs from Today.html
     // only by not showing a momentary redirect message.
+    logger.log("About to refresh index pages");
+
     String todayIndexPage = createIndexPage("http://" + websiteBucketName + ".s3-website-" + region
         + ".amazonaws.com?selectedDate=" + currentDate + ".html", true);
     String noscriptIndexPage = createIndexPage("http://" + websiteBucketName + ".s3-website-"
         + region + ".amazonaws.com?selectedDate=" + currentDate + ".html", false);
     logger.log("About to upload index pages");
-    copyUpdatedBookingPageToS3("today", todayIndexPage, "");
-    copyUpdatedBookingPageToS3("noscript", noscriptIndexPage, "");
+    copyUpdatedBookingPageToS3("today", todayIndexPage, "", true);
+    // Also copy to root of bucket - as error and index page must be there.
+    copyUpdatedBookingPageToS3("today", todayIndexPage, "", false);
+    copyUpdatedBookingPageToS3("noscript", noscriptIndexPage, "", true);
     logger.log("Uploaded index pages");
+    logger.log("Refreshed index pages");
   }
 
   /**
@@ -572,6 +614,7 @@ public class PageManager implements IPageManager {
   protected String createIndexPage(String redirectUrl, Boolean showRedirectMessage) {
 
     logger.log("About to create the index page");
+
     // Create the page by merging the data with the page template
     VelocityEngine engine = new VelocityEngine();
     // Use the classpath loader so Velocity finds our template
@@ -601,8 +644,7 @@ public class PageManager implements IPageManager {
   protected AmazonSNS getSNSClient() {
 
     // Use a getter here so unit tests can substitute a mock client
-    AmazonSNS client = new AmazonSNSClient();
-    client.setRegion(region);
+    AmazonSNS client = AmazonSNSClientBuilder.standard().withRegion(region.getName()).build();
     return client;
   }
 

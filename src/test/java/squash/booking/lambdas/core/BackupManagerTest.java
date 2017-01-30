@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2016 Robin Steel
+ * Copyright 2015-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -266,6 +266,61 @@ public class BackupManagerTest {
     backupManager.backupAllBookingsAndBookingRules();
   }
 
+  @Test
+  public void testBackupAllBookingsAndBookingRuleThrowsWhenBookingManagerThrows() throws Exception {
+
+    // Verify that the backup manager forwards exceptions from its booking
+    // manager.
+
+    // ARRANGE
+    thrown.expect(Exception.class);
+    String message = "Booking Manager exception!";
+    thrown.expectMessage(message);
+
+    // Make the booking manager throw
+    mockBookingManager = mockery.mock(IBookingManager.class);
+    mockRuleManager = mockery.mock(IRuleManager.class);
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockBookingManager).getAllBookings(false);
+        will(throwException(new Exception(message)));
+        ignoring(mockRuleManager);
+      }
+    });
+    backupManager.initialise(mockBookingManager, mockRuleManager, mockLogger);
+
+    // ACT
+    // This should throw.
+    backupManager.backupAllBookingsAndBookingRules();
+  }
+
+  @Test
+  public void testBackupAllBookingsAndBookingRuleThrowsWhenRuleManagerThrows() throws Exception {
+
+    // Verify that the backup manager forwards exceptions from its rule manager.
+
+    // ARRANGE
+    thrown.expect(Exception.class);
+    String message = "Rule Manager exception!";
+    thrown.expectMessage(message);
+
+    // Make the booking manager throw
+    mockBookingManager = mockery.mock(IBookingManager.class);
+    mockRuleManager = mockery.mock(IRuleManager.class);
+    mockery.checking(new Expectations() {
+      {
+        ignoring(mockBookingManager);
+        oneOf(mockRuleManager).getRules(false);
+        will(throwException(new Exception(message)));
+      }
+    });
+    backupManager.initialise(mockBookingManager, mockRuleManager, mockLogger);
+
+    // ACT
+    // This should throw.
+    backupManager.backupAllBookingsAndBookingRules();
+  }
+
   public void doTestBackupBookingsAndBookingRulesCorrectlyCallsS3(
       Boolean backupAllBookingsAndBookingRules, Boolean backupSingleBookingRule,
       Boolean isNotDeletion) throws Exception {
@@ -292,9 +347,9 @@ public class BackupManagerTest {
       {
         if (backupAllBookingsAndBookingRules) {
           // When backing everything up, we call through to the managers:
-          oneOf(mockBookingManager).getAllBookings();
+          oneOf(mockBookingManager).getAllBookings(with.booleanIs(anything()));
           will(returnValue(bookings));
-          oneOf(mockRuleManager).getRules();
+          oneOf(mockRuleManager).getRules(with.booleanIs(anything()));
           will(returnValue(bookingRules));
 
           // Each type of backup uploads to a different S3 key:
@@ -468,9 +523,9 @@ public class BackupManagerTest {
     mockery.checking(new Expectations() {
       {
         // When backing everything up, we call through to the managers:
-        allowing(mockBookingManager).getAllBookings();
+        allowing(mockBookingManager).getAllBookings(with.booleanIs(anything()));
         will(returnValue(bookings));
-        allowing(mockRuleManager).getRules();
+        allowing(mockRuleManager).getRules(with.booleanIs(anything()));
         will(returnValue(bookingRules));
       }
     });
@@ -513,6 +568,59 @@ public class BackupManagerTest {
   }
 
   @Test
+  public void testBackupAllBookingsAndBookingRulesCorrectlyCallsTheManagers() throws Exception {
+
+    // Checks BackupManager correctly calls the booking and rule managers when
+    // backing up everything. In particular they should say it's not making
+    // service user calls - so calls get allowed even when not in ACTIVE
+    // lifecycle state.
+
+    // Set up mock managers
+    mockBookingManager = mockery.mock(IBookingManager.class);
+    mockRuleManager = mockery.mock(IRuleManager.class);
+    mockery.checking(new Expectations() {
+      {
+        // When backing everything up, we call through to the managers:
+        oneOf(mockBookingManager).getAllBookings(false);
+        will(returnValue(bookings));
+        oneOf(mockRuleManager).getRules(false);
+        will(returnValue(bookingRules));
+      }
+    });
+    backupManager.initialise(mockBookingManager, mockRuleManager, mockLogger);
+
+    // Not interested in S3 calls in this test
+    Transfer mockTransfer = mockery.mock(Transfer.class);
+    mockery.checking(new Expectations() {
+      {
+        allowing(mockTransfer).isDone();
+        will(returnValue(true));
+        allowing(mockTransfer).waitForCompletion();
+      }
+    });
+    mockTransferManager = mockery.mock(IS3TransferManager.class);
+    mockery.checking(new Expectations() {
+      {
+        allowing(mockTransferManager).upload(with(any(PutObjectRequest.class)));
+        will(returnValue(mockTransfer));
+      }
+    });
+    backupManager.setS3TransferManager(mockTransferManager);
+
+    // Not interested in SNS calls in this test
+    mockSNSClient = mockery.mock(AmazonSNS.class);
+    mockery.checking(new Expectations() {
+      {
+        ignoring(mockSNSClient);
+      }
+    });
+    backupManager.setSNSClient(mockSNSClient);
+
+    // ACT
+    backupManager.backupAllBookingsAndBookingRules();
+  }
+
+  @Test
   public void testBackupAllBookingsAndBookingRulesReturnsCorrectBookingsAndBookingRules()
       throws Exception {
 
@@ -533,9 +641,9 @@ public class BackupManagerTest {
     mockery.checking(new Expectations() {
       {
         // When backing everything up, we call through to the managers:
-        allowing(mockBookingManager).getAllBookings();
+        allowing(mockBookingManager).getAllBookings(with.booleanIs(anything()));
         will(returnValue(bookings));
-        allowing(mockRuleManager).getRules();
+        allowing(mockRuleManager).getRules(with.booleanIs(anything()));
         will(returnValue(bookingRules));
       }
     });
@@ -613,22 +721,22 @@ public class BackupManagerTest {
     mockery.checking(new Expectations() {
       {
         // Delete any existing bookings and booking rules before restoring.
-        oneOf(mockBookingManager).deleteAllBookings();
-        oneOf(mockRuleManager).deleteAllBookingRules();
+        oneOf(mockBookingManager).deleteAllBookings(false);
+        oneOf(mockRuleManager).deleteAllBookingRules(false);
         inSequence(restoreSequence);
         // Restore everything
         oneOf(mockBookingManager).validateBooking(bookings.get(0));
         inSequence(restoreSequence);
-        oneOf(mockBookingManager).createBooking(bookings.get(0));
+        oneOf(mockBookingManager).createBooking(bookings.get(0), false);
         oneOf(mockBookingManager).validateBooking(bookings.get(1));
         inSequence(restoreSequence);
-        oneOf(mockBookingManager).createBooking(bookings.get(1));
+        oneOf(mockBookingManager).createBooking(bookings.get(1), false);
         oneOf(mockBookingManager).validateBooking(bookingRules.get(0).getBooking());
         inSequence(restoreSequence);
-        oneOf(mockRuleManager).createRule(bookingRules.get(0));
+        oneOf(mockRuleManager).createRule(bookingRules.get(0), false);
         oneOf(mockBookingManager).validateBooking(bookingRules.get(1).getBooking());
         inSequence(restoreSequence);
-        oneOf(mockRuleManager).createRule(bookingRules.get(1));
+        oneOf(mockRuleManager).createRule(bookingRules.get(1), false);
         inSequence(restoreSequence);
       }
     });
@@ -660,21 +768,21 @@ public class BackupManagerTest {
     mockery.checking(new Expectations() {
       {
         // Do not delete any existing bookings
-        never(mockBookingManager).deleteAllBookings();
-        never(mockRuleManager).deleteAllBookingRules();
+        never(mockBookingManager).deleteAllBookings(false);
+        never(mockRuleManager).deleteAllBookingRules(false);
         // Restore everything
         oneOf(mockBookingManager).validateBooking(bookings.get(0));
         inSequence(restoreSequence);
-        oneOf(mockBookingManager).createBooking(bookings.get(0));
+        oneOf(mockBookingManager).createBooking(bookings.get(0), false);
         oneOf(mockBookingManager).validateBooking(bookings.get(1));
         inSequence(restoreSequence);
-        oneOf(mockBookingManager).createBooking(bookings.get(1));
+        oneOf(mockBookingManager).createBooking(bookings.get(1), false);
         oneOf(mockBookingManager).validateBooking(bookingRules.get(0).getBooking());
         inSequence(restoreSequence);
-        oneOf(mockRuleManager).createRule(bookingRules.get(0));
+        oneOf(mockRuleManager).createRule(bookingRules.get(0), false);
         oneOf(mockBookingManager).validateBooking(bookingRules.get(1).getBooking());
         inSequence(restoreSequence);
-        oneOf(mockRuleManager).createRule(bookingRules.get(1));
+        oneOf(mockRuleManager).createRule(bookingRules.get(1), false);
         inSequence(restoreSequence);
       }
     });
@@ -705,8 +813,8 @@ public class BackupManagerTest {
       {
         // Delete any existing bookings and booking rules before restoring.
         ignoring(mockBookingManager);
-        allowing(mockRuleManager).deleteAllBookingRules();
-        never(mockRuleManager).createRule(with(anything()));
+        allowing(mockRuleManager).deleteAllBookingRules(with.booleanIs(anything()));
+        never(mockRuleManager).createRule(with(anything()), with.booleanIs(anything()));
       }
     });
     backupManager.initialise(mockBookingManager, mockRuleManager, mockLogger);
@@ -737,8 +845,8 @@ public class BackupManagerTest {
       {
         // Delete any existing bookings and booking rules before restoring.
         ignoring(mockBookingManager);
-        allowing(mockRuleManager).deleteAllBookingRules();
-        never(mockRuleManager).createRule(with(anything()));
+        allowing(mockRuleManager).deleteAllBookingRules(with.booleanIs(anything()));
+        never(mockRuleManager).createRule(with(anything()), with.booleanIs(anything()));
       }
     });
     backupManager.initialise(mockBookingManager, mockRuleManager, mockLogger);
@@ -767,7 +875,7 @@ public class BackupManagerTest {
     mockRuleManager = mockery.mock(IRuleManager.class);
     mockery.checking(new Expectations() {
       {
-        never(mockBookingManager).createBooking(with(anything()));
+        never(mockBookingManager).createBooking(with(anything()), with.booleanIs(anything()));
         ignoring(mockRuleManager);
       }
     });
@@ -800,7 +908,8 @@ public class BackupManagerTest {
     ase.setErrorCode("429");
     mockery.checking(new Expectations() {
       {
-        exactly(3).of(mockBookingManager).createBooking(with(anything()));
+        exactly(3).of(mockBookingManager).createBooking(with(anything()),
+            with.booleanIs(anything()));
         will(throwException(ase));
         allowing(mockBookingManager).validateBooking(with(anything()));
         ignoring(mockRuleManager);
@@ -834,10 +943,11 @@ public class BackupManagerTest {
     mockery.checking(new Expectations() {
       {
         // Set up to fail twice...
-        exactly(2).of(mockBookingManager).createBooking(with(anything()));
+        exactly(2).of(mockBookingManager).createBooking(with(anything()),
+            with.booleanIs(anything()));
         will(throwException(ase));
         // ...but third attempt succeeds
-        oneOf(mockBookingManager).createBooking(with(anything()));
+        oneOf(mockBookingManager).createBooking(with(anything()), with.booleanIs(anything()));
         allowing(mockBookingManager).validateBooking(with(anything()));
         ignoring(mockRuleManager);
       }
@@ -871,7 +981,7 @@ public class BackupManagerTest {
     ase.setErrorCode("429");
     mockery.checking(new Expectations() {
       {
-        exactly(3).of(mockRuleManager).createRule(with(anything()));
+        exactly(3).of(mockRuleManager).createRule(with(anything()), with.booleanIs(anything()));
         will(throwException(ase));
         ignoring(mockBookingManager);
       }
@@ -904,10 +1014,10 @@ public class BackupManagerTest {
     mockery.checking(new Expectations() {
       {
         // Set up to fail twice...
-        exactly(2).of(mockRuleManager).createRule(with(anything()));
+        exactly(2).of(mockRuleManager).createRule(with(anything()), with.booleanIs(anything()));
         will(throwException(ase));
         // ...but third attempt succeeds
-        oneOf(mockRuleManager).createRule(with(anything()));
+        oneOf(mockRuleManager).createRule(with(anything()), with.booleanIs(anything()));
         ignoring(mockBookingManager);
       }
     });

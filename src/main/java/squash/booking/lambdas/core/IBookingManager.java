@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2016 Robin Steel
+ * Copyright 2015-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,10 +37,11 @@ public interface IBookingManager {
   /**
    * Creates a court booking.
    * 
+   * @param isSquashServiceUserCall false if call is for backup/restore or application of rules.
    * @return All bookings for the same day as the created booking, including the created booking.
    * @throws Exception when the booking creation fails.
    */
-  List<Booking> createBooking(Booking booking) throws Exception;
+  List<Booking> createBooking(Booking booking, boolean isSquashServiceUserCall) throws Exception;
 
   /**
    * Validates a court booking.
@@ -53,34 +54,41 @@ public interface IBookingManager {
    * Returns all court bookings for a given date.
    * 
    * @param date the date in YYYY-MM-DD format.
+   * @param isSquashServiceUserCall false if call is for backup/restore or application of rules.
    * @throws Exception when the booking retrieval fails.
    */
-  List<Booking> getBookings(String date) throws Exception;
+  List<Booking> getBookings(String date, boolean isSquashServiceUserCall) throws Exception;
 
   /**
    * Returns all court bookings for all dates.
    * 
+   * @param isSquashServiceUserCall false if call is for backup/restore or application of rules.
    * @throws Exception when the booking retrieval fails.
    */
-  List<Booking> getAllBookings() throws Exception;
+  List<Booking> getAllBookings(boolean isSquashServiceUserCall) throws Exception;
 
   /**
    * Deletes a court booking.
    * 
+   * @param isSquashServiceUserCall false if call is for backup/restore or application of rules.
    * @return All bookings for the same day as the deleted booking, excluding the deleted booking.
    * @throws Exception when the booking deletion fails.
    */
-  List<Booking> deleteBooking(Booking booking) throws Exception;
+  List<Booking> deleteBooking(Booking booking, boolean isSquashServiceUserCall) throws Exception;
 
   /**
    * Deletes all bookings for the previous day.
+   * 
+   * @param isSquashServiceUserCall false if call is for backup/restore or application of rules.
    * @throws Exception when the deletion fails.
    */
-  void deleteYesterdaysBookings() throws Exception;
+  void deleteYesterdaysBookings(boolean isSquashServiceUserCall) throws Exception;
 
   /**
    * Deletes all bookings for all dates.
+   * 
+   * @param isSquashServiceUserCall false if call is for backup/restore or application of rules.
    * @throws Exception 
    */
-  void deleteAllBookings() throws Exception;
+  void deleteAllBookings(boolean isSquashServiceUserCall) throws Exception;
 }

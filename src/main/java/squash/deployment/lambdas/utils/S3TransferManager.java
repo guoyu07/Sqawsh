@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2016 Robin Steel
+ * Copyright 2015-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import com.amazonaws.services.s3.model.CopyObjectRequest;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.transfer.Transfer;
 import com.amazonaws.services.s3.transfer.TransferManager;
+import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
 
 import java.io.File;
 
@@ -35,7 +36,7 @@ public class S3TransferManager implements IS3TransferManager {
   private TransferManager transferManager;
 
   public S3TransferManager() {
-    transferManager = new TransferManager();
+    transferManager = TransferManagerBuilder.defaultTransferManager();
   }
 
   @Override

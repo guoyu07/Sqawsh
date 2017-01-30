@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2016 Robin Steel
+ * Copyright 2015-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,13 +22,11 @@ import squash.deployment.lambdas.utils.LambdaInputLogger;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
-import com.amazonaws.regions.Region;
-import com.amazonaws.regions.Regions;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.logs.AWSLogs;
-import com.amazonaws.services.logs.AWSLogsClient;
+import com.amazonaws.services.logs.AWSLogsClientBuilder;
 import com.amazonaws.services.logs.model.CreateLogGroupRequest;
 import com.amazonaws.services.logs.model.PutRetentionPolicyRequest;
 
@@ -58,8 +56,7 @@ public class LogGroupsCustomResourceLambda implements RequestHandler<Map<String,
    */
   public AWSLogs getAWSLogsClient(String region) {
     // Use a getter here so unit tests can substitute a mock client
-    AWSLogs client = new AWSLogsClient();
-    client.setRegion(Region.getRegion(Regions.fromName(region)));
+    AWSLogs client = AWSLogsClientBuilder.standard().withRegion(region).build();
     return client;
   }
 

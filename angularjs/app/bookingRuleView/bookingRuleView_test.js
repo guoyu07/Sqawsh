@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Robin Steel
+ * Copyright 2016-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -250,7 +250,7 @@ describe('squashApp.bookingRuleView module', function () {
       expect(getBookingRulesSpy.calls.count()).toEqual(2)
     }))
 
-    it('should show a general warning to the user if adding an exclusion date fails for a reason other than exceeding the maximum number of excluded dates or lack of authentication', inject(function ($rootScope, $q) {
+    it('should show a general warning to the user if adding an exclusion date fails for a reason other than exceeding the maximum number of excluded dates, lack of authentication, or invalid lifecycle state', inject(function ($rootScope, $q) {
       // ARRANGE
       // Trigger the promise chain
       $rootScope.$apply()
@@ -261,6 +261,8 @@ describe('squashApp.bookingRuleView module', function () {
       }))
       expect(bookingRuleViewCtrl.bookingRuleExclusionAdditionFailed).toBe(false)
       expect(bookingRuleViewCtrl.tooManyExclusions).toBe(false)
+      expect(bookingRuleViewCtrl.isReadonly).toBe(false)
+      expect(bookingRuleViewCtrl.isRetired).toBe(false)
 
       // ACT
       bookingRuleViewCtrl.addExclusion(0)
@@ -271,6 +273,8 @@ describe('squashApp.bookingRuleView module', function () {
       expect(bookingRuleViewCtrl.tooManyExclusions).toBe(false)
       expect(bookingRuleViewCtrl.bookingRuleExclusionDeletionFailed).toBe(false)
       expect(bookingRuleViewCtrl.latentClashExists).toBe(false)
+      expect(bookingRuleViewCtrl.isReadonly).toBe(false)
+      expect(bookingRuleViewCtrl.isRetired).toBe(false)
     }))
 
     it('should warn the user if adding an exclusion date fails because the user is not authenticated', inject(function ($rootScope, $q) {
@@ -280,12 +284,14 @@ describe('squashApp.bookingRuleView module', function () {
 
       // Configure addRuleExclusion to return a not-authenticated error
       addExclusionSpy.and.returnValue($q(function (resolve, reject) {
-        reject({'data': 'You must login to manage booking rules.'})
+        reject({'data': {'errorMessage': 'You must login to manage booking rules.'}})
       }))
 
       expect(bookingRuleViewCtrl.bookingRuleExclusionAdditionFailed).toBe(false)
       expect(bookingRuleViewCtrl.tooManyExclusions).toBe(false)
       expect(bookingRuleViewCtrl.unauthenticatedBookingRulesError).toBe(false)
+      expect(bookingRuleViewCtrl.isReadonly).toBe(false)
+      expect(bookingRuleViewCtrl.isRetired).toBe(false)
 
       // ACT
       bookingRuleViewCtrl.addExclusion(0)
@@ -295,6 +301,8 @@ describe('squashApp.bookingRuleView module', function () {
       expect(bookingRuleViewCtrl.bookingRuleExclusionAdditionFailed).toBe(true)
       expect(bookingRuleViewCtrl.unauthenticatedBookingRulesError).toBe(true)
       expect(bookingRuleViewCtrl.tooManyExclusions).toBe(false)
+      expect(bookingRuleViewCtrl.isReadonly).toBe(false)
+      expect(bookingRuleViewCtrl.isRetired).toBe(false)
     }))
 
     it('should warn the user if adding an exclusion date fails because the maximum number of excluded dates would have been exceeded', inject(function ($rootScope, $q) {
@@ -304,10 +312,12 @@ describe('squashApp.bookingRuleView module', function () {
 
       // Configure addRuleExclusion to return a too-many-exclusions error
       addExclusionSpy.and.returnValue($q(function (resolve, reject) {
-        reject({'data': 'too many exclusions'})
+        reject({'data': {'errorMessage': 'too many exclusions'}})
       }))
       expect(bookingRuleViewCtrl.bookingRuleExclusionAdditionFailed).toBe(false)
       expect(bookingRuleViewCtrl.tooManyExclusions).toBe(false)
+      expect(bookingRuleViewCtrl.isReadonly).toBe(false)
+      expect(bookingRuleViewCtrl.isRetired).toBe(false)
 
       // ACT
       bookingRuleViewCtrl.addExclusion(0)
@@ -318,6 +328,66 @@ describe('squashApp.bookingRuleView module', function () {
       expect(bookingRuleViewCtrl.tooManyExclusions).toBe(true)
       expect(bookingRuleViewCtrl.bookingRuleExclusionDeletionFailed).toBe(false)
       expect(bookingRuleViewCtrl.latentClashExists).toBe(false)
+      expect(bookingRuleViewCtrl.isReadonly).toBe(false)
+      expect(bookingRuleViewCtrl.isRetired).toBe(false)
+    }))
+
+    it('should warn the user if adding an exclusion date fails because the booking service is in Readonly lifecycle state', inject(function ($rootScope, $q) {
+      // ARRANGE
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      // Configure addRuleExclusion to return a READONLY lifecycle state error
+      addExclusionSpy.and.returnValue($q(function (resolve, reject) {
+        reject({'data': {'errorMessage': 'Cannot mutate bookings or rules - booking service is temporarily readonly'}})
+      }))
+
+      expect(bookingRuleViewCtrl.bookingRuleExclusionAdditionFailed).toBe(false)
+      expect(bookingRuleViewCtrl.tooManyExclusions).toBe(false)
+      expect(bookingRuleViewCtrl.unauthenticatedBookingRulesError).toBe(false)
+      expect(bookingRuleViewCtrl.isReadonly).toBe(false)
+      expect(bookingRuleViewCtrl.isRetired).toBe(false)
+
+      // ACT
+      bookingRuleViewCtrl.addExclusion(0)
+      $rootScope.$apply()
+
+      // ASSERT
+      expect(bookingRuleViewCtrl.isReadonly).toBe(true)
+      expect(bookingRuleViewCtrl.bookingRuleExclusionAdditionFailed).toBe(true)
+      expect(bookingRuleViewCtrl.unauthenticatedBookingRulesError).toBe(false)
+      expect(bookingRuleViewCtrl.tooManyExclusions).toBe(false)
+      expect(bookingRuleViewCtrl.isRetired).toBe(false)
+    }))
+
+    it('should warn the user if adding an exclusion date fails because the booking service is in Retired lifecycle state', inject(function ($rootScope, $q) {
+      // ARRANGE
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      // Configure addRuleExclusion to return a RETIRED lifecycle state error
+      addExclusionSpy.and.returnValue($q(function (resolve, reject) {
+        reject({'data': {'errorMessage': 'Cannot access bookings or rules - there is an updated version of the booking service. http://www.bbc.co.uk'}})
+      }))
+
+      expect(bookingRuleViewCtrl.bookingRuleExclusionAdditionFailed).toBe(false)
+      expect(bookingRuleViewCtrl.tooManyExclusions).toBe(false)
+      expect(bookingRuleViewCtrl.unauthenticatedBookingRulesError).toBe(false)
+      expect(bookingRuleViewCtrl.isReadonly).toBe(false)
+      expect(bookingRuleViewCtrl.isRetired).toBe(false)
+      expect(bookingRuleViewCtrl.forwardingUrl).toBe('')
+
+      // ACT
+      bookingRuleViewCtrl.addExclusion(0)
+      $rootScope.$apply()
+
+      // ASSERT
+      expect(bookingRuleViewCtrl.isRetired).toBe(true)
+      expect(bookingRuleViewCtrl.forwardingUrl).toBe('http://www.bbc.co.uk')
+      expect(bookingRuleViewCtrl.isReadonly).toBe(false)
+      expect(bookingRuleViewCtrl.bookingRuleExclusionAdditionFailed).toBe(true)
+      expect(bookingRuleViewCtrl.unauthenticatedBookingRulesError).toBe(false)
+      expect(bookingRuleViewCtrl.tooManyExclusions).toBe(false)
     }))
   })
 
@@ -358,7 +428,7 @@ describe('squashApp.bookingRuleView module', function () {
       expect(getBookingRulesSpy.calls.count()).toEqual(2)
     }))
 
-    it('should show a general warning to the user if removing an exclusion date fails for a reason other than a latent rule clash or an authentication error', inject(function ($rootScope, $q) {
+    it('should show a general warning to the user if removing an exclusion date fails for a reason other than a latent rule clash, an authentication error, or an invalid lifecycle state', inject(function ($rootScope, $q) {
       // ARRANGE
       // Trigger the promise chain
       $rootScope.$apply()
@@ -392,7 +462,7 @@ describe('squashApp.bookingRuleView module', function () {
 
       // Configure deleteRuleExclusion to return the not-authenticated error
       deleteExclusionSpy.and.returnValue($q(function (resolve, reject) {
-        reject({'data': 'You must login to manage booking rules.'})
+        reject({'data': {'errorMessage': 'You must login to manage booking rules.'}})
       }))
 
       expect(bookingRuleViewCtrl.bookingRuleExclusionDeletionFailed).toBe(false)
@@ -418,7 +488,7 @@ describe('squashApp.bookingRuleView module', function () {
 
       // Configure deleteRuleExclusion to return the latent-clash error
       deleteExclusionSpy.and.returnValue($q(function (resolve, reject) {
-        reject({'data': 'latent clash exists'})
+        reject({'data': {'errorMessage': 'latent clash exists'}})
       }))
       expect(bookingRuleViewCtrl.bookingRuleExclusionDeletionFailed).toBe(false)
       expect(bookingRuleViewCtrl.latentClashExists).toBe(false)
@@ -434,6 +504,64 @@ describe('squashApp.bookingRuleView module', function () {
       expect(bookingRuleViewCtrl.unauthenticatedBookingRulesError).toBe(false)
       expect(bookingRuleViewCtrl.bookingRuleExclusionAdditionFailed).toBe(false)
       expect(bookingRuleViewCtrl.tooManyExclusions).toBe(false)
+    }))
+
+    it('should warn the user if removing an exclusion date fails because the booking service is in Readonly lifecycle state', inject(function ($rootScope, $q) {
+      // ARRANGE
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      // Configure deleteRuleExclusion to return a READONLY lifecycle state error
+      deleteExclusionSpy.and.returnValue($q(function (resolve, reject) {
+        reject({'data': {'errorMessage': 'Cannot mutate bookings or rules - booking service is temporarily readonly'}})
+      }))
+
+      expect(bookingRuleViewCtrl.bookingRuleExclusionDeletionFailed).toBe(false)
+      expect(bookingRuleViewCtrl.latentClashExists).toBe(false)
+      expect(bookingRuleViewCtrl.unauthenticatedBookingRulesError).toBe(false)
+      expect(bookingRuleViewCtrl.isReadonly).toBe(false)
+      expect(bookingRuleViewCtrl.isRetired).toBe(false)
+
+      // ACT
+      bookingRuleViewCtrl.removeExclusion(0, '2016-07-02')
+      $rootScope.$apply()
+
+      // ASSERT
+      expect(bookingRuleViewCtrl.isReadonly).toBe(true)
+      expect(bookingRuleViewCtrl.bookingRuleExclusionDeletionFailed).toBe(true)
+      expect(bookingRuleViewCtrl.unauthenticatedBookingRulesError).toBe(false)
+      expect(bookingRuleViewCtrl.latentClashExists).toBe(false)
+      expect(bookingRuleViewCtrl.isRetired).toBe(false)
+    }))
+
+    it('should warn the user if removing an exclusion date fails because the booking service is in Retired lifecycle state', inject(function ($rootScope, $q) {
+      // ARRANGE
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      // Configure deleteRuleExclusion to return a RETIRED lifecycle state error
+      deleteExclusionSpy.and.returnValue($q(function (resolve, reject) {
+        reject({'data': {'errorMessage': 'Cannot access bookings or rules - there is an updated version of the booking service. http://www.bbc.co.uk'}})
+      }))
+
+      expect(bookingRuleViewCtrl.bookingRuleExclusionDeletionFailed).toBe(false)
+      expect(bookingRuleViewCtrl.latentClashExists).toBe(false)
+      expect(bookingRuleViewCtrl.unauthenticatedBookingRulesError).toBe(false)
+      expect(bookingRuleViewCtrl.isReadonly).toBe(false)
+      expect(bookingRuleViewCtrl.isRetired).toBe(false)
+      expect(bookingRuleViewCtrl.forwardingUrl).toBe('')
+
+      // ACT
+      bookingRuleViewCtrl.removeExclusion(0, '2016-07-02')
+      $rootScope.$apply()
+
+      // ASSERT
+      expect(bookingRuleViewCtrl.isRetired).toBe(true)
+      expect(bookingRuleViewCtrl.forwardingUrl).toBe('http://www.bbc.co.uk')
+      expect(bookingRuleViewCtrl.isReadonly).toBe(false)
+      expect(bookingRuleViewCtrl.bookingRuleExclusionDeletionFailed).toBe(true)
+      expect(bookingRuleViewCtrl.unauthenticatedBookingRulesError).toBe(false)
+      expect(bookingRuleViewCtrl.latentClashExists).toBe(false)
     }))
   })
 
@@ -536,6 +664,64 @@ describe('squashApp.bookingRuleView module', function () {
 
       // ASSERT
       expect(bookingRuleViewCtrl.loadFailure).toBe(true)
+    }))
+
+    it('should set the isReadonly flag if the bookings service is in Readonly lifecycle state', inject(function ($rootScope, $q) {
+      // ARRANGE
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      // Configure getBookingRules to return a Readonly lifecycle state. Rest of this return
+      // value is arbitrary - important bit is that lifecycle state is READONLY.
+      getBookingRulesSpy.and.returnValue($q(function (resolve, reject) {
+        resolve({'bookingRules': [{
+          booking: {name: 'Sunday recurring rule', court: 3, courtSpan: 2, slot: 1, slotSpan: 5, date: '2016-10-02'},
+          isRecurring: true,
+          datesToExclude: ['2016-07-02']
+        }],
+          'lifecycleState': 'READONLY',
+          'forwardingUrl': ''
+        })
+      }))
+
+      expect(bookingRuleViewCtrl.isReadonly).toBe(false)
+      expect(bookingRuleViewCtrl.loadFailure).toBe(false)
+
+      // ACT
+      bookingRuleViewCtrl.refreshBookingRules()
+      $rootScope.$apply()
+
+      // ASSERT
+      expect(bookingRuleViewCtrl.isReadonly).toBe(true)
+      expect(bookingRuleViewCtrl.loadFailure).toBe(false)
+    }))
+
+    it('should warn the user if the booking service is in Retired lifecycle state', inject(function ($rootScope, $q) {
+      // In Retired state we should just display a warning and nothing else.
+
+      // ARRANGE
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      // Configure getBookingRules to throw a Retired lifecycle state error.
+      getBookingRulesSpy.and.returnValue($q(function (resolve, reject) {
+        reject({'data': {'errorMessage': 'Cannot access bookings or rules - there is an updated version of the booking service. http://www.cnn.com'}})
+      }))
+
+      expect(bookingRuleViewCtrl.isRetired).toBe(false)
+      expect(bookingRuleViewCtrl.forwardingUrl).toBe('')
+      expect(bookingRuleViewCtrl.isReadonly).toBe(false)
+      expect(bookingRuleViewCtrl.loadFailure).toBe(false)
+
+      // ACT
+      bookingRuleViewCtrl.refreshBookingRules()
+      $rootScope.$apply()
+
+      // ASSERT
+      expect(bookingRuleViewCtrl.isRetired).toBe(true)
+      expect(bookingRuleViewCtrl.forwardingUrl).toBe('http://www.cnn.com')
+      expect(bookingRuleViewCtrl.isReadonly).toBe(false)
+      expect(bookingRuleViewCtrl.loadFailure).toBe(false)
     }))
   })
 
@@ -781,7 +967,7 @@ describe('squashApp.bookingRuleView module', function () {
       expect(createBookingRuleSpy).not.toHaveBeenCalled()
     }))
 
-    it('should show a general warning to the user if adding a rule fails for a reason other than exceeding the maximum number of rules, a clash, or an authentication error', inject(function ($rootScope, $q) {
+    it('should show a general warning to the user if adding a rule fails for a reason other than exceeding the maximum number of rules, a clash, an authentication error, or an invalid lifecycle state', inject(function ($rootScope, $q) {
       // ARRANGE
       // Trigger the promise chain
       $rootScope.$apply()
@@ -813,7 +999,7 @@ describe('squashApp.bookingRuleView module', function () {
 
       // Configure createBookingRule to return a too-many-rules error
       createBookingRuleSpy.and.returnValue($q(function (resolve, reject) {
-        reject({'data': 'too many rules.'})
+        reject({'data': {'errorMessage': 'too many rules.'}})
       }))
       expect(bookingRuleViewCtrl.bookingRuleCreationFailed).toBe(false)
       expect(bookingRuleViewCtrl.unauthenticatedBookingRulesError).toBe(false)
@@ -838,7 +1024,7 @@ describe('squashApp.bookingRuleView module', function () {
 
       // Configure createBookingRule to return a not-authenticated error
       createBookingRuleSpy.and.returnValue($q(function (resolve, reject) {
-        reject({'data': 'You must login to manage booking rules.'})
+        reject({'data': {'errorMessage': 'You must login to manage booking rules.'}})
       }))
       expect(bookingRuleViewCtrl.bookingRuleCreationFailed).toBe(false)
       expect(bookingRuleViewCtrl.unauthenticatedBookingRulesError).toBe(false)
@@ -863,7 +1049,7 @@ describe('squashApp.bookingRuleView module', function () {
 
       // Configure createBookingRule to return a would-have-clashed error
       createBookingRuleSpy.and.returnValue($q(function (resolve, reject) {
-        reject({'data': 'new rule would clash.'})
+        reject({'data': {'errorMessage': 'new rule would clash.'}})
       }))
       expect(bookingRuleViewCtrl.bookingRuleCreationFailed).toBe(false)
       expect(bookingRuleViewCtrl.unauthenticatedBookingRulesError).toBe(false)
@@ -879,6 +1065,68 @@ describe('squashApp.bookingRuleView module', function () {
       expect(bookingRuleViewCtrl.unauthenticatedBookingRulesError).toBe(false)
       expect(bookingRuleViewCtrl.tooManyRules).toBe(false)
       expect(bookingRuleViewCtrl.newRuleWouldClash).toBe(true)
+    }))
+
+    it('should warn the user if adding a rule fails because the booking service is in Readonly lifecycle state', inject(function ($rootScope, $q) {
+      // ARRANGE
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      // Configure createBookingRule to return a READONLY lifecycle state error
+      createBookingRuleSpy.and.returnValue($q(function (resolve, reject) {
+        reject({'data': {'errorMessage': 'Cannot mutate bookings or rules - booking service is temporarily readonly'}})
+      }))
+
+      expect(bookingRuleViewCtrl.bookingRuleCreationFailed).toBe(false)
+      expect(bookingRuleViewCtrl.tooManyRules).toBe(false)
+      expect(bookingRuleViewCtrl.unauthenticatedBookingRulesError).toBe(false)
+      expect(bookingRuleViewCtrl.newRuleWouldClash).toBe(false)
+      expect(bookingRuleViewCtrl.isReadonly).toBe(false)
+      expect(bookingRuleViewCtrl.isRetired).toBe(false)
+
+      // ACT
+      bookingRuleViewCtrl.addNewRule({'$invalid': false})
+      $rootScope.$apply()
+
+      // ASSERT
+      expect(bookingRuleViewCtrl.isReadonly).toBe(true)
+      expect(bookingRuleViewCtrl.bookingRuleCreationFailed).toBe(true)
+      expect(bookingRuleViewCtrl.unauthenticatedBookingRulesError).toBe(false)
+      expect(bookingRuleViewCtrl.tooManyRules).toBe(false)
+      expect(bookingRuleViewCtrl.newRuleWouldClash).toBe(false)
+      expect(bookingRuleViewCtrl.isRetired).toBe(false)
+    }))
+
+    it('should warn the user if adding a rule fails because the booking service is in Retired lifecycle state', inject(function ($rootScope, $q) {
+      // ARRANGE
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      // Configure createBookingRule to return a RETIRED lifecycle state error
+      createBookingRuleSpy.and.returnValue($q(function (resolve, reject) {
+        reject({'data': {'errorMessage': 'Cannot access bookings or rules - there is an updated version of the booking service. http://www.bbc.co.uk'}})
+      }))
+
+      expect(bookingRuleViewCtrl.bookingRuleCreationFailed).toBe(false)
+      expect(bookingRuleViewCtrl.tooManyRules).toBe(false)
+      expect(bookingRuleViewCtrl.unauthenticatedBookingRulesError).toBe(false)
+      expect(bookingRuleViewCtrl.newRuleWouldClash).toBe(false)
+      expect(bookingRuleViewCtrl.isReadonly).toBe(false)
+      expect(bookingRuleViewCtrl.isRetired).toBe(false)
+      expect(bookingRuleViewCtrl.forwardingUrl).toBe('')
+
+      // ACT
+      bookingRuleViewCtrl.addNewRule({'$invalid': false})
+      $rootScope.$apply()
+
+      // ASSERT
+      expect(bookingRuleViewCtrl.isRetired).toBe(true)
+      expect(bookingRuleViewCtrl.forwardingUrl).toBe('http://www.bbc.co.uk')
+      expect(bookingRuleViewCtrl.isReadonly).toBe(false)
+      expect(bookingRuleViewCtrl.bookingRuleCreationFailed).toBe(true)
+      expect(bookingRuleViewCtrl.unauthenticatedBookingRulesError).toBe(false)
+      expect(bookingRuleViewCtrl.tooManyRules).toBe(false)
+      expect(bookingRuleViewCtrl.newRuleWouldClash).toBe(false)
     }))
   })
 
@@ -934,7 +1182,7 @@ describe('squashApp.bookingRuleView module', function () {
 
       // Configure deleteBookingRule to return a not-authenticated error
       deleteBookingRuleSpy.and.returnValue($q(function (resolve, reject) {
-        reject({'data': 'You must login to manage booking rules.'})
+        reject({'data': {'errorMessage': 'You must login to manage booking rules.'}})
       }))
 
       expect(bookingRuleViewCtrl.bookingRuleDeletionFailed).toBe(false)
@@ -971,6 +1219,68 @@ describe('squashApp.bookingRuleView module', function () {
 
       // ASSERT
       expect(bookingRuleViewCtrl.bookingRuleDeletionFailed).toBe(true)
+    }))
+
+    it('should warn the user if deleting a rule fails because the booking service is in Readonly lifecycle state', inject(function ($rootScope, $q) {
+      // ARRANGE
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      // Configure deleteBookingRule to return a READONLY lifecycle state error
+      deleteBookingRuleSpy.and.returnValue($q(function (resolve, reject) {
+        reject({'data': {'errorMessage': 'Cannot mutate bookings or rules - booking service is temporarily readonly'}})
+      }))
+
+      expect(bookingRuleViewCtrl.bookingRuleDeletionFailed).toBe(false)
+      expect(bookingRuleViewCtrl.tooManyRules).toBe(false)
+      expect(bookingRuleViewCtrl.unauthenticatedBookingRulesError).toBe(false)
+      expect(bookingRuleViewCtrl.newRuleWouldClash).toBe(false)
+      expect(bookingRuleViewCtrl.isReadonly).toBe(false)
+      expect(bookingRuleViewCtrl.isRetired).toBe(false)
+
+      // ACT
+      bookingRuleViewCtrl.deleteRule({'$invalid': false})
+      $rootScope.$apply()
+
+      // ASSERT
+      expect(bookingRuleViewCtrl.isReadonly).toBe(true)
+      expect(bookingRuleViewCtrl.bookingRuleDeletionFailed).toBe(true)
+      expect(bookingRuleViewCtrl.unauthenticatedBookingRulesError).toBe(false)
+      expect(bookingRuleViewCtrl.tooManyRules).toBe(false)
+      expect(bookingRuleViewCtrl.newRuleWouldClash).toBe(false)
+      expect(bookingRuleViewCtrl.isRetired).toBe(false)
+    }))
+
+    it('should warn the user if deleting a rule fails because the booking service is in Retired lifecycle state', inject(function ($rootScope, $q) {
+      // ARRANGE
+      // Trigger the promise chain
+      $rootScope.$apply()
+
+      // Configure deleteBookingRule to return a RETIRED lifecycle state error
+      deleteBookingRuleSpy.and.returnValue($q(function (resolve, reject) {
+        reject({'data': {'errorMessage': 'Cannot access bookings or rules - there is an updated version of the booking service. http://www.bbc.co.uk'}})
+      }))
+
+      expect(bookingRuleViewCtrl.bookingRuleDeletionFailed).toBe(false)
+      expect(bookingRuleViewCtrl.tooManyRules).toBe(false)
+      expect(bookingRuleViewCtrl.unauthenticatedBookingRulesError).toBe(false)
+      expect(bookingRuleViewCtrl.newRuleWouldClash).toBe(false)
+      expect(bookingRuleViewCtrl.isReadonly).toBe(false)
+      expect(bookingRuleViewCtrl.isRetired).toBe(false)
+      expect(bookingRuleViewCtrl.forwardingUrl).toBe('')
+
+      // ACT
+      bookingRuleViewCtrl.deleteRule({'$invalid': false})
+      $rootScope.$apply()
+
+      // ASSERT
+      expect(bookingRuleViewCtrl.isRetired).toBe(true)
+      expect(bookingRuleViewCtrl.forwardingUrl).toBe('http://www.bbc.co.uk')
+      expect(bookingRuleViewCtrl.isReadonly).toBe(false)
+      expect(bookingRuleViewCtrl.bookingRuleDeletionFailed).toBe(true)
+      expect(bookingRuleViewCtrl.unauthenticatedBookingRulesError).toBe(false)
+      expect(bookingRuleViewCtrl.tooManyRules).toBe(false)
+      expect(bookingRuleViewCtrl.newRuleWouldClash).toBe(false)
     }))
   })
 })

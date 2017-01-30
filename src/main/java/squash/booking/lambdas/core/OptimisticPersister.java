@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Robin Steel
+ * Copyright 2016-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.simpledb.AmazonSimpleDB;
-import com.amazonaws.services.simpledb.AmazonSimpleDBClient;
+import com.amazonaws.services.simpledb.AmazonSimpleDBClientBuilder;
 import com.amazonaws.services.simpledb.model.Attribute;
 import com.amazonaws.services.simpledb.model.DeleteAttributesRequest;
 import com.amazonaws.services.simpledb.model.GetAttributesRequest;
@@ -233,9 +233,10 @@ public class OptimisticPersister implements IOptimisticPersister {
       client.putAttributes(simpleDBPutRequest);
     } catch (AmazonServiceException ase) {
       if (ase.getErrorCode().contains("ConditionalCheckFailed")) {
-        // Someone else has mutated an attribute since we read them. For now,
-        // assume this is rare and do not retry, just convert
-        // this to a database put failed exception.
+        // Someone else has mutated an attribute since we read them. This is
+        // likely to be rare, and a retry should almost always succeed. However,
+        // we leave it to clients of this class to retry the call if they wish,
+        // as the new mutation may mean they no longer want to do the put.
         logger.log("Caught AmazonServiceException for ConditionalCheckFailed whilst creating"
             + " attribute(s) so throwing as 'Database put failed' instead");
         throw new Exception("Database put failed - conditional check failed");
@@ -363,8 +364,8 @@ public class OptimisticPersister implements IOptimisticPersister {
   protected AmazonSimpleDB getSimpleDBClient() {
 
     // Use a getter here so unit tests can substitute a mock client
-    AmazonSimpleDB client = new AmazonSimpleDBClient();
-    client.setRegion(region);
+    AmazonSimpleDB client = AmazonSimpleDBClientBuilder.standard().withRegion(region.getName())
+        .build();
     return client;
   }
 }

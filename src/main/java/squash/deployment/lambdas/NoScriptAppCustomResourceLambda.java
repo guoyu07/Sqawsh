@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2016 Robin Steel
+ * Copyright 2015-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.DeleteVersionRequest;
 import com.amazonaws.services.s3.model.ListVersionsRequest;
 import com.amazonaws.services.s3.model.VersionListing;
-import com.amazonaws.services.s3.transfer.TransferManager;
+import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
 
 import java.util.Map;
 
@@ -129,7 +129,6 @@ public class NoScriptAppCustomResourceLambda implements RequestHandler<Map<Strin
 
         // Upload 21 initial bookings pages and index page to the S3 bucket
         UpdateBookingsLambdaRequest updateBookingsLambdaRequest = new UpdateBookingsLambdaRequest();
-        updateBookingsLambdaRequest.setApiGatewayBaseUrl(apiGatewayBaseUrl);
         UpdateBookingsLambda updateBookingsLambda = new UpdateBookingsLambda();
         UpdateBookingsLambdaResponse updateBookingsLambdaResponse = updateBookingsLambda
             .updateBookings(updateBookingsLambdaRequest, context);
@@ -147,7 +146,7 @@ public class NoScriptAppCustomResourceLambda implements RequestHandler<Map<Strin
             .withBucketName(websiteBucket);
         VersionListing versionListing;
 
-        AmazonS3 client = new TransferManager().getAmazonS3Client();
+        AmazonS3 client = TransferManagerBuilder.defaultTransferManager().getAmazonS3Client();
         do {
           versionListing = client.listVersions(listVersionsRequest);
           versionListing

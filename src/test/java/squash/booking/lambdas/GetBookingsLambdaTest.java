@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2016 Robin Steel
+ * Copyright 2015-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,10 @@ import static org.junit.Assert.assertTrue;
 
 import squash.booking.lambdas.core.Booking;
 import squash.booking.lambdas.core.IBookingManager;
+import squash.booking.lambdas.core.ILifecycleManager;
+import squash.booking.lambdas.core.ILifecycleManager.LifecycleState;
 
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.jmock.Expectations;
 import org.jmock.Mockery;
 import org.junit.After;
@@ -38,6 +41,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Tests the {@link GetBookingsLambda GetBookings} lambda.
@@ -48,6 +52,7 @@ public class GetBookingsLambdaTest {
   Mockery mockery = new Mockery();
   TestGetBookingsLambda getBookingsLambda;
   Context mockContext;
+  ILifecycleManager mockLifecycleManager;
   List<Booking> expectedBookings;
   LambdaLogger mockLogger;
   String name;
@@ -64,7 +69,7 @@ public class GetBookingsLambdaTest {
   public ExpectedException thrown = ExpectedException.none();
 
   @Before
-  public void beforeTest() {
+  public void beforeTest() throws Exception {
     mockery = new Mockery();
     getBookingsLambda = new TestGetBookingsLambda();
     getBookingsLambda.setBookingManager(mockery.mock(IBookingManager.class));
@@ -93,6 +98,17 @@ public class GetBookingsLambdaTest {
       }
     });
 
+    // Set up mock lifecycle manager
+    mockLifecycleManager = mockery.mock(ILifecycleManager.class);
+    mockery.checking(new Expectations() {
+      {
+        allowing(mockLifecycleManager).getLifecycleState();
+        will(returnValue(new ImmutablePair<LifecycleState, Optional<String>>(LifecycleState.ACTIVE,
+            Optional.empty())));
+      }
+    });
+    getBookingsLambda.setLifecycleManager(mockLifecycleManager);
+
     // Set up some typical bookings data that the tests can use
     name = "A.Playera/B.Playerb";
     court = 5;
@@ -116,6 +132,7 @@ public class GetBookingsLambdaTest {
   // Define a test sublass with some overrides to facilitate testing
   public class TestGetBookingsLambda extends GetBookingsLambda {
     private IBookingManager bookingManager;
+    private ILifecycleManager lifecycleManager;
     private List<String> validDates;
 
     public void setBookingManager(IBookingManager bookingManager) {
@@ -125,6 +142,15 @@ public class GetBookingsLambdaTest {
     @Override
     protected IBookingManager getBookingManager(LambdaLogger logger) throws Exception {
       return bookingManager;
+    }
+
+    public void setLifecycleManager(ILifecycleManager lifecycleManager) {
+      this.lifecycleManager = lifecycleManager;
+    }
+
+    @Override
+    protected ILifecycleManager getLifecycleManager(LambdaLogger logger) throws Exception {
+      return lifecycleManager;
     }
 
     public void setValidDates(List<String> validDates) {
@@ -195,7 +221,7 @@ public class GetBookingsLambdaTest {
     mockery.checking(new Expectations() {
       {
         allowing(getBookingsLambda.getBookingManager(mockLogger)).getBookings(
-            with(aNonNull(String.class)));
+            with(aNonNull(String.class)), with.booleanIs(anything()));
         will(throwException(exception));
       }
     });
@@ -221,7 +247,7 @@ public class GetBookingsLambdaTest {
     mockery.checking(new Expectations() {
       {
         oneOf(getBookingsLambda.getBookingManager(mockLogger)).getBookings(
-            with(equal(fakeCurrentDateString)));
+            with(equal(fakeCurrentDateString)), with.booleanIs(anything()));
         will(returnValue(bookings));
       }
     });

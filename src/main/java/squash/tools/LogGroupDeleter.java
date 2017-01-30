@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2016 Robin Steel
+ * Copyright 2015-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,10 +19,8 @@ package squash.tools;
 import squash.deployment.lambdas.utils.RetryHelper;
 
 import com.amazonaws.AmazonServiceException;
-import com.amazonaws.regions.Region;
-import com.amazonaws.regions.Regions;
 import com.amazonaws.services.logs.AWSLogs;
-import com.amazonaws.services.logs.AWSLogsClient;
+import com.amazonaws.services.logs.AWSLogsClientBuilder;
 import com.amazonaws.services.logs.model.DeleteLogGroupRequest;
 import com.amazonaws.services.logs.model.DescribeLogGroupsRequest;
 import com.amazonaws.services.logs.model.DescribeLogGroupsResult;
@@ -41,8 +39,7 @@ import java.util.Optional;
 public class LogGroupDeleter {
 
   public static void main(String[] args) {
-    AWSLogs client = new AWSLogsClient();
-    client.setRegion(Region.getRegion(Regions.EU_WEST_1));
+    AWSLogs client = AWSLogsClientBuilder.standard().withRegion("eu-west-1").build();
 
     // Harvest all the log groups in this region
     DescribeLogGroupsRequest describeLogGroupsRequest = new DescribeLogGroupsRequest();

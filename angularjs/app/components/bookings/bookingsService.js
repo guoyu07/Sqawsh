@@ -80,7 +80,6 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
       .catch(function (error) {
         // Just swallow any errors - we can use the default famous players instead
         console.dir(error)
-        return
       })
 
     // Our custom error type - allowing us to pass back the builder as well as the error
@@ -151,6 +150,8 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
           })
           .then(function (response) {
             builder.setBookings(JSON.parse(response.Body.toString()).bookings)
+            builder.setLifecycleState(JSON.parse(response.Body.toString()).lifecycleState.state)
+            builder.setForwardingUrl(JSON.parse(response.Body.toString()).lifecycleState.url)
             return builder
           })
           .catch(function (error) {
@@ -168,6 +169,8 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
           })
           .then(function (response) {
             builder.setBookings(response.data.bookings)
+            builder.setLifecycleState(response.data.lifecycleState)
+            builder.setForwardingUrl(response.data.forwardingUrl)
             return builder
           })
           .catch(function (error) {
@@ -184,11 +187,11 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
             return client.bookingrulesGet(params, body, additionalParams)
           })
           .then(function (response) {
-            if ((response.data !== null) && (response.data.hasOwnProperty('errorMessage'))) {
-              // The booking rule fetch failed
-              throw response.data.errorMessage
+            return {
+              'bookingRules': response.data.bookingRules,
+              'lifecycleState': response.data.lifecycleState,
+              'forwardingUrl': response.data.forwardingUrl
             }
-            return response.data.bookingRules
           })
           .catch(function (error) {
             throw error
@@ -218,12 +221,6 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
           .then(function (client) {
             return client.bookingrulesPut(params, body, additionalParams)
           })
-          .then(function (result) {
-            if ((result.data !== null) && (result.data.hasOwnProperty('errorMessage'))) {
-              // The booking rule creation failed
-              throw result.data.errorMessage
-            }
-          })
           .catch(function (error) {
             throw error
           })
@@ -239,12 +236,6 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
         return getApigClient()
           .then(function (client) {
             return client.bookingrulesPut(params, body, additionalParams)
-          })
-          .then(function (result) {
-            if ((result.data !== null) && (result.data.hasOwnProperty('errorMessage'))) {
-              // The booking rule exclusion addition failed
-              throw result.data.errorMessage
-            }
           })
           .catch(function (error) {
             throw error
@@ -262,12 +253,6 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
           .then(function (client) {
             return client.bookingrulesDelete(params, body, additionalParams)
           })
-          .then(function (result) {
-            if ((result.data !== null) && (result.data.hasOwnProperty('errorMessage'))) {
-              // The booking rule deletion failed
-              throw result.data.errorMessage
-            }
-          })
           .catch(function (error) {
             throw error
           })
@@ -283,12 +268,6 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
         return getApigClient()
           .then(function (client) {
             return client.bookingrulesDelete(params, body, additionalParams)
-          })
-          .then(function (result) {
-            if ((result.data !== null) && (result.data.hasOwnProperty('errorMessage'))) {
-              // The booking rule exclusion deletion failed
-              throw result.data.errorMessage
-            }
           })
           .catch(function (error) {
             throw error
@@ -313,12 +292,6 @@ angular.module('squashApp.bookingsService', ['squashApp.identityService'])
         return getApigClient()
           .then(function (client) {
             return client.bookingsPut(params, body, additionalParams)
-          })
-          .then(function (result) {
-            if ((result.data !== null) && (result.data.hasOwnProperty('errorMessage'))) {
-              // The booking failed
-              throw result.data.errorMessage
-            }
           })
           .catch(function (error) {
             throw error

@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2016 Robin Steel
+ * Copyright 2015-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.sns.AmazonSNS;
-import com.amazonaws.services.sns.AmazonSNSClient;
+import com.amazonaws.services.sns.AmazonSNSClientBuilder;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -167,13 +167,13 @@ public class BackupManager implements IBackupManager {
     ObjectNode rootNode = factory.objectNode();
 
     ArrayNode bookingsNode = rootNode.putArray("bookings");
-    List<Booking> bookings = bookingManager.getAllBookings();
+    List<Booking> bookings = bookingManager.getAllBookings(false);
     for (Booking booking : bookings) {
       bookingsNode.add((JsonNode) (mapper.valueToTree(booking)));
     }
 
     ArrayNode bookingRulesNode = rootNode.putArray("bookingRules");
-    List<BookingRule> bookingRules = ruleManager.getRules();
+    List<BookingRule> bookingRules = ruleManager.getRules(false);
     for (BookingRule bookingRule : bookingRules) {
       bookingRulesNode.add((JsonNode) (mapper.valueToTree(bookingRule)));
     }
@@ -221,10 +221,10 @@ public class BackupManager implements IBackupManager {
       // 'Too many requests' errors. This boolean allows for doing the restore
       // in multiple parts to workaround this.
       logger.log("About to delete all bookings from the database");
-      bookingManager.deleteAllBookings();
+      bookingManager.deleteAllBookings(false);
       logger.log("Deleted all bookings from the database");
       logger.log("About to delete all booking rules from the database");
-      ruleManager.deleteAllBookingRules();
+      ruleManager.deleteAllBookingRules(false);
       logger.log("Deleted all booking rules from the database");
     }
 
@@ -235,7 +235,7 @@ public class BackupManager implements IBackupManager {
       validateDates(Arrays.asList(booking.getDate()));
       bookingManager.validateBooking(booking);
 
-      RetryHelper.DoWithRetries(() -> bookingManager.createBooking(booking),
+      RetryHelper.DoWithRetries(() -> bookingManager.createBooking(booking, false),
           AmazonServiceException.class, Optional.of("429"), logger);
     }
     logger.log("Restored all bookings to the database");
@@ -252,7 +252,7 @@ public class BackupManager implements IBackupManager {
       validateDates(datesToCheck);
       bookingManager.validateBooking(bookingRule.getBooking());
 
-      RetryHelper.DoWithRetries(() -> ruleManager.createRule(bookingRule),
+      RetryHelper.DoWithRetries(() -> ruleManager.createRule(bookingRule, false),
           AmazonServiceException.class, Optional.of("429"), logger);
 
     }
@@ -300,8 +300,7 @@ public class BackupManager implements IBackupManager {
   protected AmazonSNS getSNSClient() {
 
     // Use a getter here so unit tests can substitute a mock client
-    AmazonSNS client = new AmazonSNSClient();
-    client.setRegion(region);
+    AmazonSNS client = AmazonSNSClientBuilder.standard().withRegion(region.getName()).build();
     return client;
   }
 

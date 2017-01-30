@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Robin Steel
+ * Copyright 2016-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,15 +54,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * <li>Run this program to produce the json file with the fake bookings.</li>
  * <li>In the AWS Lambda console, paste this json verbatim into the test event for the DatabaseRestoreLambda.</li>
  * <li>Run the DatabaseRestoreLambda from the AWS console.</li>
- * <li>In the AWS console, configure the test event for the UpdateBookingsLambda with the apiGatewayBaseUrl property e.g.
- * <pre>
- * {@code
- * {
- *  "apiGatewayBaseUrl": "https://xx62rd12l7.execute-api.eu-west-1.amazonaws.com/Squash"
- * }
- * }
- * </pre></li>
- * <li>Run the UpdateBookingsLambda from the AWS console, so the new bookings are reflected in the S3 website content.</li>
+ * <li>Run the UpdateBookingsLambda from the AWS console - using an empty test event, so the new bookings are reflected in the S3 website content.</li>
  * <li>Browse the Sqawsh website to see the new bookings.</li>
  * </ul>
  * 

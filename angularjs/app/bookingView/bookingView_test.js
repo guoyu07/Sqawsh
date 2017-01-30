@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Robin Steel
+ * Copyright 2016-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,9 @@ describe('squashApp.bookingView module', function () {
   })
 
   // Module under test
-  beforeEach(module('squashApp.bookingView'))
+  beforeEach(module('squashApp.bookingView', function ($provide) {
+    $provide.value('$window', {location: {href: 'dummy'}})
+  }))
 
   var bookingViewCtrl
   beforeEach(inject(function ($rootScope, $controller, BookingService, IdentityService) {
@@ -377,10 +379,136 @@ describe('squashApp.bookingView module', function () {
       expect(bookingService.getBookings.calls.count()).toEqual(1)
     }))
 
+    it('should redirect to the new booking service if the cached bookings say the current booking service is retired', inject(function ($rootScope, $window, $q, $controller) {
+      // If the current booking service is in the RETIRED lifecycle state, we should redirect to the new booking service.
+      // This tests for when the cached bookings tell use that the state is RETIRED.
+
+      // ARRANGE
+      // Configure cached bookings to return a RETIRED lifecycle state. N.B. In reality,
+      // using $window service will redirect and prevent further execution. But the mock
+      // $window service does not redirect so execution continues - hence why we need to set
+      // up a dummy booking here - just so the test does not crash. But point of test is
+      // that we set $window.location.href correctly.
+      getCachedBookingsSpy.and.callFake(function (builder) {
+        builder.setLifecycleState('RETIRED')
+        builder.setForwardingUrl('http://www.bbc.co.uk')
+        builder.setBookings([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'name': 'R.Ashour/J.Power'}])
+        return $q(function (resolve, reject) {
+          resolve(builder)
+        })
+      })
+      expect(bookingService.getCachedBookings).not.toHaveBeenCalled()
+      expect(bookingViewCtrl.isRetired).toEqual(false)
+
+      // Trigger the promise chain
+      $rootScope.$apply()
+      expect($window.location.href).toEqual('http://www.bbc.co.uk')
+      expect(bookingViewCtrl.isRetired).toEqual(true)
+      expect(bookingService.getCachedBookings.calls.count()).toEqual(1)
+    }))
+
+    it('should redirect to the new booking service if the backend bookings say the current booking service is retired', inject(function ($rootScope, $window, $q, $controller) {
+      // If the current booking service is in the RETIRED lifecycle state, we should redirect to the new booking service.
+      // This tests for when the cached bookings say the service is ACTIVE but the backend bookings says its RETIRED. This
+      // case is unlikely to happen, however.
+
+        // ARRANGE
+        // Configure cached bookings to return an ACTIVE lifecycle state and the backend
+        // bookings to throw the exception corresponding to a RETIRED state.
+      getCachedBookingsSpy.and.callFake(function (builder) {
+        builder.setLifecycleState('ACTIVE')
+        builder.setForwardingUrl('http://www.bbc.co.uk')
+        builder.setBookings([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'name': 'R.Ashour/J.Power'}])
+        return $q(function (resolve, reject) {
+          resolve(builder)
+        })
+      })
+        // Return error with same properties as the BookingServiceError:
+      getBookingsSpy.and.returnValue($q(function (resolve, reject) {
+        reject({
+          'error': {'data': {'errorMessage': 'Cannot access bookings ... http://www.abc.co.uk'}}})
+      }))
+      expect(bookingService.getCachedBookings).not.toHaveBeenCalled()
+      expect(bookingViewCtrl.isRetired).toEqual(false)
+
+        // Trigger the promise chain
+      $rootScope.$apply()
+      expect($window.location.href).toEqual('http://www.abc.co.uk')
+      expect(bookingViewCtrl.isRetired).toEqual(true)
+      expect(bookingService.getCachedBookings.calls.count()).toEqual(1)
+      expect(bookingService.getBookings.calls.count()).toEqual(1)
+    }))
+
+    it('should set the isReadonly flag true if the current booking service is readonly', inject(function ($rootScope, $window, $q, $controller) {
+      // If the current booking service is in the READONLY lifecycle state, we should set a flag that
+      // is used to display a maintenance banner and to disable reservation/cancellation buttons. We
+      // should not redirect however.
+
+      // ARRANGE
+      // Configure cached and backend bookings to return a READONLY lifecycle state.
+      getCachedBookingsSpy.and.callFake(function (builder) {
+        builder.setLifecycleState('READONLY')
+        builder.setBookings([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'name': 'R.Ashour/J.Power'}])
+        return $q(function (resolve, reject) {
+          resolve(builder)
+        })
+      })
+      getBookingsSpy.and.callFake(function (builder) {
+        builder.setLifecycleState('READONLY')
+        builder.setBookings([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'name': 'R.Ashour/J.Power'}])
+        return $q(function (resolve, reject) {
+          resolve(builder)
+        })
+      })
+      expect(bookingService.getCachedBookings).not.toHaveBeenCalled()
+
+      // Trigger the promise chain
+      $rootScope.$apply()
+      expect(bookingViewCtrl.isReadonly).toEqual(true)
+      expect(bookingService.getCachedBookings.calls.count()).toEqual(1)
+      // This should not have been altered from its initial value: we should
+      // NOT redirect when in the readonly state.
+      expect($window.location.href).toEqual('dummy')
+      expect(bookingViewCtrl.isRetired).toEqual(false)
+    }))
+
+    it('should not set the isReadonly flag true if the current booking service is active', inject(function ($rootScope, $window, $q, $controller) {
+      // If the current booking service is in the ACTIVE lifecycle state, we should not set a flag that
+      // is used to display a maintenance banner and to disable reservation/cancellation buttons. And we
+      // should not redirect either.
+
+      // ARRANGE
+      // Configure cached and backend bookings to return an ACTIVE lifecycle state.
+      getCachedBookingsSpy.and.callFake(function (builder) {
+        builder.setLifecycleState('ACTIVE')
+        builder.setBookings([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'name': 'R.Ashour/J.Power'}])
+        return $q(function (resolve, reject) {
+          resolve(builder)
+        })
+      })
+      getBookingsSpy.and.callFake(function (builder) {
+        builder.setLifecycleState('ACTIVE')
+        builder.setBookings([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'name': 'R.Ashour/J.Power'}])
+        return $q(function (resolve, reject) {
+          resolve(builder)
+        })
+      })
+      expect(bookingService.getCachedBookings).not.toHaveBeenCalled()
+
+      // Trigger the promise chain
+      $rootScope.$apply()
+      expect(bookingViewCtrl.isReadonly).toEqual(false)
+      expect(bookingService.getCachedBookings.calls.count()).toEqual(1)
+      // This should not have been altered from its initial value: we should
+      // NOT redirect when in the active state.
+      expect($window.location.href).toEqual('dummy')
+      expect(bookingViewCtrl.isRetired).toEqual(false)
+    }))
+
     it('should not use bookings if the selected date has changed since they were requested', inject(function ($rootScope, $controller) {
       // If the user has browsed to a different date since the bookings were requested, we should not use them.
       // This should not be possible on initial load, but could be when flicking between dates. Without this check
-      // it might be possible for the user to be shown bookings for a date not matching the dropdown.
+      // it might be possible for the user to be shown bookings for a date not matching that in the dropdown.
 
       // Trigger the promise chain to return initial set of bookings for 2016-04-23
       $rootScope.$apply()
@@ -795,6 +923,169 @@ describe('squashApp.bookingView module', function () {
         selectedDate: '2016-04-23'
       }))
       expect(bookingService.getBookings.calls.count()).toEqual(1)
+    }))
+
+    it('should redirect to the new booking service if the cached bookings say the current booking service is retired', inject(function ($rootScope, $window, $q, $controller) {
+      // If the current booking service is in the RETIRED lifecycle state, we should redirect to the new booking service.
+      // This tests for when the cached bookings tell us that the state is RETIRED.
+
+      // Trigger the promise chain to complete initial load correctly
+      $rootScope.$apply()
+      // Reset relevant mocks from this initial load
+      bookingService.getCachedBookings.calls.reset()
+
+      // ARRANGE
+      // Configure cached bookings to return a RETIRED lifecycle state. N.B. In reality,
+      // using $window service will redirect and prevent further execution. But the mock
+      // $window service does not redirect so execution continues - hence why we need to set
+      // up a dummy booking here - just so the test does not crash. But point of test is
+      // that we set $window.location.href correctly.
+      getCachedBookingsSpy.and.callFake(function (builder) {
+        builder.setLifecycleState('RETIRED')
+        builder.setForwardingUrl('http://www.bbc.co.uk')
+        builder.setBookings([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'name': 'R.Ashour/J.Power'}])
+        return $q(function (resolve, reject) {
+          resolve(builder)
+        })
+      })
+      expect(bookingService.getCachedBookings).not.toHaveBeenCalled()
+      expect(bookingViewCtrl.isRetired).toEqual(false)
+
+      // ACT
+      bookingViewCtrl.selectedDateChanged()
+
+      // Trigger the promise chain
+      $rootScope.$apply()
+      expect($window.location.href).toEqual('http://www.bbc.co.uk')
+      expect(bookingViewCtrl.isRetired).toEqual(true)
+      expect(bookingService.getCachedBookings.calls.count()).toEqual(1)
+    }))
+
+    it('should redirect to the new booking service if the backend bookings say the current booking service is retired', inject(function ($rootScope, $window, $q, $controller) {
+      // If the current booking service is in the RETIRED lifecycle state, we should redirect to the new booking service.
+      // This tests for when the cached bookings say the service is ACTIVE but the backend bookings says its RETIRED. This
+      // case is unlikely to happen, however.
+
+      // Trigger the promise chain to complete initial load correctly
+      $rootScope.$apply()
+      // Reset relevant mocks from this initial load
+      bookingService.getCachedBookings.calls.reset()
+      bookingService.getBookings.calls.reset()
+
+      // ARRANGE
+      // Configure cached bookings to return an ACTIVE lifecycle state and the backend
+      // bookings to throw the exception corresponding to a RETIRED state.
+      getCachedBookingsSpy.and.callFake(function (builder) {
+        builder.setLifecycleState('ACTIVE')
+        builder.setForwardingUrl('http://www.bbc.co.uk')
+        builder.setBookings([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'name': 'R.Ashour/J.Power'}])
+        return $q(function (resolve, reject) {
+          resolve(builder)
+        })
+      })
+      // Return error with same properties as the BookingServiceError:
+      getBookingsSpy.and.returnValue($q(function (resolve, reject) {
+        reject({
+          'error': {'data': {'errorMessage': 'Cannot access bookings ... http://www.abc.co.uk'}}})
+      })
+      )
+      expect(bookingService.getCachedBookings).not.toHaveBeenCalled()
+      expect(bookingViewCtrl.isRetired).toEqual(false)
+
+      // ACT
+      bookingViewCtrl.selectedDateChanged()
+
+      // Trigger the promise chain
+      $rootScope.$apply()
+      expect($window.location.href).toEqual('http://www.abc.co.uk')
+      expect(bookingViewCtrl.isRetired).toEqual(true)
+      expect(bookingService.getCachedBookings.calls.count()).toEqual(1)
+      expect(bookingService.getBookings.calls.count()).toEqual(1)
+    }))
+
+    it('should set the isReadonly flag true if the current booking service is readonly', inject(function ($rootScope, $window, $q, $controller) {
+      // If the current booking service is in the READONLY lifecycle state, we should set a flag that
+      // is used to display a maintenance banner and to disable reservation/cancellation buttons. We
+      // should not redirect however.
+
+      // Trigger the promise chain to complete initial load correctly
+      $rootScope.$apply()
+      // Reset relevant mocks from this initial load
+      bookingService.getCachedBookings.calls.reset()
+      bookingService.getBookings.calls.reset()
+
+      // ARRANGE
+      // Configure cached and backend bookings to return a READONLY lifecycle state.
+      getCachedBookingsSpy.and.callFake(function (builder) {
+        builder.setLifecycleState('READONLY')
+        builder.setBookings([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'name': 'R.Ashour/J.Power'}])
+        return $q(function (resolve, reject) {
+          resolve(builder)
+        })
+      })
+      getBookingsSpy.and.callFake(function (builder) {
+        builder.setLifecycleState('READONLY')
+        builder.setBookings([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'name': 'R.Ashour/J.Power'}])
+        return $q(function (resolve, reject) {
+          resolve(builder)
+        })
+      })
+      expect(bookingService.getCachedBookings).not.toHaveBeenCalled()
+      expect(bookingViewCtrl.isReadonly).toEqual(false)
+
+      // ACT
+      bookingViewCtrl.selectedDateChanged()
+
+      // Trigger the promise chain
+      $rootScope.$apply()
+      expect(bookingViewCtrl.isReadonly).toEqual(true)
+      expect(bookingService.getCachedBookings.calls.count()).toEqual(1)
+      // This should not have been altered from its initial value: we should
+      // NOT redirect when in the readonly state.
+      expect($window.location.href).toEqual('dummy')
+      expect(bookingViewCtrl.isRetired).toEqual(false)
+    }))
+
+    it('should not set the isReadonly flag true if the current booking service is active', inject(function ($rootScope, $window, $q, $controller) {
+      // If the current booking service is in the ACTIVE lifecycle state, we should not set a flag that
+      // is used to display a maintenance banner and to disable reservation/cancellation buttons. And we
+      // should not redirect either.
+
+      // Trigger the promise chain to complete initial load correctly
+      $rootScope.$apply()
+      // Reset relevant mocks from this initial load
+      bookingService.getCachedBookings.calls.reset()
+      bookingService.getBookings.calls.reset()
+
+      // ARRANGE
+      // Configure cached and backend bookings to return an ACTIVE lifecycle state.
+      getCachedBookingsSpy.and.callFake(function (builder) {
+        builder.setLifecycleState('ACTIVE')
+        builder.setBookings([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'name': 'R.Ashour/J.Power'}])
+        return $q(function (resolve, reject) {
+          resolve(builder)
+        })
+      })
+      getBookingsSpy.and.callFake(function (builder) {
+        builder.setLifecycleState('ACTIVE')
+        builder.setBookings([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'name': 'R.Ashour/J.Power'}])
+        return $q(function (resolve, reject) {
+          resolve(builder)
+        })
+      })
+      expect(bookingService.getCachedBookings).not.toHaveBeenCalled()
+
+      // ACT
+      bookingViewCtrl.selectedDateChanged()
+
+      // Trigger the promise chain
+      $rootScope.$apply()
+      expect(bookingViewCtrl.isReadonly).toEqual(false)
+      expect(bookingService.getCachedBookings.calls.count()).toEqual(1)
+      // This should not have been altered from its initial value: we should
+      // NOT redirect when in the active state.
+      expect($window.location.href).toEqual('dummy')
+      expect(bookingViewCtrl.isRetired).toEqual(false)
     }))
   })
 

@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Robin Steel
+ * Copyright 2016-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -110,7 +110,7 @@ describe('squashApp.reservationView module', function () {
     it('should set the password error flag when a booking is submitted with an invalid password', inject(function ($rootScope, $location, $q) {
       // Configure the reserveCourt mock to return the wrong-password error
       reserveCourtSpy.and.returnValue(
-        $q(function (resolve, reject) { reject({'data': 'The password is incorrect'}) })
+        $q(function (resolve, reject) { reject({'data': {'errorMessage': 'The password is incorrect'}}) })
       )
 
       // Submit a valid reservation
@@ -122,12 +122,16 @@ describe('squashApp.reservationView module', function () {
       expect(reservationViewCtrl.bookingCreationFailed).toBe(false)
       expect(reservationViewCtrl.passwordIncorrect).toBe(false)
       expect(reservationViewCtrl.unauthenticatedBlockBookingError).toBe(false)
+      expect(reservationViewCtrl.isReadonly).toBe(false)
+      expect(reservationViewCtrl.isRetired).toBe(false)
       expect(reservationViewCtrl.bookingFailed).toBe(false)
       $rootScope.$apply()
 
       expect(reservationViewCtrl.bookingCreationFailed).toBe(false)
       expect(reservationViewCtrl.passwordIncorrect).toBe(true)
       expect(reservationViewCtrl.unauthenticatedBlockBookingError).toBe(false)
+      expect(reservationViewCtrl.isReadonly).toBe(false)
+      expect(reservationViewCtrl.isRetired).toBe(false)
       expect(reservationViewCtrl.bookingFailed).toBe(true)
 
       // Verify we do not navigate away from the reservation form
@@ -137,7 +141,7 @@ describe('squashApp.reservationView module', function () {
     it('should set the unauthenticated block booking error flag when a block-booking reservation is submitted whilst unauthenticated', inject(function ($rootScope, $location, $q) {
       // Configure the reserveCourt mock to return the unauthenticated block booking error
       reserveCourtSpy.and.returnValue(
-        $q(function (resolve, reject) { reject({'data': 'You must login to manage block bookings'}) })
+        $q(function (resolve, reject) { reject({'data': {'errorMessage': 'You must login to manage block bookings'}}) })
       )
 
       // Submit a valid reservation
@@ -149,12 +153,16 @@ describe('squashApp.reservationView module', function () {
       expect(reservationViewCtrl.bookingCreationFailed).toBe(false)
       expect(reservationViewCtrl.passwordIncorrect).toBe(false)
       expect(reservationViewCtrl.unauthenticatedBlockBookingError).toBe(false)
+      expect(reservationViewCtrl.isReadonly).toBe(false)
+      expect(reservationViewCtrl.isRetired).toBe(false)
       expect(reservationViewCtrl.bookingFailed).toBe(false)
       $rootScope.$apply()
 
       expect(reservationViewCtrl.bookingCreationFailed).toBe(false)
       expect(reservationViewCtrl.passwordIncorrect).toBe(false)
       expect(reservationViewCtrl.unauthenticatedBlockBookingError).toBe(true)
+      expect(reservationViewCtrl.isReadonly).toBe(false)
+      expect(reservationViewCtrl.isRetired).toBe(false)
       expect(reservationViewCtrl.bookingFailed).toBe(true)
 
       // Verify we do not navigate away from the reservation form
@@ -167,7 +175,7 @@ describe('squashApp.reservationView module', function () {
 
       // Configure the reserveCourt mock to return the booking-failed error
       reserveCourtSpy.and.returnValue(
-        $q(function (resolve, reject) { reject({'data': 'Booking creation failed'}) })
+        $q(function (resolve, reject) { reject({'data': {'errorMessage': 'Booking creation failed'}}) })
       )
 
       // Submit a valid reservation
@@ -179,12 +187,80 @@ describe('squashApp.reservationView module', function () {
       expect(reservationViewCtrl.bookingCreationFailed).toBe(false)
       expect(reservationViewCtrl.passwordIncorrect).toBe(false)
       expect(reservationViewCtrl.unauthenticatedBlockBookingError).toBe(false)
+      expect(reservationViewCtrl.isReadonly).toBe(false)
+      expect(reservationViewCtrl.isRetired).toBe(false)
       expect(reservationViewCtrl.bookingFailed).toBe(false)
       $rootScope.$apply()
 
       expect(reservationViewCtrl.bookingCreationFailed).toBe(true)
       expect(reservationViewCtrl.passwordIncorrect).toBe(false)
       expect(reservationViewCtrl.unauthenticatedBlockBookingError).toBe(false)
+      expect(reservationViewCtrl.isReadonly).toBe(false)
+      expect(reservationViewCtrl.isRetired).toBe(false)
+      expect(reservationViewCtrl.bookingFailed).toBe(true)
+
+      // Verify we do not navigate away from the reservation form
+      expect($location.url).not.toHaveBeenCalled()
+    }))
+
+    it('should set the isReadonly error flag when a booking is submitted while the booking service is in Readonly lifecycle state', inject(function ($rootScope, $location, $q) {
+      // Booking service will be Readonly during maintenance.
+
+      // Configure the reserveCourt mock to return the readonly error
+      reserveCourtSpy.and.returnValue(
+        $q(function (resolve, reject) { reject({'data': {'errorMessage': 'Cannot mutate bookings or rules - booking service is temporarily readonly'}}) })
+      )
+
+      // Submit a valid reservation
+      reservationViewCtrl.password = 'TheBogieman'
+      reservationViewCtrl.submitReservation({'$invalid': false})
+
+      // Trigger the promise chain
+      spyOn($location, 'url')
+      expect(reservationViewCtrl.bookingCreationFailed).toBe(false)
+      expect(reservationViewCtrl.passwordIncorrect).toBe(false)
+      expect(reservationViewCtrl.unauthenticatedBlockBookingError).toBe(false)
+      expect(reservationViewCtrl.isReadonly).toBe(false)
+      expect(reservationViewCtrl.isRetired).toBe(false)
+      expect(reservationViewCtrl.bookingFailed).toBe(false)
+      $rootScope.$apply()
+
+      expect(reservationViewCtrl.bookingCreationFailed).toBe(false)
+      expect(reservationViewCtrl.passwordIncorrect).toBe(false)
+      expect(reservationViewCtrl.unauthenticatedBlockBookingError).toBe(false)
+      expect(reservationViewCtrl.isReadonly).toBe(true)
+      expect(reservationViewCtrl.isRetired).toBe(false)
+      expect(reservationViewCtrl.bookingFailed).toBe(true)
+
+      // Verify we do not navigate away from the reservation form
+      expect($location.url).not.toHaveBeenCalled()
+    }))
+
+    it('should set the isRetired error flag when a booking is submitted while the booking service is in Retired lifecycle state', inject(function ($rootScope, $location, $q) {
+      // Configure the reserveCourt mock to return the retired error
+      reserveCourtSpy.and.returnValue(
+        $q(function (resolve, reject) { reject({'data': {'errorMessage': 'Cannot access bookings'}}) })
+      )
+
+      // Submit a valid reservation
+      reservationViewCtrl.password = 'TheBogieman'
+      reservationViewCtrl.submitReservation({'$invalid': false})
+
+      // Trigger the promise chain
+      spyOn($location, 'url')
+      expect(reservationViewCtrl.bookingCreationFailed).toBe(false)
+      expect(reservationViewCtrl.passwordIncorrect).toBe(false)
+      expect(reservationViewCtrl.unauthenticatedBlockBookingError).toBe(false)
+      expect(reservationViewCtrl.isReadonly).toBe(false)
+      expect(reservationViewCtrl.isRetired).toBe(false)
+      expect(reservationViewCtrl.bookingFailed).toBe(false)
+      $rootScope.$apply()
+
+      expect(reservationViewCtrl.bookingCreationFailed).toBe(false)
+      expect(reservationViewCtrl.passwordIncorrect).toBe(false)
+      expect(reservationViewCtrl.unauthenticatedBlockBookingError).toBe(false)
+      expect(reservationViewCtrl.isReadonly).toBe(false)
+      expect(reservationViewCtrl.isRetired).toBe(true)
       expect(reservationViewCtrl.bookingFailed).toBe(true)
 
       // Verify we do not navigate away from the reservation form
@@ -209,12 +285,16 @@ describe('squashApp.reservationView module', function () {
       expect(reservationViewCtrl.bookingCreationFailed).toBe(false)
       expect(reservationViewCtrl.passwordIncorrect).toBe(false)
       expect(reservationViewCtrl.unauthenticatedBlockBookingError).toBe(false)
+      expect(reservationViewCtrl.isReadonly).toBe(false)
+      expect(reservationViewCtrl.isRetired).toBe(false)
       expect(reservationViewCtrl.bookingFailed).toBe(false)
       $rootScope.$apply()
 
       expect(reservationViewCtrl.bookingCreationFailed).toBe(false)
       expect(reservationViewCtrl.passwordIncorrect).toBe(false)
       expect(reservationViewCtrl.unauthenticatedBlockBookingError).toBe(false)
+      expect(reservationViewCtrl.isReadonly).toBe(false)
+      expect(reservationViewCtrl.isRetired).toBe(false)
       expect(reservationViewCtrl.bookingFailed).toBe(true)
 
       // Verify we do not navigate away from the reservation form

@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Robin Steel
+ * Copyright 2016-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.simpledb.model.Attribute;
 import com.amazonaws.services.simpledb.model.ReplaceableAttribute;
 import com.amazonaws.services.sns.AmazonSNS;
-import com.amazonaws.services.sns.AmazonSNSClient;
+import com.amazonaws.services.sns.AmazonSNSClientBuilder;
 import com.google.common.collect.Sets;
 
 import java.io.IOException;
@@ -66,18 +66,20 @@ public class RuleManager implements IRuleManager {
   private String adminSnsTopicArn;
   protected IOptimisticPersister optimisticPersister;
   private IBookingManager bookingManager;
+  ILifecycleManager lifecycleManager;
   private LambdaLogger logger;
   private Boolean initialised = false;
 
   @Override
-  public final void initialise(IBookingManager bookingManager, LambdaLogger logger)
-      throws Exception {
+  public final void initialise(IBookingManager bookingManager, ILifecycleManager lifecycleManager,
+      LambdaLogger logger) throws Exception {
 
     if (initialised) {
       throw new IllegalStateException("The rule manager has already been initialised");
     }
 
     this.bookingManager = bookingManager;
+    this.lifecycleManager = lifecycleManager;
     this.logger = logger;
     ruleItemName = "BookingRulesAndExclusions";
     this.optimisticPersister = getOptimisticPersister();
@@ -89,11 +91,15 @@ public class RuleManager implements IRuleManager {
   }
 
   @Override
-  public Set<BookingRule> createRule(BookingRule bookingRuleToCreate) throws Exception {
+  public Set<BookingRule> createRule(BookingRule bookingRuleToCreate,
+      boolean isSquashServiceUserCall) throws Exception {
 
     if (!initialised) {
       throw new IllegalStateException("The rule manager has not been initialised");
     }
+
+    lifecycleManager
+        .throwIfOperationInvalidForCurrentLifecycleState(false, isSquashServiceUserCall);
 
     // We retry the put of the rule if necessary if we get a
     // ConditionalCheckFailed exception, i.e. if someone else modifies the
@@ -152,11 +158,13 @@ public class RuleManager implements IRuleManager {
   }
 
   @Override
-  public List<BookingRule> getRules() throws Exception {
+  public List<BookingRule> getRules(boolean isSquashServiceUserCall) throws Exception {
 
     if (!initialised) {
       throw new IllegalStateException("The rule manager has not been initialised");
     }
+
+    lifecycleManager.throwIfOperationInvalidForCurrentLifecycleState(true, isSquashServiceUserCall);
 
     logger.log("About to get all booking rules from simpledb");
 
@@ -166,11 +174,15 @@ public class RuleManager implements IRuleManager {
   }
 
   @Override
-  public void deleteRule(BookingRule bookingRuleToDelete) throws Exception {
+  public void deleteRule(BookingRule bookingRuleToDelete, boolean isSquashServiceUserCall)
+      throws Exception {
 
     if (!initialised) {
       throw new IllegalStateException("The rule manager has not been initialised");
     }
+
+    lifecycleManager
+        .throwIfOperationInvalidForCurrentLifecycleState(false, isSquashServiceUserCall);
 
     logger.log("About to delete booking rule from simpledb: " + bookingRuleToDelete.toString());
 
@@ -188,19 +200,22 @@ public class RuleManager implements IRuleManager {
   }
 
   @Override
-  public void deleteAllBookingRules() throws Exception {
+  public void deleteAllBookingRules(boolean isSquashServiceUserCall) throws Exception {
 
     if (!initialised) {
       throw new IllegalStateException("The rule manager has not been initialised");
     }
 
+    lifecycleManager
+        .throwIfOperationInvalidForCurrentLifecycleState(false, isSquashServiceUserCall);
+
     logger.log("Getting all booking rules to delete");
-    List<BookingRule> bookingRules = getRules();
+    List<BookingRule> bookingRules = getRules(isSquashServiceUserCall);
     logger.log("Found " + bookingRules.size() + " booking rules to delete");
     logger.log("About to delete all booking rules");
     for (BookingRule bookingRule : bookingRules) {
       RetryHelper.DoWithRetries(() -> {
-        deleteRule(bookingRule);
+        deleteRule(bookingRule, isSquashServiceUserCall);
         return null;
       }, AmazonServiceException.class, Optional.of("429"), logger);
     }
@@ -209,11 +224,14 @@ public class RuleManager implements IRuleManager {
 
   @Override
   public Optional<BookingRule> addRuleExclusion(String dateToExclude,
-      BookingRule bookingRuleToAddExclusionTo) throws Exception {
+      BookingRule bookingRuleToAddExclusionTo, boolean isSquashServiceUserCall) throws Exception {
 
     if (!initialised) {
       throw new IllegalStateException("The rule manager has not been initialised");
     }
+
+    lifecycleManager
+        .throwIfOperationInvalidForCurrentLifecycleState(false, isSquashServiceUserCall);
 
     logger.log("About to add exclusion for " + dateToExclude + " to booking rule: "
         + bookingRuleToAddExclusionTo.toString());
@@ -313,11 +331,15 @@ public class RuleManager implements IRuleManager {
 
   @Override
   public Optional<BookingRule> deleteRuleExclusion(String dateNotToExclude,
-      BookingRule bookingRuleToDeleteExclusionFrom) throws Exception {
+      BookingRule bookingRuleToDeleteExclusionFrom, boolean isSquashServiceUserCall)
+      throws Exception {
 
     if (!initialised) {
       throw new IllegalStateException("The rule manager has not been initialised");
     }
+
+    lifecycleManager
+        .throwIfOperationInvalidForCurrentLifecycleState(false, isSquashServiceUserCall);
 
     logger.log("About to delete exclusion for " + dateNotToExclude + " from booking rule: "
         + bookingRuleToDeleteExclusionFrom.toString());
@@ -385,11 +407,14 @@ public class RuleManager implements IRuleManager {
   }
 
   @Override
-  public List<Booking> applyRules(String date) throws Exception {
+  public List<Booking> applyRules(String date, boolean isSquashServiceUserCall) throws Exception {
 
     if (!initialised) {
       throw new IllegalStateException("The rule manager has not been initialised");
     }
+
+    lifecycleManager
+        .throwIfOperationInvalidForCurrentLifecycleState(false, isSquashServiceUserCall);
 
     List<Booking> ruleBookings = new ArrayList<>();
     try {
@@ -399,7 +424,7 @@ public class RuleManager implements IRuleManager {
               DateTimeFormatter.ofPattern("yyyy-MM-dd")))));
       if (!applyDateIsInPast) {
         logger.log("About to apply booking rules for date: " + date);
-        for (BookingRule rule : getRules()) {
+        for (BookingRule rule : getRules(false)) {
           logger.log("Considering booking rule: " + rule);
           Boolean ruleIsNonRecurringAndForApplyDate = !rule.getIsRecurring()
               && rule.getBooking().getDate().equals(date);
@@ -424,7 +449,7 @@ public class RuleManager implements IRuleManager {
             logger.log("Applying booking rule to create booking: " + rule.toString());
             Booking booking = rule.getBooking();
             booking.setDate(date);
-            bookingManager.createBooking(booking);
+            bookingManager.createBooking(booking, false);
             ruleBookings.add(booking);
             // Short sleep to minimise chance of getting TooManyRequests error
             try {
@@ -660,7 +685,7 @@ public class RuleManager implements IRuleManager {
         logger.log("Deleting non-recurring booking rule as it has expired: "
             + bookingRule.toString());
         try {
-          deleteRule(bookingRule);
+          deleteRule(bookingRule, false);
           logger.log("Deleted expired booking rule");
         } catch (Exception exception) {
           // Don't want to abort here if we fail to remove a rule - after all
@@ -724,8 +749,7 @@ public class RuleManager implements IRuleManager {
   protected AmazonSNS getSNSClient() {
 
     // Use a getter here so unit tests can substitute a mock client
-    AmazonSNS client = new AmazonSNSClient();
-    client.setRegion(region);
+    AmazonSNS client = AmazonSNSClientBuilder.standard().withRegion(region.getName()).build();
     return client;
   }
 

@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2016 Robin Steel
+ * Copyright 2015-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.simpledb.model.Attribute;
 import com.amazonaws.services.simpledb.model.ReplaceableAttribute;
 import com.amazonaws.services.sns.AmazonSNS;
-import com.amazonaws.services.sns.AmazonSNSClient;
+import com.amazonaws.services.sns.AmazonSNSClientBuilder;
 import com.google.common.collect.Sets;
 
 import java.time.LocalDate;
@@ -55,6 +55,7 @@ public class BookingManager implements IBookingManager {
   private Region region;
   private String adminSnsTopicArn;
   private IOptimisticPersister optimisticPersister;
+  private ILifecycleManager lifecycleManager;
   private LambdaLogger logger;
   private Boolean initialised = false;
 
@@ -67,11 +68,15 @@ public class BookingManager implements IBookingManager {
   }
 
   @Override
-  public List<Booking> createBooking(Booking bookingToCreate) throws Exception {
+  public List<Booking> createBooking(Booking bookingToCreate, boolean isSquashServiceUserCall)
+      throws Exception {
 
     if (!initialised) {
       throw new IllegalStateException("The booking manager has not been initialised");
     }
+
+    getLifecycleManager().throwIfOperationInvalidForCurrentLifecycleState(false,
+        isSquashServiceUserCall);
 
     logger.log("About to create booking in database: " + bookingToCreate);
 
@@ -144,31 +149,40 @@ public class BookingManager implements IBookingManager {
   }
 
   @Override
-  public List<Booking> getBookings(String date) throws Exception {
+  public List<Booking> getBookings(String date, boolean isSquashServiceUserCall) throws Exception {
 
     if (!initialised) {
       throw new IllegalStateException("The booking manager has not been initialised");
     }
+
+    getLifecycleManager().throwIfOperationInvalidForCurrentLifecycleState(true,
+        isSquashServiceUserCall);
 
     logger.log("About to get all bookings from database for date: " + date);
     return (getVersionedBookings(date).right);
   }
 
   @Override
-  public List<Booking> getAllBookings() throws Exception {
+  public List<Booking> getAllBookings(boolean isSquashServiceUserCall) throws Exception {
 
     if (!initialised) {
       throw new IllegalStateException("The booking manager has not been initialised");
     }
 
+    getLifecycleManager().throwIfOperationInvalidForCurrentLifecycleState(true,
+        isSquashServiceUserCall);
+
     logger.log("About to get all bookings from database for all dates");
 
     // Query database to get bookings
     List<Booking> bookings = new ArrayList<>();
-    getOptimisticPersister().getAllItems()
+    getOptimisticPersister()
+        .getAllItems()
         .stream()
         // Want only items corresponding to bookings
-        .filter(pair -> !pair.left.equals("BookingRulesAndExclusions"))
+        .filter(
+            pair -> !pair.left.equals("BookingRulesAndExclusions")
+                && !pair.left.equals("LifecycleState"))
         .forEach(
             pair -> {
               pair.right.forEach(attribute -> {
@@ -222,11 +236,15 @@ public class BookingManager implements IBookingManager {
   }
 
   @Override
-  public List<Booking> deleteBooking(Booking bookingToDelete) throws Exception {
+  public List<Booking> deleteBooking(Booking bookingToDelete, boolean isSquashServiceUserCall)
+      throws Exception {
 
     if (!initialised) {
       throw new IllegalStateException("The booking manager has not been initialised");
     }
+
+    getLifecycleManager().throwIfOperationInvalidForCurrentLifecycleState(false,
+        isSquashServiceUserCall);
 
     logger.log("About to delete booking from database: " + bookingToDelete.toString());
     Attribute attribute = new Attribute();
@@ -236,15 +254,18 @@ public class BookingManager implements IBookingManager {
 
     logger.log("Deleted booking from database");
 
-    return getBookings(bookingToDelete.getDate());
+    return getVersionedBookings(bookingToDelete.getDate()).right;
   }
 
   @Override
-  public void deleteYesterdaysBookings() throws Exception {
+  public void deleteYesterdaysBookings(boolean isSquashServiceUserCall) throws Exception {
 
     if (!initialised) {
       throw new IllegalStateException("The booking manager has not been initialised");
     }
+
+    getLifecycleManager().throwIfOperationInvalidForCurrentLifecycleState(false,
+        isSquashServiceUserCall);
 
     try {
       // Remove the previous day's bookings from database
@@ -266,23 +287,27 @@ public class BookingManager implements IBookingManager {
   }
 
   @Override
-  public void deleteAllBookings() throws Exception {
+  public void deleteAllBookings(boolean isSquashServiceUserCall) throws Exception {
 
     if (!initialised) {
       throw new IllegalStateException("The booking manager has not been initialised");
     }
 
+    getLifecycleManager().throwIfOperationInvalidForCurrentLifecycleState(false,
+        isSquashServiceUserCall);
+
     logger.log("Getting all bookings to delete");
-    List<Booking> bookings = getAllBookings();
+    List<Booking> bookings = getAllBookings(isSquashServiceUserCall);
     logger.log("Found " + bookings.size() + " bookings to delete");
     logger.log("About to delete all bookings");
     for (Booking booking : bookings) {
-      RetryHelper.DoWithRetries(() -> deleteBooking(booking), AmazonServiceException.class,
-          Optional.of("429"), logger);
+      RetryHelper.DoWithRetries(() -> deleteBooking(booking, isSquashServiceUserCall),
+          AmazonServiceException.class, Optional.of("429"), logger);
     }
     logger.log("Deleted all bookings");
   }
 
+  @Override
   public void validateBooking(Booking booking) throws Exception {
 
     logger.log("Validating booking");
@@ -327,8 +352,7 @@ public class BookingManager implements IBookingManager {
   protected AmazonSNS getSNSClient() {
 
     // Use a getter here so unit tests can substitute a mock client
-    AmazonSNS client = new AmazonSNSClient();
-    client.setRegion(region);
+    AmazonSNS client = AmazonSNSClientBuilder.standard().withRegion(region.getName()).build();
     return client;
   }
 
@@ -359,6 +383,24 @@ public class BookingManager implements IBookingManager {
     // This gets the correct local date no matter what the user's device
     // system time may say it is, and no matter where in AWS we run.
     return BookingsUtilities.getCurrentLocalDate();
+  }
+
+  /**
+   * Returns a lifecycle manager.
+   * @throws Exception 
+   */
+  protected ILifecycleManager getLifecycleManager() throws Exception {
+    // Use a getter here so unit tests can substitute a different manager.
+    if (!initialised) {
+      throw new IllegalStateException("The booking manager has not been initialised");
+    }
+
+    if (lifecycleManager == null) {
+      lifecycleManager = new LifecycleManager();
+      lifecycleManager.initialise(logger);
+    }
+
+    return lifecycleManager;
   }
 
   /**

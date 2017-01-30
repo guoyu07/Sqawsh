@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2016 Robin Steel
+ * Copyright 2015-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -149,6 +149,8 @@ public class UpdateBookingsLambdaTest {
     public String getEnvironmentVariable(String variableName, LambdaLogger logger) {
       if (variableName.equals("RevvingSuffix")) {
         return revvingSuffix;
+      } else if (variableName.equals("ApiGatewayBaseUrl")) {
+        return apiGatewayBaseUrl;
       }
       return null;
     }
@@ -176,7 +178,7 @@ public class UpdateBookingsLambdaTest {
         "Grrr.."));
   }
 
-  public void doTestUpdateBookingsThrowsCorrectExceptionWhenPageManagerThrows(Exception exception)
+  private void doTestUpdateBookingsThrowsCorrectExceptionWhenPageManagerThrows(Exception exception)
       throws Exception {
 
     // ARRANGE
@@ -194,7 +196,6 @@ public class UpdateBookingsLambdaTest {
 
     // ACT
     UpdateBookingsLambdaRequest request = new UpdateBookingsLambdaRequest();
-    request.setApiGatewayBaseUrl(apiGatewayBaseUrl);
 
     updateBookingsLambda.updateBookings(request, mockContext);
   }
@@ -236,14 +237,14 @@ public class UpdateBookingsLambdaTest {
     mockery.checking(new Expectations() {
       {
         ignoring(updateBookingsLambda.getPageManager(mockLogger));
-        oneOf(updateBookingsLambda.getBookingManager(mockLogger)).deleteYesterdaysBookings();
+        oneOf(updateBookingsLambda.getBookingManager(mockLogger)).deleteYesterdaysBookings(
+            with.booleanIs(anything()));
         will(throwException(exception));
       }
     });
 
     // ACT
     UpdateBookingsLambdaRequest request = new UpdateBookingsLambdaRequest();
-    request.setApiGatewayBaseUrl(apiGatewayBaseUrl);
 
     updateBookingsLambda.updateBookings(request, mockContext);
   }
@@ -263,31 +264,14 @@ public class UpdateBookingsLambdaTest {
             with(apiGatewayBaseUrl), with(revvingSuffix));
         inSequence(refreshSequence);
 
-        oneOf(updateBookingsLambda.getBookingManager(mockLogger)).deleteYesterdaysBookings();
+        oneOf(updateBookingsLambda.getBookingManager(mockLogger)).deleteYesterdaysBookings(false);
         inSequence(refreshSequence);
       }
     });
 
     // ACT
     UpdateBookingsLambdaRequest request = new UpdateBookingsLambdaRequest();
-    request.setApiGatewayBaseUrl(apiGatewayBaseUrl);
 
-    updateBookingsLambda.updateBookings(request, mockContext);
-  }
-
-  @Test
-  public void testUpdateBookingsThrowsWhenApiGatewayIsNull() throws Exception {
-
-    // If the request has a null apiGatewayBaseUrl, then we should throw
-
-    // ARRANGE
-    thrown.expect(Exception.class);
-    thrown.expectMessage(updateBookingsExceptionMessage);
-
-    UpdateBookingsLambdaRequest request = new UpdateBookingsLambdaRequest();
-    request.setApiGatewayBaseUrl(null);
-
-    // ACT
     updateBookingsLambda.updateBookings(request, mockContext);
   }
 }

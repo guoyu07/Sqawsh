@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2016 Robin Steel
+ * Copyright 2015-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,10 +24,8 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
-import com.amazonaws.regions.Region;
-import com.amazonaws.regions.Regions;
 import com.amazonaws.services.cloudwatchevents.AmazonCloudWatchEvents;
-import com.amazonaws.services.cloudwatchevents.AmazonCloudWatchEventsClient;
+import com.amazonaws.services.cloudwatchevents.AmazonCloudWatchEventsClientBuilder;
 import com.amazonaws.services.cloudwatchevents.model.DeleteRuleRequest;
 import com.amazonaws.services.cloudwatchevents.model.ListTargetsByRuleRequest;
 import com.amazonaws.services.cloudwatchevents.model.ListTargetsByRuleResult;
@@ -162,8 +160,8 @@ public class ScheduledCloudwatchEventCustomResourceLambda implements
     try {
       cloudFormationResponder.initialise();
 
-      AmazonCloudWatchEvents amazonCloudWatchEventsClient = new AmazonCloudWatchEventsClient();
-      amazonCloudWatchEventsClient.setRegion(Region.getRegion(Regions.fromName(region)));
+      AmazonCloudWatchEvents amazonCloudWatchEventsClient = AmazonCloudWatchEventsClientBuilder
+          .standard().withRegion(region).build();
 
       if (requestType.equals("Create")) {
 

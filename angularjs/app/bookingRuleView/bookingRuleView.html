@@ -1,5 +1,5 @@
 <!--
-Copyright 2016 Robin Steel
+Copyright 2016-2017 Robin Steel
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -13,7 +13,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.-->
 
-<div ng-show="!ctrl.loadFailure && ctrl.initialLoadSucceeded" ng-cloak>
+<div ng-show="!ctrl.loadFailure && !ctrl.isRetired && ctrl.initialLoadSucceeded" ng-cloak>
+  <div ng-show="ctrl.isReadonly" class="maintenance-banner">Apologies - booking rules are temporarily readonly whilst site maintenance is in progress</div>
   <h2>Booking Rules</h2>
   <uib-accordion close-others=true id="booking-rules">
     <div uib-accordion-group id="rule-accordion-group" class="panel-default" ng-repeat="(ruleIndex, bookingRule) in ctrl.bookingRules | orderBy:'booking.name'">
@@ -32,7 +33,7 @@ limitations under the License.-->
         <h5>Apply rule except on:</h5>
         <div ng-repeat="(exclusionIndex, dateToExclude) in bookingRule.datesToExclude | orderBy: '+'">
           <div class="exclusion-date">{{dateToExclude | date:'fullDate'}}
-            <Button class="btn btn-xs btn-danger remove-exclusion-date-button" ng-click="ctrl.removeExclusion(ctrl.ruleIndex(bookingRule), dateToExclude)">Remove</Button>
+            <Button ng-disabled="ctrl.isReadonly || ctrl.isRetired" class="btn btn-xs btn-danger remove-exclusion-date-button" ng-click="ctrl.removeExclusion(ctrl.ruleIndex(bookingRule), dateToExclude)">Remove</Button>
           </div>
           <span class="error" ng-show="ctrl.bookingRuleExclusionDeletionFailed && ctrl.latentClashExists">
             Failed to remove excluded date - doing so would cause the remaining rules to clash.
@@ -40,7 +41,13 @@ limitations under the License.-->
           <span class="error" ng-show="ctrl.bookingRuleExclusionDeletionFailed && ctrl.unauthenticatedBookingRulesError">
             You must login to manage booking rules.
           </span>
-          <span class="error" ng-show="ctrl.bookingRuleExclusionDeletionFailed && !ctrl.latentClashExists && !ctrl.unauthenticatedBookingRulesError">
+          <span class="error" ng-show="ctrl.bookingRuleExclusionDeletionFailed && ctrl.isReadonly">
+            Apologies - failed to remove excluded date - booking rules are temporarily readonly whilst site maintenance is in progress.
+          </span>
+          <span class="error" ng-show="ctrl.bookingRuleExclusionDeletionFailed && ctrl.isRetired" >
+            Apologies - failed to remove excluded date - please use the <a ng-href="{{ctrl.forwardingUrl}}">updated booking service</a> instead
+          </span>
+          <span class="error" ng-show="ctrl.bookingRuleExclusionDeletionFailed && !ctrl.isReadonly && !ctrl.isRetired && !ctrl.latentClashExists && !ctrl.unauthenticatedBookingRulesError">
             Apologies - something has gone wrong whilst removing the excluded date.
           </span>
         </div>
@@ -49,7 +56,7 @@ limitations under the License.-->
           <input type="text" class="datepicker-popup" ng-model="ctrl.datesOfAddExclusionDatepickers[ctrl.ruleIndex(bookingRule)]" uib-datepicker-popup ng-change="ctrl.onExclusionDateSelected(ctrl.ruleIndex(bookingRule))" is-open="ctrl.addExclusionDatepickerPopupsOpened[ctrl.ruleIndex(bookingRule)]"
             datepicker-options="ctrl.addExclusionDateOptions[ctrl.ruleIndex(bookingRule)]" show-button-bar="false" close-text="Close" />
           <span class="input-group-btn">
-            <button type="button" id="add-exclusion-date-button" class="btn btn-success btn-xs" ng-click="ctrl.openAddExclusionDatepickerPopup(ctrl.ruleIndex(bookingRule))">Add date to exclude <i class="glyphicon glyphicon-calendar"></i></button>
+            <button ng-disabled="ctrl.isReadonly || ctrl.isRetired" type="button" id="add-exclusion-date-button" class="btn btn-success btn-xs" ng-click="ctrl.openAddExclusionDatepickerPopup(ctrl.ruleIndex(bookingRule))">Add date to exclude <i class="glyphicon glyphicon-calendar"></i></button>
           </span>
           </div>
           <div>
@@ -59,24 +66,36 @@ limitations under the License.-->
             <span class="error" ng-show="ctrl.bookingRuleExclusionAdditionFailed && ctrl.unauthenticatedBookingRulesError">
               You must login to manage booking rules.
             </span>
-            <span class="error" ng-show="ctrl.bookingRuleExclusionAdditionFailed && !ctrl.tooManyExclusions && !ctrl.unauthenticatedBookingRulesError">
+            <span class="error" ng-show="ctrl.bookingRuleExclusionAdditionFailed && ctrl.isReadonly">
+              Apologies - failed to add new excluded date - booking rules are temporarily readonly whilst site maintenance is in progress.
+            </span>
+            <span class="error" ng-show="ctrl.bookingRuleExclusionAdditionFailed && ctrl.isRetired" >
+              Apologies - failed to add new excluded date - please use the <a ng-href="{{ctrl.forwardingUrl}}">updated booking service</a> instead
+            </span>
+            <span class="error" ng-show="ctrl.bookingRuleExclusionAdditionFailed && !ctrl.isReadonly && !ctrl.isRetired && !ctrl.tooManyExclusions && !ctrl.unauthenticatedBookingRulesError">
               Apologies - something has gone wrong whilst adding the excluded date.
             </span>
           </div>
         </p>
       </div>
-      <button class="btn btn-danger delete-rule-button" ng-click="ctrl.deleteRule(ctrl.ruleIndex(bookingRule))">Delete Rule</button>
+      <button ng-disabled="ctrl.isReadonly || ctrl.isRetired" class="btn btn-danger delete-rule-button" ng-click="ctrl.deleteRule(ctrl.ruleIndex(bookingRule))">Delete Rule</button>
       <div>
         <span class="error" ng-show="ctrl.bookingRuleDeletionFailed && ctrl.unauthenticatedBookingRulesError">
           You must login to manage booking rules.
         </span>
-        <span class="error" ng-show="ctrl.bookingRuleDeletionFailed && !ctrl.unauthenticatedBookingRulesError">
+        <span class="error" ng-show="ctrl.bookingRuleDeletionFailed && ctrl.isReadonly">
+          Apologies - failed to delete rule - booking rules are temporarily readonly whilst site maintenance is in progress.
+        </span>
+        <span class="error" ng-show="ctrl.bookingRuleDeletionFailed && ctrl.isRetired" >
+          Apologies - failed to delete rule - please use the <a ng-href="{{ctrl.forwardingUrl}}">updated booking service</a> instead
+        </span>
+        <span class="error" ng-show="ctrl.bookingRuleDeletionFailed && !ctrl.isReadonly && !ctrl.isRetired && !ctrl.unauthenticatedBookingRulesError">
           Apologies - something has gone wrong whilst deleting the rule.
         </span>
       </div>
     </div>
   </uib-accordion>
-  <div><button type="button" id="add-rule-button" class="btn btn-success btn-sm" ng-click="ctrl.showAddRuleForm()" ng-show="!ctrl.addRuleFormVisible">Add Rule...</button></div>
+  <div><button ng-disabled="ctrl.isReadonly || ctrl.isRetired" type="button" id="add-rule-button" class="btn btn-success btn-sm" ng-click="ctrl.showAddRuleForm()" ng-show="!ctrl.addRuleFormVisible">Add Rule...</button></div>
   <form novalidate class="booking-rule-form" ng-submit="ctrl.addNewRule(bookingRuleForm)" name="bookingRuleForm" ng-show="ctrl.addRuleFormVisible">
     <div class="form-container">
       <label for="rulename">Rule name:</label>
@@ -90,7 +109,7 @@ limitations under the License.-->
       <fieldset>
       <label for="datepicker-popup">First date to apply rule:</label>
       <input type="text" name="ruleDate" id="datepicker-popup" class="datepicker-popup" ng-model="ctrl.newRuleDate" uib-datepicker-popup is-open="ctrl.newRuleDatepickerPopupOpened" datepicker-options="ctrl.newRuleDatepickerOptions" show-button-bar="false" required>
-      <div id="date-div"><button type="button" class="btn btn-success btn-xs change-rule-start-date-button" ng-click="ctrl.openNewRuleDatepickerPopup()">Change <i class="glyphicon glyphicon-calendar"></i></button><span id="rule-date">{{ctrl.newRuleDate | date:'fullDate'}}</span></div>
+      <div id="date-div"><button ng-disabled="ctrl.isReadonly || ctrl.isRetired" type="button" class="btn btn-success btn-xs change-rule-start-date-button" ng-click="ctrl.openNewRuleDatepickerPopup()">Change <i class="glyphicon glyphicon-calendar"></i></button><span id="rule-date">{{ctrl.newRuleDate | date:'fullDate'}}</span></div>
       <span class="error" ng-show="bookingRuleForm.ruleDate.$error.required && bookingRuleForm.$submitted">
         Required
       </span>
@@ -119,7 +138,7 @@ limitations under the License.-->
         <select name="timeSlotSpan" id="timeslot-span-dropdown" ng-options="timeSlotSpan as timeSlotSpan for timeSlotSpan in ctrl.timeSlotSpans" ng-model="ctrl.newRuleTimeSlotSpan"></select>
       </div>
       </fieldset>
-      <button type="submit" class="rule-save-button">Save rule</button><button type="button" class="button-default add-rule-cancel-button" ng-click="ctrl.hideAddRuleForm()">Cancel</button>
+      <button ng-disabled="ctrl.isReadonly || ctrl.isRetired" type="submit" class="rule-save-button">Save rule</button><button ng-disabled="ctrl.isReadonly || ctrl.isRetired" type="button" class="button-default add-rule-cancel-button" ng-click="ctrl.hideAddRuleForm()">Cancel</button>
     </div>
   </form>
   <span class="error" ng-show="ctrl.bookingRuleCreationFailed && ctrl.tooManyRules">
@@ -131,13 +150,20 @@ limitations under the License.-->
   <span class="error" ng-show="ctrl.bookingRuleCreationFailed && ctrl.unauthenticatedBookingRulesError">
     You must login to manage booking rules.
   </span>
-  <span class="error" ng-show="ctrl.bookingRuleCreationFailed && !ctrl.tooManyExclusions && !ctrl.newRuleWouldClash && !ctrl.unauthenticatedBookingRulesError">
+  <span class="error" ng-show="ctrl.bookingRuleCreationFailed && ctrl.isReadonly">
+    Apologies - failed to add new rule - booking rules are temporarily readonly whilst site maintenance is in progress.
+  </span>
+  <span class="error" ng-show="ctrl.bookingRuleCreationFailed && ctrl.isRetired" >
+    Apologies - failed to add new rule - please use the <a ng-href="{{ctrl.forwardingUrl}}">updated booking service</a> instead
+  </span>
+  <span class="error" ng-show="ctrl.bookingRuleCreationFailed && !ctrl.isReadonly && !ctrl.isRetired && !ctrl.tooManyExclusions && !ctrl.newRuleWouldClash && !ctrl.unauthenticatedBookingRulesError">
     Apologies - something has gone wrong whilst adding the new rule.
   </span>
   <p>
     <button type="button" class="button-default" ng-click="ctrl.returnToBookings()">Return to bookings table</button>
   </p>
 </div>
+<div ng-show="ctrl.isRetired" class="maintenance-banner">Apologies - please use the <a ng-href="{{ctrl.forwardingUrl}}">updated booking service</a> instead</div>
 <div ng-show="ctrl.loadFailure">
   Apologies - something has gone wrong...
 </div>

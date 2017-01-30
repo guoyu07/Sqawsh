@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Robin Steel
+ * Copyright 2016-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,13 +63,13 @@ public class RuleManagerTest {
   LambdaLogger mockLogger;
   IBookingManager mockBookingManager;
   IOptimisticPersister mockOptimisticPersister;
+  ILifecycleManager mockLifecycleManager;
   AmazonSNS mockSNSClient;
 
   // Create some example booking rules to test with
   BookingRule existingThursdayNonRecurringRule;
   BookingRule existingFridayRecurringRuleWithoutExclusions;
   BookingRule existingSaturdayRecurringRuleWithExclusion;
-  BookingRule newNonRecurringRule;
 
   // Create Booking to use for the existing rules
   String ruleBookingDate;
@@ -122,6 +122,14 @@ public class RuleManagerTest {
     mockBookingManager = mockery.mock(IBookingManager.class);
     mockOptimisticPersister = mockery.mock(IOptimisticPersister.class);
 
+    // Set up mock lifecycle manager
+    mockLifecycleManager = mockery.mock(ILifecycleManager.class);
+    mockery.checking(new Expectations() {
+      {
+        ignoring(mockLifecycleManager);
+      }
+    });
+
     // Set up the rule manager
     fakeCurrentSaturdayDate = LocalDate.of(2015, 12, 24);
     fakeCurrentSaturdayDateString = fakeCurrentSaturdayDate.format(DateTimeFormatter
@@ -145,7 +153,7 @@ public class RuleManagerTest {
         oneOf(mockOptimisticPersister).initialise(with.intIs(anything()), with(anything()));
       }
     });
-    ruleManager.initialise(mockBookingManager, mockLogger);
+    ruleManager.initialise(mockBookingManager, mockLifecycleManager, mockLogger);
   }
 
   private void expectOptimisticPersisterToReturnVersionedAttributes(int expectedVersion)
@@ -249,7 +257,8 @@ public class RuleManagerTest {
   private void expectBookingManagerCall(Booking bookingToCreate) throws Exception {
     mockery.checking(new Expectations() {
       {
-        oneOf(mockBookingManager).createBooking(with(equal(bookingToCreate)));
+        oneOf(mockBookingManager).createBooking(with(equal(bookingToCreate)),
+            with.booleanIs(equal(false)));
       }
     });
   }
@@ -362,7 +371,7 @@ public class RuleManagerTest {
     }
 
     // ACT
-    return ruleManager.createRule(ruleToCreate);
+    return ruleManager.createRule(ruleToCreate, true);
   }
 
   @Test
@@ -376,7 +385,7 @@ public class RuleManagerTest {
 
     // ACT
     // Initialise a second time - which should throw
-    ruleManager.initialise(mockBookingManager, mockLogger);
+    ruleManager.initialise(mockBookingManager, mockLifecycleManager, mockLogger);
   }
 
   @Test
@@ -442,8 +451,9 @@ public class RuleManagerTest {
     });
 
     // ACT
-    // This should throw - albeit after three tries internally
-    ruleManager.createRule(nonClashingRule);
+    // This should throw - albeit after three tries internally.
+    // N.B. The second parameter is arbitrary here.
+    ruleManager.createRule(nonClashingRule, true);
   }
 
   @Test
@@ -486,7 +496,8 @@ public class RuleManagerTest {
 
     // ACT
     // This should _not_ throw - we are allowed three tries
-    ruleManager.createRule(nonClashingRule);
+    // N.B. The second parameter is arbitrary here.
+    ruleManager.createRule(nonClashingRule, true);
   }
 
   @Test
@@ -498,7 +509,8 @@ public class RuleManagerTest {
 
     // ACT
     // Do not initialise the rule manager first - so createRule should throw
-    ruleManager.createRule(existingThursdayNonRecurringRule);
+    // N.B. The second parameter is arbitrary here.
+    ruleManager.createRule(existingThursdayNonRecurringRule, true);
   }
 
   @Test
@@ -902,6 +914,35 @@ public class RuleManagerTest {
   }
 
   @Test
+  public void testCreateRuleThrowsIfLifecycleManagerThrows() throws Exception {
+    // The lifecycle manager signifies rule creation is invalid in current
+    // lifecycle state by throwing. This checks any such throw is thrown on by
+    // the rule manager.
+
+    // ARRANGE
+
+    thrown.expect(Exception.class);
+    String message = "Test lifecycle manager exception";
+    thrown.expectMessage(message);
+
+    // Set up mock lifecycle manager to throw
+    mockLifecycleManager = mockery.mock(ILifecycleManager.class, "replacementLifecycleManagerMock");
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockLifecycleManager).throwIfOperationInvalidForCurrentLifecycleState(
+            with.booleanIs(anything()), with.booleanIs(anything()));
+        will(throwException(new Exception(message)));
+      }
+    });
+    initialiseRuleManager();
+
+    // ACT and ASSERT
+    // N.B. Parameters are arbitrary here - since it should throw before using
+    // them.
+    ruleManager.createRule(existingThursdayNonRecurringRule, true);
+  }
+
+  @Test
   public void testGetRulesThrowsWhenRuleManagerUninitialised() throws Exception {
 
     // ARRANGE
@@ -910,7 +951,8 @@ public class RuleManagerTest {
 
     // ACT
     // Do not initialise the rule manager first - so getRules should throw
-    ruleManager.getRules();
+    // N.B. The parameter is arbitrary here.
+    ruleManager.getRules(true);
   }
 
   @Test
@@ -921,7 +963,8 @@ public class RuleManagerTest {
     expectOptimisticPersisterToReturnVersionedAttributes(1);
 
     // ACT
-    List<BookingRule> returnedBookingRules = ruleManager.getRules();
+    // N.B. The parameter is arbitrary here.
+    List<BookingRule> returnedBookingRules = ruleManager.getRules(true);
 
     // Assert lists equal - ignoring order
     assertTrue(
@@ -949,7 +992,8 @@ public class RuleManagerTest {
     expectOptimisticPersisterToReturnVersionedAttributes(2, existingRules);
 
     // ACT
-    List<BookingRule> returnedBookingRules = ruleManager.getRules();
+    // N.B. The parameter is arbitrary here.
+    List<BookingRule> returnedBookingRules = ruleManager.getRules(true);
 
     // Assert lists equal - ignoring order
     assertTrue(
@@ -967,7 +1011,36 @@ public class RuleManagerTest {
     expectOptimisticPersisterToReturnVersionedAttributes(1);
 
     // ACT
-    ruleManager.getRules();
+    // N.B. The parameter is arbitrary here.
+    ruleManager.getRules(true);
+  }
+
+  @Test
+  public void testGetRulesThrowsIfLifecycleManagerThrows() throws Exception {
+    // The lifecycle manager signifies rule retrieval is invalid in current
+    // lifecycle state by throwing. This checks any such throw is thrown on by
+    // the rule manager.
+
+    // ARRANGE
+
+    thrown.expect(Exception.class);
+    String message = "Test lifecycle manager exception";
+    thrown.expectMessage(message);
+
+    // Set up mock lifecycle manager to throw
+    mockLifecycleManager = mockery.mock(ILifecycleManager.class, "replacementLifecycleManagerMock");
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockLifecycleManager).throwIfOperationInvalidForCurrentLifecycleState(
+            with.booleanIs(anything()), with.booleanIs(anything()));
+        will(throwException(new Exception(message)));
+      }
+    });
+    initialiseRuleManager();
+
+    // ACT and ASSERT
+    // N.B. The parameter is arbitrary here.
+    ruleManager.getRules(true);
   }
 
   @Test
@@ -979,7 +1052,8 @@ public class RuleManagerTest {
 
     // ACT
     // Do not initialise the rule manager first - so deleteRule should throw
-    ruleManager.deleteRule(existingFridayRecurringRuleWithoutExclusions);
+    // N.B. The second parameter is arbitrary here.
+    ruleManager.deleteRule(existingFridayRecurringRuleWithoutExclusions, true);
   }
 
   @Test
@@ -992,7 +1066,36 @@ public class RuleManagerTest {
     expectToDeleteRulesViaOptimisticPersister(rulesToDelete);
 
     // ACT
-    ruleManager.deleteRule(existingFridayRecurringRuleWithoutExclusions);
+    // N.B. The second parameter is arbitrary here.
+    ruleManager.deleteRule(existingFridayRecurringRuleWithoutExclusions, true);
+  }
+
+  @Test
+  public void testDeleteRuleThrowsIfLifecycleManagerThrows() throws Exception {
+    // The lifecycle manager signifies rule deletion is invalid in current
+    // lifecycle state by throwing. This checks any such throw is thrown on by
+    // the rule manager.
+
+    // ARRANGE
+
+    thrown.expect(Exception.class);
+    String message = "Test lifecycle manager exception";
+    thrown.expectMessage(message);
+
+    // Set up mock lifecycle manager to throw
+    mockLifecycleManager = mockery.mock(ILifecycleManager.class, "replacementLifecycleManagerMock");
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockLifecycleManager).throwIfOperationInvalidForCurrentLifecycleState(
+            with.booleanIs(anything()), with.booleanIs(anything()));
+        will(throwException(new Exception(message)));
+      }
+    });
+    initialiseRuleManager();
+
+    // ACT and ASSERT
+    // N.B. The second parameter is arbitrary here.
+    ruleManager.deleteRule(existingFridayRecurringRuleWithoutExclusions, true);
   }
 
   @Test
@@ -1004,8 +1107,37 @@ public class RuleManagerTest {
 
     // ACT
     // Do not initialise the rule manager first - so deleteAllBookingRules
-    // should throw
-    ruleManager.deleteAllBookingRules();
+    // should throw.
+    // N.B. The parameter is arbitrary here.
+    ruleManager.deleteAllBookingRules(false);
+  }
+
+  @Test
+  public void testDeleteAllBookingRulesThrowsIfLifecycleManagerThrows() throws Exception {
+    // The lifecycle manager signifies rule deletion is invalid in current
+    // lifecycle state by throwing. This checks any such throw is thrown on by
+    // the rule manager.
+
+    // ARRANGE
+
+    thrown.expect(Exception.class);
+    String message = "Test lifecycle manager exception";
+    thrown.expectMessage(message);
+
+    // Set up mock lifecycle manager to throw
+    mockLifecycleManager = mockery.mock(ILifecycleManager.class, "replacementLifecycleManagerMock");
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockLifecycleManager).throwIfOperationInvalidForCurrentLifecycleState(
+            with.booleanIs(anything()), with.booleanIs(anything()));
+        will(throwException(new Exception(message)));
+      }
+    });
+    initialiseRuleManager();
+
+    // ACT and ASSERT
+    // N.B. The parameter is arbitrary here.
+    ruleManager.deleteAllBookingRules(false);
   }
 
   @Test
@@ -1027,7 +1159,8 @@ public class RuleManagerTest {
 
     // ACT
     // This should throw
-    ruleManager.deleteRule(existingThursdayNonRecurringRule);
+    // N.B. The second parameter is arbitrary here.
+    ruleManager.deleteRule(existingThursdayNonRecurringRule, true);
   }
 
   @Test
@@ -1067,7 +1200,8 @@ public class RuleManagerTest {
 
     // ACT
     // This should throw - albeit after three tries
-    ruleManager.deleteAllBookingRules();
+    // N.B. The parameter is arbitrary here.
+    ruleManager.deleteAllBookingRules(false);
   }
 
   @Test
@@ -1108,7 +1242,8 @@ public class RuleManagerTest {
 
     // ACT
     // This should _not_ throw - we are allowed three tries
-    ruleManager.deleteAllBookingRules();
+    // N.B. The parameter is arbitrary here.
+    ruleManager.deleteAllBookingRules(false);
   }
 
   @Test
@@ -1120,7 +1255,8 @@ public class RuleManagerTest {
     expectToDeleteRulesViaOptimisticPersister(existingBookingRules);
 
     // ACT
-    ruleManager.deleteAllBookingRules();
+    // N.B. The parameter is arbitrary here.
+    ruleManager.deleteAllBookingRules(false);
   }
 
   @Test
@@ -1143,7 +1279,8 @@ public class RuleManagerTest {
 
     // ACT
     // This should throw
-    ruleManager.deleteAllBookingRules();
+    // N.B. The parameter is arbitrary here.
+    ruleManager.deleteAllBookingRules(false);
   }
 
   @Test
@@ -1165,8 +1302,9 @@ public class RuleManagerTest {
         true, existingSaturdayRecurringRuleWithExclusion);
 
     // ACT
+    // N.B. The third parameter is arbitrary here.
     Optional<BookingRule> updatedRule = ruleManager.addRuleExclusion(saturdayExclusionDate,
-        existingSaturdayRecurringRuleWithExclusion);
+        existingSaturdayRecurringRuleWithExclusion, true);
 
     // ASSERT
     String[] newExcludeDates = new String[] {
@@ -1187,7 +1325,8 @@ public class RuleManagerTest {
     // ACT
     // Do not initialise the rule manager first - so addRuleExclusion should
     // throw
-    ruleManager.addRuleExclusion("2016-08-26", existingFridayRecurringRuleWithoutExclusions);
+    // N.B. The third parameter is arbitrary here.
+    ruleManager.addRuleExclusion("2016-08-26", existingFridayRecurringRuleWithoutExclusions, true);
   }
 
   @Test
@@ -1217,7 +1356,8 @@ public class RuleManagerTest {
 
     // ACT
     // This should throw
-    ruleManager.addRuleExclusion(exclusionDate, existingFridayRecurringRuleWithoutExclusions);
+    // N.B. The third parameter is arbitrary here.
+    ruleManager.addRuleExclusion(exclusionDate, existingFridayRecurringRuleWithoutExclusions, true);
   }
 
   @Test
@@ -1251,7 +1391,8 @@ public class RuleManagerTest {
 
     // ACT
     // This should throw - albeit after three tries internally
-    ruleManager.addRuleExclusion(exclusionDate, existingFridayRecurringRuleWithoutExclusions);
+    // N.B. The third parameter is arbitrary here.
+    ruleManager.addRuleExclusion(exclusionDate, existingFridayRecurringRuleWithoutExclusions, true);
   }
 
   @Test
@@ -1290,7 +1431,8 @@ public class RuleManagerTest {
 
     // ACT
     // This should _not_ throw - we are allowed three tries internally
-    ruleManager.addRuleExclusion(exclusionDate, existingFridayRecurringRuleWithoutExclusions);
+    // N.B. The third parameter is arbitrary here.
+    ruleManager.addRuleExclusion(exclusionDate, existingFridayRecurringRuleWithoutExclusions, true);
   }
 
   @Test
@@ -1311,7 +1453,8 @@ public class RuleManagerTest {
     nonExistentRule.setIsRecurring(false);
 
     // ACT
-    ruleManager.addRuleExclusion("2016-08-26", nonExistentRule);
+    // N.B. The third parameter is arbitrary here.
+    ruleManager.addRuleExclusion("2016-08-26", nonExistentRule, true);
   }
 
   @Test
@@ -1326,7 +1469,8 @@ public class RuleManagerTest {
     expectOptimisticPersisterToReturnVersionedAttributes(2); // 2 arbitrary
 
     // ACT
-    ruleManager.addRuleExclusion("2016-08-26", existingThursdayNonRecurringRule);
+    // N.B. The third parameter is arbitrary here.
+    ruleManager.addRuleExclusion("2016-08-26", existingThursdayNonRecurringRule, true);
   }
 
   @Test
@@ -1348,9 +1492,10 @@ public class RuleManagerTest {
 
     // ACT
     // Try to add exclusion that already exists
+    // N.B. The third parameter is arbitrary here.
     Optional<BookingRule> updatedRule = ruleManager.addRuleExclusion(
         existingSaturdayRecurringRuleWithExclusion.getDatesToExclude()[0],
-        existingSaturdayRecurringRuleWithExclusion);
+        existingSaturdayRecurringRuleWithExclusion, true);
 
     // ASSERT
     // No updated rule should be returned - since no change was made.
@@ -1369,8 +1514,10 @@ public class RuleManagerTest {
     expectOptimisticPersisterToReturnVersionedAttributes(2); // 2 arbitrary
 
     // ACT
+    // N.B. The third parameter is arbitrary here.
     String fridayExclusionDate = "2016-08-26";
-    ruleManager.addRuleExclusion(fridayExclusionDate, existingSaturdayRecurringRuleWithExclusion);
+    ruleManager.addRuleExclusion(fridayExclusionDate, existingSaturdayRecurringRuleWithExclusion,
+        true);
   }
 
   @Test
@@ -1390,8 +1537,9 @@ public class RuleManagerTest {
         .format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
 
     // ACT
+    // N.B. The third parameter is arbitrary here.
     ruleManager.addRuleExclusion(saturdayExclusionDateBeforeRuleStarts,
-        existingSaturdayRecurringRuleWithExclusion);
+        existingSaturdayRecurringRuleWithExclusion, true);
   }
 
   @Test
@@ -1422,7 +1570,8 @@ public class RuleManagerTest {
         .format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
 
     // ACT
-    ruleManager.addRuleExclusion(weekAfterStart, existingSaturdayRecurringRuleWithExclusion);
+    // N.B. The third parameter is arbitrary here.
+    ruleManager.addRuleExclusion(weekAfterStart, existingSaturdayRecurringRuleWithExclusion, true);
   }
 
   @Test
@@ -1447,7 +1596,38 @@ public class RuleManagerTest {
 
     // ACT
     // This should throw as adding it would exceed the maximum number
-    ruleManager.addRuleExclusion(saturdayExclusionDate, existingSaturdayRecurringRuleWithExclusion);
+    // N.B. The third parameter is arbitrary here.
+    ruleManager.addRuleExclusion(saturdayExclusionDate, existingSaturdayRecurringRuleWithExclusion,
+        true);
+  }
+
+  @Test
+  public void testAddRuleExclusionThrowsIfLifecycleManagerThrows() throws Exception {
+    // The lifecycle manager signifies rule exclusion creation is invalid in
+    // current lifecycle state by throwing. This checks any such throw is thrown
+    // on by the rule manager.
+
+    // ARRANGE
+
+    thrown.expect(Exception.class);
+    String message = "Test lifecycle manager exception";
+    thrown.expectMessage(message);
+
+    // Set up mock lifecycle manager to throw
+    mockLifecycleManager = mockery.mock(ILifecycleManager.class, "replacementLifecycleManagerMock");
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockLifecycleManager).throwIfOperationInvalidForCurrentLifecycleState(
+            with.booleanIs(anything()), with.booleanIs(anything()));
+        will(throwException(new Exception(message)));
+      }
+    });
+    initialiseRuleManager();
+
+    // ACT and ASSERT
+    // N.B. The parameters are arbitrary here - as we should throw before using
+    // them.
+    ruleManager.addRuleExclusion("2020-03-03", existingSaturdayRecurringRuleWithExclusion, true);
   }
 
   @Test
@@ -1465,9 +1645,10 @@ public class RuleManagerTest {
         existingSaturdayRecurringRuleWithExclusion);
 
     // ACT
+    // N.B. The third parameter is arbitrary here.
     Optional<BookingRule> updatedRule = ruleManager.deleteRuleExclusion(
         existingSaturdayRecurringRuleWithExclusion.getDatesToExclude()[0],
-        existingSaturdayRecurringRuleWithExclusion);
+        existingSaturdayRecurringRuleWithExclusion, true);
 
     // ASSERT
     assertTrue("The updated rule should be returned", updatedRule.isPresent());
@@ -1485,7 +1666,8 @@ public class RuleManagerTest {
     // ACT
     // Do not initialise the rule manager first - so deleteRuleExclusion should
     // throw
-    ruleManager.deleteRuleExclusion("2016-09-17", existingSaturdayRecurringRuleWithExclusion);
+    // N.B. The third parameter is arbitrary here.
+    ruleManager.deleteRuleExclusion("2016-09-17", existingSaturdayRecurringRuleWithExclusion, true);
   }
 
   @Test
@@ -1511,9 +1693,10 @@ public class RuleManagerTest {
 
     // ACT
     // This should throw
+    // N.B. The third parameter is arbitrary here.
     ruleManager.deleteRuleExclusion(
         existingSaturdayRecurringRuleWithExclusion.getDatesToExclude()[0],
-        existingSaturdayRecurringRuleWithExclusion);
+        existingSaturdayRecurringRuleWithExclusion, true);
   }
 
   @Test
@@ -1543,9 +1726,10 @@ public class RuleManagerTest {
 
     // ACT
     // This should throw - albeit after three tries internally
+    // N.B. The third parameter is arbitrary here.
     ruleManager.deleteRuleExclusion(
         existingSaturdayRecurringRuleWithExclusion.getDatesToExclude()[0],
-        existingSaturdayRecurringRuleWithExclusion);
+        existingSaturdayRecurringRuleWithExclusion, true);
   }
 
   @Test
@@ -1580,9 +1764,10 @@ public class RuleManagerTest {
 
     // ACT
     // This should _not_ throw - as we're allowed three tries
+    // N.B. The third parameter is arbitrary here.
     ruleManager.deleteRuleExclusion(
         existingSaturdayRecurringRuleWithExclusion.getDatesToExclude()[0],
-        existingSaturdayRecurringRuleWithExclusion);
+        existingSaturdayRecurringRuleWithExclusion, true);
   }
 
   @Test
@@ -1608,8 +1793,9 @@ public class RuleManagerTest {
     nonExistentRule.getBooking().setName("A.NewPlayer/B.NewPlayer");
 
     // ACT
+    // N.B. The third parameter is arbitrary here.
     Optional<BookingRule> updatedRule = ruleManager.deleteRuleExclusion(
-        nonExistentRule.getDatesToExclude()[0], nonExistentRule);
+        nonExistentRule.getDatesToExclude()[0], nonExistentRule, true);
 
     // ASSERT
     assertTrue("The updated rule should be empty", !updatedRule.isPresent());
@@ -1641,8 +1827,9 @@ public class RuleManagerTest {
     });
 
     // ACT
+    // N.B. The third parameter is arbitrary here.
     Optional<BookingRule> updatedRule = ruleManager.deleteRuleExclusion(
-        existingSaturdayRecurringRuleWithExclusion.getDatesToExclude()[0], noExclusionRule);
+        existingSaturdayRecurringRuleWithExclusion.getDatesToExclude()[0], noExclusionRule, true);
 
     // ASSERT
     assertTrue("The updated rule should be empty", !updatedRule.isPresent());
@@ -1674,9 +1861,39 @@ public class RuleManagerTest {
 
     // ACT
     // Attempt to remove the exclusion to expose the latent clash
+    // N.B. The third parameter is arbitrary here.
     ruleManager.deleteRuleExclusion(
         existingSaturdayRecurringRuleWithExclusion.getDatesToExclude()[0],
-        existingSaturdayRecurringRuleWithExclusion);
+        existingSaturdayRecurringRuleWithExclusion, true);
+  }
+
+  @Test
+  public void testDeleteRuleExclusionThrowsIfLifecycleManagerThrows() throws Exception {
+    // The lifecycle manager signifies rule exclusion deletion is invalid in
+    // current lifecycle state by throwing. This checks any such throw is thrown
+    // on by the rule manager.
+
+    // ARRANGE
+
+    thrown.expect(Exception.class);
+    String message = "Test lifecycle manager exception";
+    thrown.expectMessage(message);
+
+    // Set up mock lifecycle manager to throw
+    mockLifecycleManager = mockery.mock(ILifecycleManager.class, "replacementLifecycleManagerMock");
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockLifecycleManager).throwIfOperationInvalidForCurrentLifecycleState(
+            with.booleanIs(anything()), with.booleanIs(anything()));
+        will(throwException(new Exception(message)));
+      }
+    });
+    initialiseRuleManager();
+
+    // ACT and ASSERT
+    // N.B. The parameters are arbitrary here - as we should throw before using
+    // them.
+    ruleManager.deleteRuleExclusion("2020-03-03", existingSaturdayRecurringRuleWithExclusion, true);
   }
 
   @Test
@@ -1688,7 +1905,8 @@ public class RuleManagerTest {
 
     // ACT
     // Do not initialise the rule manager first - so applyRules should throw
-    ruleManager.applyRules(existingSaturdayRecurringRuleWithExclusion.getBooking().getDate());
+    ruleManager
+        .applyRules(existingSaturdayRecurringRuleWithExclusion.getBooking().getDate(), false);
   }
 
   @Test
@@ -1719,7 +1937,8 @@ public class RuleManagerTest {
 
     // ACT
     // This should throw
-    ruleManager.applyRules(existingSaturdayRecurringRuleWithExclusion.getBooking().getDate());
+    ruleManager
+        .applyRules(existingSaturdayRecurringRuleWithExclusion.getBooking().getDate(), false);
   }
 
   @Test
@@ -1735,7 +1954,7 @@ public class RuleManagerTest {
 
     mockery.checking(new Expectations() {
       {
-        oneOf(mockBookingManager).createBooking(with(anything()));
+        oneOf(mockBookingManager).createBooking(with(anything()), with.booleanIs(anything()));
         will(throwException(new Exception(message)));
       }
     });
@@ -1751,7 +1970,8 @@ public class RuleManagerTest {
 
     // ACT
     // This should throw
-    ruleManager.applyRules(existingSaturdayRecurringRuleWithExclusion.getBooking().getDate());
+    ruleManager
+        .applyRules(existingSaturdayRecurringRuleWithExclusion.getBooking().getDate(), false);
   }
 
   @Test
@@ -1771,7 +1991,7 @@ public class RuleManagerTest {
 
     mockery.checking(new Expectations() {
       {
-        oneOf(mockBookingManager).createBooking(with(anything()));
+        oneOf(mockBookingManager).createBooking(with(anything()), with.booleanIs(anything()));
         will(throwException(new Exception(message)));
       }
     });
@@ -1789,7 +2009,8 @@ public class RuleManagerTest {
 
     // ACT
     // This should throw - and notify the SNS topic
-    ruleManager.applyRules(existingSaturdayRecurringRuleWithExclusion.getBooking().getDate());
+    ruleManager
+        .applyRules(existingSaturdayRecurringRuleWithExclusion.getBooking().getDate(), false);
   }
 
   @Test
@@ -1805,7 +2026,7 @@ public class RuleManagerTest {
 
     // ACT
     // This should create a booking
-    ruleManager.applyRules(existingThursdayNonRecurringRule.getBooking().getDate());
+    ruleManager.applyRules(existingThursdayNonRecurringRule.getBooking().getDate(), false);
   }
 
   @Test
@@ -1822,7 +2043,7 @@ public class RuleManagerTest {
     // ACT
     // This should create a booking
     List<Booking> bookings = ruleManager.applyRules(existingThursdayNonRecurringRule.getBooking()
-        .getDate());
+        .getDate(), false);
 
     // ASSERT
     assertTrue("Unexpected bookings returned by applyRules",
@@ -1848,7 +2069,7 @@ public class RuleManagerTest {
 
     // ACT
     // This should not create a booking
-    ruleManager.applyRules(applyDate);
+    ruleManager.applyRules(applyDate, false);
   }
 
   @Test
@@ -1865,7 +2086,8 @@ public class RuleManagerTest {
 
     // ACT
     // This should create a booking
-    ruleManager.applyRules(existingFridayRecurringRuleWithoutExclusions.getBooking().getDate());
+    ruleManager.applyRules(existingFridayRecurringRuleWithoutExclusions.getBooking().getDate(),
+        false);
   }
 
   @Test
@@ -1890,7 +2112,7 @@ public class RuleManagerTest {
 
     // ACT
     // This should create a booking
-    ruleManager.applyRules(newBookingDate);
+    ruleManager.applyRules(newBookingDate, false);
   }
 
   @Test
@@ -1905,13 +2127,14 @@ public class RuleManagerTest {
     expectPurgeExpiredRulesAndRuleExclusions(42, existingBookingRules);
     mockery.checking(new Expectations() {
       {
-        never(mockBookingManager).createBooking(with(anything()));
+        never(mockBookingManager).createBooking(with(anything()), with.booleanIs(anything()));
       }
     });
 
     // ACT
     // This should not create a booking
-    ruleManager.applyRules(existingSaturdayRecurringRuleWithExclusion.getDatesToExclude()[0]);
+    ruleManager
+        .applyRules(existingSaturdayRecurringRuleWithExclusion.getDatesToExclude()[0], false);
   }
 
   @Test
@@ -1926,7 +2149,7 @@ public class RuleManagerTest {
     expectPurgeExpiredRulesAndRuleExclusions(42, existingBookingRules);
     mockery.checking(new Expectations() {
       {
-        never(mockBookingManager).createBooking(with(anything()));
+        never(mockBookingManager).createBooking(with(anything()), with.booleanIs(anything()));
       }
     });
 
@@ -1937,7 +2160,7 @@ public class RuleManagerTest {
 
     // ACT
     // This should not create a booking
-    ruleManager.applyRules(earlierDate);
+    ruleManager.applyRules(earlierDate, false);
   }
 
   @Test
@@ -1951,7 +2174,7 @@ public class RuleManagerTest {
     expectPurgeExpiredRulesAndRuleExclusions(42, existingBookingRules);
     mockery.checking(new Expectations() {
       {
-        never(mockBookingManager).createBooking(with(anything()));
+        never(mockBookingManager).createBooking(with(anything()), with.booleanIs(anything()));
       }
     });
 
@@ -1962,7 +2185,7 @@ public class RuleManagerTest {
 
     // ACT
     // This should not create a booking - none of our rules are for mondays
-    ruleManager.applyRules(monday);
+    ruleManager.applyRules(monday, false);
   }
 
   @Test
@@ -1975,7 +2198,7 @@ public class RuleManagerTest {
     expectPurgeExpiredRulesAndRuleExclusions(42, existingBookingRules);
     mockery.checking(new Expectations() {
       {
-        never(mockBookingManager).createBooking(with(anything()));
+        never(mockBookingManager).createBooking(with(anything()), with.booleanIs(anything()));
       }
     });
 
@@ -1986,7 +2209,7 @@ public class RuleManagerTest {
 
     // ACT
     // This should be tolerated even though the date is in the past
-    ruleManager.applyRules(pastDate);
+    ruleManager.applyRules(pastDate, false);
   }
 
   @Test
@@ -2015,7 +2238,7 @@ public class RuleManagerTest {
 
     // ACT
     // This should create two bookings for the specified date
-    ruleManager.applyRules(sameDayRule.getBooking().getDate());
+    ruleManager.applyRules(sameDayRule.getBooking().getDate(), false);
   }
 
   @Test
@@ -2048,7 +2271,7 @@ public class RuleManagerTest {
 
     // ACT
     // This should create two bookings for the specified date
-    List<Booking> bookings = ruleManager.applyRules(sameDayRule.getBooking().getDate());
+    List<Booking> bookings = ruleManager.applyRules(sameDayRule.getBooking().getDate(), false);
 
     // ASSERT
     assertTrue("Unexpected bookings returned by applyRules", bookings.equals(expectedBookings));
@@ -2078,7 +2301,7 @@ public class RuleManagerTest {
 
     // ACT
     // This should delete the (expired) Thursday rule
-    ruleManager.applyRules(dayAfterThursday);
+    ruleManager.applyRules(dayAfterThursday, false);
   }
 
   @Test
@@ -2107,6 +2330,35 @@ public class RuleManagerTest {
 
     // ACT
     // This should delete the (expired) Thursday rule
-    ruleManager.applyRules(daysAfterExclusionDate);
+    ruleManager.applyRules(daysAfterExclusionDate, false);
+  }
+
+  @Test
+  public void testApplyRulesThrowsIfLifecycleManagerThrows() throws Exception {
+    // The lifecycle manager signifies rule application is invalid in
+    // current lifecycle state by throwing. This checks any such throw is thrown
+    // on by the rule manager.
+
+    // ARRANGE
+
+    thrown.expect(Exception.class);
+    String message = "Test lifecycle manager exception";
+    thrown.expectMessage(message);
+
+    // Set up mock lifecycle manager to throw
+    mockLifecycleManager = mockery.mock(ILifecycleManager.class, "replacementLifecycleManagerMock");
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockLifecycleManager).throwIfOperationInvalidForCurrentLifecycleState(
+            with.booleanIs(anything()), with.booleanIs(anything()));
+        will(throwException(new Exception(message)));
+      }
+    });
+    initialiseRuleManager();
+
+    // ACT and ASSERT
+    // N.B. The parameters are arbitrary here - as we should throw before using
+    // them.
+    ruleManager.applyRules("2020-03-03", true);
   }
 }

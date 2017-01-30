@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2016 Robin Steel
+ * Copyright 2015-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,9 @@ import squash.booking.lambdas.core.BackupManager;
 import squash.booking.lambdas.core.BookingManager;
 import squash.booking.lambdas.core.IBackupManager;
 import squash.booking.lambdas.core.IBookingManager;
+import squash.booking.lambdas.core.ILifecycleManager;
 import squash.booking.lambdas.core.IRuleManager;
+import squash.booking.lambdas.core.LifecycleManager;
 import squash.booking.lambdas.core.RuleManager;
 
 import com.amazonaws.services.lambda.runtime.Context;
@@ -41,11 +43,13 @@ public class RestoreBookingsAndBookingRulesLambda {
 
   private Optional<IBackupManager> backupManager;
   private Optional<IRuleManager> ruleManager;
+  private Optional<ILifecycleManager> lifecycleManager;
   private Optional<IBookingManager> bookingManager;
 
   public RestoreBookingsAndBookingRulesLambda() {
     backupManager = Optional.empty();
     ruleManager = Optional.empty();
+    lifecycleManager = Optional.empty();
     bookingManager = Optional.empty();
   }
 
@@ -56,9 +60,21 @@ public class RestoreBookingsAndBookingRulesLambda {
     // Use a getter here so unit tests can substitute a mock manager
     if (!ruleManager.isPresent()) {
       ruleManager = Optional.of(new RuleManager());
-      ruleManager.get().initialise(getBookingManager(logger), logger);
+      ruleManager.get().initialise(getBookingManager(logger), getLifecycleManager(logger), logger);
     }
     return ruleManager.get();
+  }
+
+  /**
+   * Returns the {@link squash.booking.lambdas.core.ILifecycleManager}.
+   */
+  protected ILifecycleManager getLifecycleManager(LambdaLogger logger) throws Exception {
+    // Use a getter here so unit tests can substitute a mock manager
+    if (!lifecycleManager.isPresent()) {
+      lifecycleManager = Optional.of(new LifecycleManager());
+      lifecycleManager.get().initialise(logger);
+    }
+    return lifecycleManager.get();
   }
 
   /**

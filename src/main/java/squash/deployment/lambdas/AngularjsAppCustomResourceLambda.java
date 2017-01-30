@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Robin Steel
+ * Copyright 2016-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ import com.amazonaws.services.s3.model.ListVersionsRequest;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.VersionListing;
-import com.amazonaws.services.s3.transfer.TransferManager;
+import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -358,6 +358,7 @@ public class AngularjsAppCustomResourceLambda implements
 
         websiteURL = "http://" + websiteBucket + ".s3-website-" + region
             + ".amazonaws.com/app/index.html";
+        ;
       } else if (requestType.equals("Delete")) {
         logger.log("Delete request - so deleting the app");
         deleteAngularjsApp(websiteBucket, logger);
@@ -389,7 +390,7 @@ public class AngularjsAppCustomResourceLambda implements
         .withBucketName(websiteBucket);
     VersionListing versionListing;
 
-    AmazonS3 client = new TransferManager().getAmazonS3Client();
+    AmazonS3 client = TransferManagerBuilder.defaultTransferManager().getAmazonS3Client();
     do {
       versionListing = client.listVersions(listVersionsRequest);
       versionListing

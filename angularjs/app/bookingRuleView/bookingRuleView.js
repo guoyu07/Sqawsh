@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Robin Steel
+ * Copyright 2016-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -50,6 +50,8 @@ angular.module('squashApp.bookingRuleView', ['ngRoute', 'squashApp.bookingsServi
 
     // Prevent gradual rendering on initial load
     self.initialLoadSucceeded = false
+    self.isRetired = false
+    self.isReadonly = false
     // Boolean used to show error ui when loading of the booking rules fails
     self.loadFailure = false
 
@@ -102,10 +104,20 @@ angular.module('squashApp.bookingRuleView', ['ngRoute', 'squashApp.bookingsServi
           self.refreshBookingRules()
         })
         .catch(function (error) {
-          if (typeof error.data !== 'undefined' && error.data.indexOf('too many exclusions') > -1) {
-            self.tooManyExclusions = true
-          } else if (typeof error.data !== 'undefined' && error.data.indexOf('You must login to manage booking rules') > -1) {
-            self.unauthenticatedBookingRulesError = true
+          if (typeof error.data !== 'undefined' && (error.data.hasOwnProperty('errorMessage'))) {
+            if (error.data.errorMessage.indexOf('too many exclusions') > -1) {
+              self.tooManyExclusions = true
+            } else if (error.data.errorMessage.startsWith('Cannot access bookings')) {
+              // Service is retired - so extract the forwarding url from the error message.
+              var message = error.data.errorMessage
+              var httpIndex = message.lastIndexOf('http')
+              self.forwardingUrl = message.substring(httpIndex)
+              self.isRetired = true
+            } else if (error.data.errorMessage.startsWith('Cannot mutate bookings or rules - booking service is temporarily readonly')) {
+              self.isReadonly = true
+            } else if (error.data.errorMessage.indexOf('You must login to manage booking rules') > -1) {
+              self.unauthenticatedBookingRulesError = true
+            }
           }
           self.bookingRuleExclusionAdditionFailed = true
           updateUi()
@@ -122,10 +134,20 @@ angular.module('squashApp.bookingRuleView', ['ngRoute', 'squashApp.bookingsServi
           self.refreshBookingRules()
         })
         .catch(function (error) {
-          if (typeof error.data !== 'undefined' && error.data.indexOf('latent clash exists') > -1) {
-            self.latentClashExists = true
-          } else if (typeof error.data !== 'undefined' && error.data.indexOf('You must login to manage booking rules') > -1) {
-            self.unauthenticatedBookingRulesError = true
+          if (typeof error.data !== 'undefined' && (error.data.hasOwnProperty('errorMessage'))) {
+            if (error.data.errorMessage.indexOf('latent clash exists') > -1) {
+              self.latentClashExists = true
+            } else if (error.data.errorMessage.startsWith('Cannot access bookings')) {
+              // Service is retired - so extract the forwarding url from the error message.
+              var message = error.data.errorMessage
+              var httpIndex = message.lastIndexOf('http')
+              self.forwardingUrl = message.substring(httpIndex)
+              self.isRetired = true
+            } else if (error.data.errorMessage.startsWith('Cannot mutate bookings or rules - booking service is temporarily readonly')) {
+              self.isReadonly = true
+            } else if (error.data.errorMessage.indexOf('You must login to manage booking rules') > -1) {
+              self.unauthenticatedBookingRulesError = true
+            }
           }
           self.bookingRuleExclusionDeletionFailed = true
           updateUi()
@@ -142,6 +164,8 @@ angular.module('squashApp.bookingRuleView', ['ngRoute', 'squashApp.bookingsServi
       self.bookingRuleDeletionFailed = false
       self.bookingRuleExclusionDeletionFailed = false
       self.unauthenticatedBookingRulesError = false
+      self.isRetired = false
+      self.isReadonly = false
       self.loadFailure = false
     }
 
@@ -149,7 +173,12 @@ angular.module('squashApp.bookingRuleView', ['ngRoute', 'squashApp.bookingsServi
       // Start asynchronous load of booking rules
       return BookingService.getBookingRules()
         .then(function (rules) {
-          self.bookingRules = rules
+          self.bookingRules = rules.bookingRules
+          self.lifecycleState = rules.lifecycleState
+          self.forwardingUrl = rules.forwardingUrl
+          if (self.lifecycleState.toUpperCase() === 'READONLY') {
+            self.isReadonly = true
+          }
         })
         .then(function () {
           // Need dates so can prevent rule creation for an already bookable date
@@ -166,7 +195,23 @@ angular.module('squashApp.bookingRuleView', ['ngRoute', 'squashApp.bookingsServi
           self.loadFailure = false
           updateUi()
         })
-        .catch(function (e) {
+        .catch(function (error) {
+          console.log('Error caught in refresh rules:')
+          console.dir(error)
+          if ((typeof error.data !== 'undefined') && (error.data.hasOwnProperty('errorMessage'))) {
+            if (error.data.errorMessage.startsWith('Cannot access bookings')) {
+              // Service is retired - so extract the forwarding url from the error message.
+              var message = error.data.errorMessage
+              var httpIndex = message.lastIndexOf('http')
+              self.forwardingUrl = message.substring(httpIndex)
+              self.isRetired = true
+              self.bookingRules = []
+              self.hideAddRuleForm()
+              self.loadFailure = false
+              updateUi()
+              return
+            }
+          }
           // Don't know how to recover from this one...
           // Set flag so UI can display a general failure message...
           self.loadFailure = true
@@ -243,12 +288,24 @@ angular.module('squashApp.bookingRuleView', ['ngRoute', 'squashApp.bookingsServi
           self.refreshBookingRules()
         })
         .catch(function (error) {
-          if (typeof error.data !== 'undefined' && error.data.indexOf('new rule would clash.') > -1) {
-            self.newRuleWouldClash = true
-          } else if (typeof error.data !== 'undefined' && error.data.indexOf('You must login to manage booking rules') > -1) {
-            self.unauthenticatedBookingRulesError = true
-          } else if (typeof error.data !== 'undefined' && error.data.indexOf('too many rules.') > -1) {
-            self.tooManyRules = true
+          console.log('Error caught in add rule:')
+          console.dir(error)
+          if (typeof error.data !== 'undefined' && (error.data.hasOwnProperty('errorMessage'))) {
+            if (error.data.errorMessage.indexOf('new rule would clash.') > -1) {
+              self.newRuleWouldClash = true
+            } else if (error.data.errorMessage.startsWith('Cannot access bookings')) {
+              // Service is retired - so extract the forwarding url from the error message.
+              var message = error.data.errorMessage
+              var httpIndex = message.lastIndexOf('http')
+              self.forwardingUrl = message.substring(httpIndex)
+              self.isRetired = true
+            } else if (error.data.errorMessage.startsWith('Cannot mutate bookings or rules - booking service is temporarily readonly')) {
+              self.isReadonly = true
+            } else if (error.data.errorMessage.indexOf('You must login to manage booking rules') > -1) {
+              self.unauthenticatedBookingRulesError = true
+            } else if (error.data.errorMessage.indexOf('too many rules.') > -1) {
+              self.tooManyRules = true
+            }
           }
           self.bookingRuleCreationFailed = true
           updateUi()
@@ -262,8 +319,18 @@ angular.module('squashApp.bookingRuleView', ['ngRoute', 'squashApp.bookingsServi
           self.refreshBookingRules()
         })
         .catch(function (error) {
-          if (typeof error.data !== 'undefined' && error.data.indexOf('You must login to manage booking rules') > -1) {
-            self.unauthenticatedBookingRulesError = true
+          if (typeof error.data !== 'undefined' && (error.data.hasOwnProperty('errorMessage'))) {
+            if (error.data.errorMessage.startsWith('Cannot access bookings')) {
+              // Service is retired - so extract the forwarding url from the error message.
+              var message = error.data.errorMessage
+              var httpIndex = message.lastIndexOf('http')
+              self.forwardingUrl = message.substring(httpIndex)
+              self.isRetired = true
+            } else if (error.data.errorMessage.startsWith('Cannot mutate bookings or rules - booking service is temporarily readonly')) {
+              self.isReadonly = true
+            } else if (error.data.errorMessage.indexOf('You must login to manage booking rules') > -1) {
+              self.unauthenticatedBookingRulesError = true
+            }
           }
           self.bookingRuleDeletionFailed = true
           self.hideAddRuleForm()

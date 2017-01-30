@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2016 Robin Steel
+ * Copyright 2015-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,8 @@ public interface IPageManager {
    * 
    * @throws Exception when initialisation fails.
    */
-  void initialise(IBookingManager bookingsManager, LambdaLogger logger) throws Exception;
+  void initialise(IBookingManager bookingsManager, ILifecycleManager lifecycleManager,
+      LambdaLogger logger) throws Exception;
 
   /**
    * Refreshes a bookings web page and cached JSON data for a specified date.

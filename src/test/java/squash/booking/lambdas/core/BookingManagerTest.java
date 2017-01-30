@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2016 Robin Steel
+ * Copyright 2015-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -64,6 +64,7 @@ public class BookingManagerTest {
   Context mockContext;
   LambdaLogger mockLogger;
   IOptimisticPersister mockOptimisticPersister;
+  ILifecycleManager mockLifecycleManager;
   AmazonSNS mockSNSClient;
 
   // Create some example bookings to test with
@@ -131,6 +132,14 @@ public class BookingManagerTest {
         ignoring(mockLogger);
       }
     });
+    // Set up mock lifecycle manager
+    mockLifecycleManager = mockery.mock(ILifecycleManager.class);
+    mockery.checking(new Expectations() {
+      {
+        ignoring(mockLifecycleManager);
+      }
+    });
+    bookingManager.setLifecycleManager(mockLifecycleManager);
     mockOptimisticPersister = mockery.mock(IOptimisticPersister.class);
     bookingManager.setOptimisticPersister(mockOptimisticPersister);
     adminSnsTopicArn = "adminSnsTopicArn";
@@ -188,6 +197,52 @@ public class BookingManagerTest {
     }
 
     bookingManager.setOptimisticPersister(mockOptimisticPersister);
+  }
+
+  private List<Booking> expectOptimisticPersisterGetAllItemsToReturnAllBookings(
+      boolean addNonBookingItems) {
+    // (the version number must be set here but its value is irrelevant)
+    List<ImmutablePair<String, List<Attribute>>> expectedDateAttributeListPairs = new ArrayList<>();
+    List<Attribute> attributes = new ArrayList<>();
+    // Add bookings that are not all on a single day.
+    List<Booking> bookingsForMoreThanOneDay = new ArrayList<>();
+    bookingsForMoreThanOneDay.add(existingSingleBooking);
+    Booking bookingForAnotherDay = new Booking(existingSingleBooking);
+    bookingForAnotherDay.setDate(LocalDate
+        .parse(existingSingleBooking.getDate(), DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+        .minusDays(1).format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
+    bookingsForMoreThanOneDay.add(bookingForAnotherDay);
+
+    bookingsForMoreThanOneDay.stream().forEach(
+        booking -> {
+          attributes.add(new Attribute(booking.getCourt().toString() + "-"
+              + booking.getCourtSpan().toString() + "-" + booking.getSlot().toString() + "-"
+              + booking.getSlotSpan().toString(), booking.getName()));
+          expectedDateAttributeListPairs.add(new ImmutablePair<>(booking.getDate(), attributes));
+        });
+
+    if (addNonBookingItems) {
+      // OptimisticPersister also has items for booking rules and lifecycle
+      // state. The booking manager should ignore these items when returning the
+      // bookings.
+      List<Attribute> nonBookingAttributes = new ArrayList<>();
+      nonBookingAttributes.add(new Attribute("Some attribute name", "Some arbitrary value"));
+      expectedDateAttributeListPairs
+          .add(new ImmutablePair<>("LifecycleState", nonBookingAttributes));
+      expectedDateAttributeListPairs.add(new ImmutablePair<>("BookingRulesAndExclusions",
+          nonBookingAttributes));
+    }
+
+    // Set up mock optimistic persister to return these bookings - or to throw
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockOptimisticPersister).getAllItems();
+        will(returnValue(expectedDateAttributeListPairs));
+      }
+    });
+    bookingManager.setOptimisticPersister(mockOptimisticPersister);
+
+    return bookingsForMoreThanOneDay;
   }
 
   private void expectOptimisticPersisterGetToReturnVersionedAttributesOrThrow(
@@ -275,6 +330,7 @@ public class BookingManagerTest {
     private String adminSnsTopicArn;
     private LocalDate currentLocalDate;
     private IOptimisticPersister optimisticPersister;
+    private ILifecycleManager lifecycleManager;
 
     public void setOptimisticPersister(IOptimisticPersister optimisticPersister) {
       this.optimisticPersister = optimisticPersister;
@@ -283,6 +339,15 @@ public class BookingManagerTest {
     @Override
     public IOptimisticPersister getOptimisticPersister() {
       return optimisticPersister;
+    }
+
+    public void setLifecycleManager(ILifecycleManager lifecycleManager) {
+      this.lifecycleManager = lifecycleManager;
+    }
+
+    @Override
+    public ILifecycleManager getLifecycleManager() {
+      return lifecycleManager;
     }
 
     public void setSNSClient(AmazonSNS snsClient) {
@@ -328,7 +393,8 @@ public class BookingManagerTest {
 
     // ACT
     // Do not initialise the booking manager first - so we should throw
-    bookingManager.getBookings(fakeCurrentDateString);
+    // N.B. Second parameter is arbitrary here.
+    bookingManager.getBookings(fakeCurrentDateString, true);
   }
 
   @Test
@@ -340,7 +406,8 @@ public class BookingManagerTest {
 
     // ACT
     // Do not initialise the booking manager first - so we should throw
-    bookingManager.getAllBookings();
+    // N.B. Parameter is arbitrary here.
+    bookingManager.getAllBookings(true);
   }
 
   @Test
@@ -349,37 +416,13 @@ public class BookingManagerTest {
     // ARRANGE
     initialiseBookingManager();
 
-    // (the version number must be set here but its value is irrelevant)
-    List<ImmutablePair<String, List<Attribute>>> expectedDateAttributeListPairs = new ArrayList<>();
-    List<Attribute> attributes = new ArrayList<>();
-    // Add bookings that are not all on a single day.
-    List<Booking> bookingsForMoreThanOneDay = new ArrayList<>();
-    bookingsForMoreThanOneDay.add(existingSingleBooking);
-    Booking bookingForAnotherDay = new Booking(existingSingleBooking);
-    bookingForAnotherDay.setDate(LocalDate
-        .parse(existingSingleBooking.getDate(), DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-        .minusDays(1).format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
-    bookingsForMoreThanOneDay.add(bookingForAnotherDay);
-
-    bookingsForMoreThanOneDay.stream().forEach(
-        booking -> {
-          attributes.add(new Attribute(booking.getCourt().toString() + "-"
-              + booking.getCourtSpan().toString() + "-" + booking.getSlot().toString() + "-"
-              + booking.getSlotSpan().toString(), booking.getName()));
-          expectedDateAttributeListPairs.add(new ImmutablePair<>(booking.getDate(), attributes));
-        });
-
-    // Set up mock optimistic persister to return these bookings - or to throw
-    mockery.checking(new Expectations() {
-      {
-        oneOf(mockOptimisticPersister).getAllItems();
-        will(returnValue(expectedDateAttributeListPairs));
-      }
-    });
-    bookingManager.setOptimisticPersister(mockOptimisticPersister);
+    // Expect bookings that are not all on a single day. Also expect presence of
+    // booking rules and lifecycle state in the database to be ignored.
+    List<Booking> bookingsForMoreThanOneDay = expectOptimisticPersisterGetAllItemsToReturnAllBookings(true);
 
     // ACT
-    List<Booking> actualBookings = bookingManager.getAllBookings();
+    // N.B. Parameter is arbitrary here.
+    List<Booking> actualBookings = bookingManager.getAllBookings(true);
 
     // ASSERT
     for (Booking expectedBooking : bookingsForMoreThanOneDay) {
@@ -387,6 +430,82 @@ public class BookingManagerTest {
       actualBookings.removeIf(booking -> booking.equals(expectedBooking));
     }
     assertTrue("More bookings than expected were returned", actualBookings.size() == 0);
+  }
+
+  @Test
+  public void testGetAllBookingsCorrectlyCallsTheLifecycleManagerWhenCalledFromUser()
+      throws Exception {
+    // Test getAllBookings calls the lifecycle manager to check booking
+    // retrieval is valid in current lifecycle state. This tests for when the
+    // call originates from an end-user - rather than e.g. from the system
+    // applying booking rules.
+
+    doTestGetAllBookingsCorrectlyCallsTheLifecycleManager(true);
+  }
+
+  @Test
+  public void testGetAllBookingsCorrectlyCallsTheLifecycleManagerWhenCalledFromSystem()
+      throws Exception {
+    // Test getAllBookings calls the lifecycle manager to check booking
+    // retrieval is valid in current lifecycle state. This tests for when the
+    // call originates from the system - e.g. from the system applying booking
+    // rules, rather than from an end user.
+
+    doTestGetAllBookingsCorrectlyCallsTheLifecycleManager(false);
+  }
+
+  private void doTestGetAllBookingsCorrectlyCallsTheLifecycleManager(boolean isSquashServiceUserCall)
+      throws Exception {
+
+    // ARRANGE
+    initialiseBookingManager();
+
+    // Set up mock lifecycle manager
+    mockLifecycleManager = mockery.mock(ILifecycleManager.class, "replacementLifecycleManagerMock");
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockLifecycleManager).throwIfOperationInvalidForCurrentLifecycleState(true,
+            isSquashServiceUserCall);
+      }
+    });
+    bookingManager.setLifecycleManager(mockLifecycleManager);
+
+    // Set up optimistic persister - this is incidental to the test, but needs
+    // to be setup for the test to run at all.
+    expectOptimisticPersisterGetAllItemsToReturnAllBookings(false);
+
+    // ACT
+    bookingManager.getAllBookings(isSquashServiceUserCall);
+  }
+
+  @Test
+  public void testGetAllBookingsThrowsIfLifecycleManagerThrows() throws Exception {
+    // The lifecycle manager signifies booking retrieval is invalid in current
+    // lifecycle state by throwing. This checks any such throw is thrown on by
+    // the booking manager.
+
+    // ARRANGE
+
+    thrown.expect(Exception.class);
+    String message = "Test lifecycle manager exception";
+    thrown.expectMessage(message);
+
+    initialiseBookingManager();
+
+    // Set up mock lifecycle manager to throw
+    mockLifecycleManager = mockery.mock(ILifecycleManager.class, "replacementLifecycleManagerMock");
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockLifecycleManager).throwIfOperationInvalidForCurrentLifecycleState(
+            with.booleanIs(anything()), with.booleanIs(anything()));
+        will(throwException(new Exception(message)));
+      }
+    });
+    bookingManager.setLifecycleManager(mockLifecycleManager);
+
+    // ACT and ASSERT
+    // N.B. Parameter is arbitrary here - since it should throw before using it.
+    bookingManager.getAllBookings(false);
   }
 
   @Test
@@ -404,7 +523,8 @@ public class BookingManagerTest {
 
     // ACT
     // Ask for the bookings - which should throw
-    bookingManager.getBookings(fakeCurrentDateString);
+    // N.B. Second parameter is arbitrary here.
+    bookingManager.getBookings(fakeCurrentDateString, true);
   }
 
   @Test
@@ -420,7 +540,85 @@ public class BookingManagerTest {
         bookingsBeforeCall, Optional.empty());
 
     // ACT
-    bookingManager.getBookings(fakeCurrentDateString);
+    // N.B. Second parameter is arbitrary here.
+    bookingManager.getBookings(fakeCurrentDateString, true);
+  }
+
+  @Test
+  public void testGetBookingsCorrectlyCallsTheLifecycleManagerWhenCalledFromUser() throws Exception {
+    // Test getBookings calls the lifecycle manager to check booking retrieval
+    // is valid in current lifecycle state. This tests for when the call
+    // originates from an end-user - rather than e.g. from the system applying
+    // booking rules.
+
+    doTestGetBookingsCorrectlyCallsTheLifecycleManager(true);
+  }
+
+  @Test
+  public void testGetBookingsCorrectlyCallsTheLifecycleManagerWhenCalledFromSystem()
+      throws Exception {
+    // Test getBookings calls the lifecycle manager to check booking retrieval
+    // is valid in current lifecycle state. This tests for when the call
+    // originates from the system - e.g. from the system applying booking rules,
+    // rather than from an end user.
+
+    doTestGetBookingsCorrectlyCallsTheLifecycleManager(false);
+  }
+
+  private void doTestGetBookingsCorrectlyCallsTheLifecycleManager(boolean isSquashServiceUserCall)
+      throws Exception {
+
+    // ARRANGE
+    initialiseBookingManager();
+
+    // Set up mock lifecycle manager
+    mockLifecycleManager = mockery.mock(ILifecycleManager.class, "replacementLifecycleManagerMock");
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockLifecycleManager).throwIfOperationInvalidForCurrentLifecycleState(true,
+            isSquashServiceUserCall);
+      }
+    });
+    bookingManager.setLifecycleManager(mockLifecycleManager);
+
+    // Set up optimistic persister - this is incidental to the test, but needs
+    // to be setup for the test to run at all.
+    expectOptimisticPersisterGetToReturnVersionedAttributesOrThrow(Optional.of(1),
+        bookingsBeforeCall, Optional.empty());
+
+    // ACT
+    bookingManager.getBookings(fakeCurrentDateString, isSquashServiceUserCall);
+  }
+
+  @Test
+  public void testGetBookingsThrowsIfLifecycleManagerThrows() throws Exception {
+    // The lifecycle manager signifies booking retrieval is invalid in current
+    // lifecycle state by throwing. This checks any such throw is thrown on by
+    // the booking manager.
+
+    // ARRANGE
+
+    thrown.expect(Exception.class);
+    String message = "Test lifecycle manager exception";
+    thrown.expectMessage(message);
+
+    initialiseBookingManager();
+
+    // Set up mock lifecycle manager to throw
+    mockLifecycleManager = mockery.mock(ILifecycleManager.class, "replacementLifecycleManagerMock");
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockLifecycleManager).throwIfOperationInvalidForCurrentLifecycleState(
+            with.booleanIs(anything()), with.booleanIs(anything()));
+        will(throwException(new Exception(message)));
+      }
+    });
+    bookingManager.setLifecycleManager(mockLifecycleManager);
+
+    // ACT and ASSERT
+    // N.B. Parameters are arbitrary here - since it should throw before using
+    // them.
+    bookingManager.getBookings(fakeCurrentDateString, false);
   }
 
   @Test
@@ -437,8 +635,9 @@ public class BookingManagerTest {
         bookingsBeforeCall, Optional.empty());
 
     // ACT
-    // Ask for the bookings for a valid date
-    List<Booking> actualBookings = bookingManager.getBookings(fakeCurrentDateString);
+    // Ask for the bookings for a valid date. N.B. Second parameter is arbitrary
+    // here.
+    List<Booking> actualBookings = bookingManager.getBookings(fakeCurrentDateString, true);
 
     // ASSERT
     for (Booking expectedBooking : bookingsBeforeCall) {
@@ -457,7 +656,8 @@ public class BookingManagerTest {
 
     // ACT
     // Do not initialise the booking manager first - so we should throw
-    bookingManager.createBooking(singleBookingOfFreeCourt);
+    // N.B. Second parameter is arbitrary here.
+    bookingManager.createBooking(singleBookingOfFreeCourt, true);
   }
 
   @Test
@@ -481,7 +681,8 @@ public class BookingManagerTest {
 
     // ACT
     // Try to create a booking - which should throw
-    bookingManager.createBooking(singleBookingOfFreeCourt);
+    // N.B. Second parameter is arbitrary here.
+    bookingManager.createBooking(singleBookingOfFreeCourt, true);
   }
 
   @Test
@@ -505,7 +706,8 @@ public class BookingManagerTest {
 
     // ACT
     // Try to create a booking - which should throw - albeit after three tries
-    bookingManager.createBooking(singleBookingOfFreeCourt);
+    // N.B. Second parameter is arbitrary here.
+    bookingManager.createBooking(singleBookingOfFreeCourt, true);
   }
 
   @Test
@@ -536,8 +738,8 @@ public class BookingManagerTest {
 
     // ACT
     // Try to create a booking - which should _not_ throw - we are allowed three
-    // tries internally
-    bookingManager.createBooking(singleBookingOfFreeCourt);
+    // tries internally. N.B. Second parameter is arbitrary here.
+    bookingManager.createBooking(singleBookingOfFreeCourt, true);
   }
 
   @Test
@@ -554,7 +756,8 @@ public class BookingManagerTest {
         Optional.empty());
 
     // Act
-    bookingManager.createBooking(singleBookingOfFreeCourt);
+    // N.B. Second parameter is arbitrary here.
+    bookingManager.createBooking(singleBookingOfFreeCourt, true);
   }
 
   @Test
@@ -571,7 +774,87 @@ public class BookingManagerTest {
         Optional.empty());
 
     // Act
-    bookingManager.createBooking(blockBookingOfFreeCourts);
+    // N.B. Second parameter is arbitrary here.
+    bookingManager.createBooking(blockBookingOfFreeCourts, true);
+  }
+
+  @Test
+  public void testCreateBookingCorrectlyCallsTheLifecycleManagerWhenCalledFromUser()
+      throws Exception {
+    // Test createBooking calls the lifecycle manager to check booking creation
+    // is valid in current lifecycle state. This tests for when the call
+    // originates from an end-user - rather than e.g. from the system applying
+    // booking rules.
+
+    doTestCreateBookingCorrectlyCallsTheLifecycleManager(true);
+  }
+
+  @Test
+  public void testCreateBookingCorrectlyCallsTheLifecycleManagerWhenCalledFromSystem()
+      throws Exception {
+    // Test createBooking calls the lifecycle manager to check booking creation
+    // is valid in current lifecycle state. This tests for when the call
+    // originates from the system - e.g. from the system applying booking rules,
+    // rather than from an end user.
+
+    doTestCreateBookingCorrectlyCallsTheLifecycleManager(false);
+  }
+
+  private void doTestCreateBookingCorrectlyCallsTheLifecycleManager(boolean isSquashServiceUserCall)
+      throws Exception {
+
+    // ARRANGE
+    initialiseBookingManager();
+
+    // Set up mock lifecycle manager
+    mockLifecycleManager = mockery.mock(ILifecycleManager.class, "replacementLifecycleManagerMock");
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockLifecycleManager).throwIfOperationInvalidForCurrentLifecycleState(false,
+            isSquashServiceUserCall);
+      }
+    });
+    bookingManager.setLifecycleManager(mockLifecycleManager);
+
+    // Set up optimistic persister to expect a single booking to be created -
+    // this is incidental to the test, but needs to be setup for the test to run
+    // at all.
+    expectCreateBookingToReturnUpdatedBookingsOrThrow(bookingsBeforeCall, singleBookingOfFreeCourt,
+        Optional.empty());
+
+    // ACT
+    bookingManager.createBooking(singleBookingOfFreeCourt, isSquashServiceUserCall);
+  }
+
+  @Test
+  public void testCreateBookingThrowsIfLifecycleManagerThrows() throws Exception {
+    // The lifecycle manager signifies booking creation is invalid in current
+    // lifecycle state by throwing. This checks any such throw is thrown on by
+    // the booking manager.
+
+    // ARRANGE
+
+    thrown.expect(Exception.class);
+    String message = "Test lifecycle manager exception";
+    thrown.expectMessage(message);
+
+    initialiseBookingManager();
+
+    // Set up mock lifecycle manager to throw
+    mockLifecycleManager = mockery.mock(ILifecycleManager.class, "replacementLifecycleManagerMock");
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockLifecycleManager).throwIfOperationInvalidForCurrentLifecycleState(
+            with.booleanIs(anything()), with.booleanIs(anything()));
+        will(throwException(new Exception(message)));
+      }
+    });
+    bookingManager.setLifecycleManager(mockLifecycleManager);
+
+    // ACT and ASSERT
+    // N.B. Parameters are arbitrary here - since it should throw before using
+    // them.
+    bookingManager.createBooking(singleBookingOfFreeCourt, true);
   }
 
   @Test
@@ -586,7 +869,8 @@ public class BookingManagerTest {
     expectedBookingsAfterCall.add(singleBookingOfFreeCourt);
 
     // Act
-    List<Booking> actualBookings = bookingManager.createBooking(singleBookingOfFreeCourt);
+    // N.B. Second parameter is arbitrary here.
+    List<Booking> actualBookings = bookingManager.createBooking(singleBookingOfFreeCourt, true);
 
     // ASSERT
     // Verify the returned list of bookings is same as that returned from the
@@ -613,7 +897,8 @@ public class BookingManagerTest {
         Optional.of(new Exception(message)));
 
     // ACT and ASSERT
-    bookingManager.createBooking(singleBookingOfFreeCourt);
+    // N.B. Second parameter is arbitrary here.
+    bookingManager.createBooking(singleBookingOfFreeCourt, true);
   }
 
   @Test
@@ -670,7 +955,8 @@ public class BookingManagerTest {
         Optional.empty());
 
     // ACT and ASSERT
-    bookingManager.createBooking(clashingBookingToCreate);
+    // N.B. Second parameter is arbitrary here.
+    bookingManager.createBooking(clashingBookingToCreate, true);
   }
 
   @Test
@@ -682,7 +968,8 @@ public class BookingManagerTest {
 
     // ACT
     // Do not initialise the booking manager first - so we should throw
-    bookingManager.deleteAllBookings();
+    // N.B. Parameter is arbitrary here.
+    bookingManager.deleteAllBookings(false);
   }
 
   @Test
@@ -719,7 +1006,95 @@ public class BookingManagerTest {
     }
 
     // Act
-    bookingManager.deleteAllBookings();
+    // N.B. Parameter is arbitrary here.
+    bookingManager.deleteAllBookings(false);
+  }
+
+  @Test
+  public void testDeleteAllBookingsCorrectlyCallsTheLifecycleManagerWhenCalledFromUser()
+      throws Exception {
+    // Test deleteAllBookings calls the lifecycle manager to check
+    // booking deletion is valid in current lifecycle state. This tests for when
+    // the call originates from an end-user - rather than e.g. from the system
+    // applying booking rules.
+
+    doTestDeleteAllBookingsCorrectlyCallsTheLifecycleManager(true);
+  }
+
+  @Test
+  public void testDeleteAllBookingsCorrectlyCallsTheLifecycleManagerWhenCalledFromSystem()
+      throws Exception {
+    // Test deleteAllBookings calls the lifecycle manager to check
+    // booking deletion is valid in current lifecycle state. This tests for when
+    // the call originates from the system - e.g. from the system applying
+    // booking rules, rather than from an end user.
+
+    doTestDeleteAllBookingsCorrectlyCallsTheLifecycleManager(false);
+  }
+
+  private void doTestDeleteAllBookingsCorrectlyCallsTheLifecycleManager(
+      boolean isSquashServiceUserCall) throws Exception {
+
+    // ARRANGE
+    initialiseBookingManager();
+
+    // Set up mock lifecycle manager
+    mockLifecycleManager = mockery.mock(ILifecycleManager.class, "replacementLifecycleManagerMock");
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockLifecycleManager).throwIfOperationInvalidForCurrentLifecycleState(false,
+            isSquashServiceUserCall);
+        // There's an internal call to getAllBookings which calls lifecycle
+        // manager with a true argument.
+        allowing(mockLifecycleManager).throwIfOperationInvalidForCurrentLifecycleState(true,
+            isSquashServiceUserCall);
+      }
+    });
+    bookingManager.setLifecycleManager(mockLifecycleManager);
+
+    // Set up optimistic persister to to return no bookings - this is incidental
+    // to the test, but needs to be setup for the test to run at all.
+    List<ImmutablePair<String, List<Attribute>>> emptyList = new ArrayList<>();
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockOptimisticPersister).getAllItems();
+        will(returnValue(emptyList));
+      }
+    });
+    bookingManager.setOptimisticPersister(mockOptimisticPersister);
+
+    // ACT
+    bookingManager.deleteAllBookings(isSquashServiceUserCall);
+  }
+
+  @Test
+  public void testDeleteAllBookingsThrowsIfLifecycleManagerThrows() throws Exception {
+    // The lifecycle manager signifies booking deletion is invalid in current
+    // lifecycle state by throwing. This checks any such throw is thrown on by
+    // the booking manager.
+
+    // ARRANGE
+
+    thrown.expect(Exception.class);
+    String message = "Test lifecycle manager exception";
+    thrown.expectMessage(message);
+
+    initialiseBookingManager();
+
+    // Set up mock lifecycle manager to throw
+    mockLifecycleManager = mockery.mock(ILifecycleManager.class, "replacementLifecycleManagerMock");
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockLifecycleManager).throwIfOperationInvalidForCurrentLifecycleState(
+            with.booleanIs(anything()), with.booleanIs(anything()));
+        will(throwException(new Exception(message)));
+      }
+    });
+    bookingManager.setLifecycleManager(mockLifecycleManager);
+
+    // ACT and ASSERT
+    // N.B. Parameter is arbitrary here - since it should throw before using it.
+    bookingManager.deleteAllBookings(true);
   }
 
   @Test
@@ -769,7 +1144,8 @@ public class BookingManagerTest {
 
     // ACT
     // This should throw - albeit after three tries
-    bookingManager.deleteAllBookings();
+    // N.B. Parameter is arbitrary here.
+    bookingManager.deleteAllBookings(false);
   }
 
   @Test
@@ -824,7 +1200,8 @@ public class BookingManagerTest {
 
     // ACT
     // This should _not_ throw - we are allowed three tries
-    bookingManager.deleteAllBookings();
+    // N.B. Parameter is arbitrary here.
+    bookingManager.deleteAllBookings(false);
   }
 
   @Test
@@ -836,7 +1213,8 @@ public class BookingManagerTest {
 
     // ACT
     // Do not initialise the booking manager first - so we should throw
-    bookingManager.deleteBooking(existingSingleBooking);
+    // N.B. Second parameter is arbitrary here.
+    bookingManager.deleteBooking(existingSingleBooking, true);
   }
 
   @Test
@@ -858,7 +1236,8 @@ public class BookingManagerTest {
 
     // ACT
     // Try to delete a booking - which should throw
-    bookingManager.deleteBooking(existingSingleBooking);
+    // N.B. Second parameter is arbitrary here.
+    bookingManager.deleteBooking(existingSingleBooking, true);
   }
 
   @Test
@@ -877,7 +1256,8 @@ public class BookingManagerTest {
         Optional.of(expectedBookingsAfterCall), Optional.empty());
 
     // Act
-    bookingManager.deleteBooking(existingSingleBooking);
+    // N.B. Second parameter is arbitrary here.
+    bookingManager.deleteBooking(existingSingleBooking, true);
   }
 
   @Test
@@ -893,7 +1273,8 @@ public class BookingManagerTest {
         Optional.of(expectedBookingsAfterCall), Optional.empty());
 
     // Act
-    List<Booking> actualBookings = bookingManager.deleteBooking(existingSingleBooking);
+    // N.B. Second parameter is arbitrary here.
+    List<Booking> actualBookings = bookingManager.deleteBooking(existingSingleBooking, true);
 
     // ASSERT
     // Verify the returned list of bookings is same as that returned from
@@ -938,7 +1319,91 @@ public class BookingManagerTest {
         Optional.of(new Exception(message)));
 
     // ACT and ASSERT
-    bookingManager.deleteBooking(bookingToDelete);
+    // N.B. Second parameter is arbitrary here.
+    bookingManager.deleteBooking(bookingToDelete, true);
+  }
+
+  @Test
+  public void testDeleteBookingCorrectlyCallsTheLifecycleManagerWhenCalledFromUser()
+      throws Exception {
+    // Test deleteBooking calls the lifecycle manager to check booking deletion
+    // is valid in current lifecycle state. This tests for when the call
+    // originates from an end-user - rather than e.g. from the system applying
+    // booking rules.
+
+    doTestDeleteBookingCorrectlyCallsTheLifecycleManager(true);
+  }
+
+  @Test
+  public void testDeleteBookingCorrectlyCallsTheLifecycleManagerWhenCalledFromSystem()
+      throws Exception {
+    // Test deleteBooking calls the lifecycle manager to check booking deletion
+    // is valid in current lifecycle state. This tests for when the call
+    // originates from the system - e.g. from the system applying booking rules,
+    // rather than from an end user.
+
+    doTestDeleteBookingCorrectlyCallsTheLifecycleManager(false);
+  }
+
+  private void doTestDeleteBookingCorrectlyCallsTheLifecycleManager(boolean isSquashServiceUserCall)
+      throws Exception {
+
+    // ARRANGE
+    initialiseBookingManager();
+
+    // Set up mock lifecycle manager
+    mockLifecycleManager = mockery.mock(ILifecycleManager.class, "replacementLifecycleManagerMock");
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockLifecycleManager).throwIfOperationInvalidForCurrentLifecycleState(false,
+            isSquashServiceUserCall);
+      }
+    });
+    bookingManager.setLifecycleManager(mockLifecycleManager);
+
+    // Set up optimistic persister to expect a single booking to be deleted -
+    // this is incidental to the test, but needs to be setup for the test to run
+    // at all.
+    expectedBookingsAfterCall.addAll(bookingsBeforeCall);
+    // Remove the booking we're deleting - so the manager thinks the delete is
+    // successful
+    expectedBookingsAfterCall.removeIf(booking -> booking.equals(existingSingleBooking));
+    expectDeleteBookingToReturnUpdatedBookingsOrThrow(existingSingleBooking,
+        Optional.of(expectedBookingsAfterCall), Optional.empty());
+
+    // ACT
+    bookingManager.deleteBooking(existingSingleBooking, isSquashServiceUserCall);
+  }
+
+  @Test
+  public void testDeleteBookingThrowsIfLifecycleManagerThrows() throws Exception {
+    // The lifecycle manager signifies booking deletion is invalid in current
+    // lifecycle state by throwing. This checks any such throw is thrown on by
+    // the booking manager.
+
+    // ARRANGE
+
+    thrown.expect(Exception.class);
+    String message = "Test lifecycle manager exception";
+    thrown.expectMessage(message);
+
+    initialiseBookingManager();
+
+    // Set up mock lifecycle manager to throw
+    mockLifecycleManager = mockery.mock(ILifecycleManager.class, "replacementLifecycleManagerMock");
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockLifecycleManager).throwIfOperationInvalidForCurrentLifecycleState(
+            with.booleanIs(anything()), with.booleanIs(anything()));
+        will(throwException(new Exception(message)));
+      }
+    });
+    bookingManager.setLifecycleManager(mockLifecycleManager);
+
+    // ACT and ASSERT
+    // N.B. Parameters are arbitrary here - since it should throw before using
+    // them.
+    bookingManager.deleteBooking(existingSingleBooking, true);
   }
 
   @Test
@@ -950,7 +1415,8 @@ public class BookingManagerTest {
 
     // ACT
     // Do not initialise the booking manager first - so we should throw
-    bookingManager.deleteYesterdaysBookings();
+    // N.B. Parameter is arbitrary here.
+    bookingManager.deleteYesterdaysBookings(false);
   }
 
   @Test
@@ -992,7 +1458,8 @@ public class BookingManagerTest {
     bookingManager.setSNSClient(mockSNSClient);
 
     // ACT - this should throw - and notify the SNS topic
-    bookingManager.deleteYesterdaysBookings();
+    // N.B. Parameter is arbitrary here.
+    bookingManager.deleteYesterdaysBookings(false);
   }
 
   @Test
@@ -1011,7 +1478,92 @@ public class BookingManagerTest {
     bookingManager.setOptimisticPersister(mockOptimisticPersister);
 
     // Act
-    bookingManager.deleteYesterdaysBookings();
+    // N.B. Parameter is arbitrary here.
+    bookingManager.deleteYesterdaysBookings(false);
+  }
+
+  @Test
+  public void testDeleteYesterdaysBookingsCorrectlyCallsTheLifecycleManagerWhenCalledFromUser()
+      throws Exception {
+    // Test deleteYesterdaysBookings calls the lifecycle manager to check
+    // booking deletion is valid in current lifecycle state. This tests for when
+    // the call originates from an end-user - rather than e.g. from the system
+    // applying booking rules.
+
+    doTestDeleteYesterdaysBookingsCorrectlyCallsTheLifecycleManager(true);
+  }
+
+  @Test
+  public void testDeleteYesterdaysBookingsCorrectlyCallsTheLifecycleManagerWhenCalledFromSystem()
+      throws Exception {
+    // Test deleteYesterdaysBookings calls the lifecycle manager to check
+    // booking deletion is valid in current lifecycle state. This tests for when
+    // the call originates from the system - e.g. from the system applying
+    // booking rules, rather than from an end user.
+
+    doTestDeleteYesterdaysBookingsCorrectlyCallsTheLifecycleManager(false);
+  }
+
+  private void doTestDeleteYesterdaysBookingsCorrectlyCallsTheLifecycleManager(
+      boolean isSquashServiceUserCall) throws Exception {
+
+    // ARRANGE
+    initialiseBookingManager();
+
+    // Set up mock lifecycle manager
+    mockLifecycleManager = mockery.mock(ILifecycleManager.class, "replacementLifecycleManagerMock");
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockLifecycleManager).throwIfOperationInvalidForCurrentLifecycleState(false,
+            isSquashServiceUserCall);
+      }
+    });
+    bookingManager.setLifecycleManager(mockLifecycleManager);
+
+    // Set up optimistic persister to expect bookings to be deleted -
+    // this is incidental to the test, but needs to be setup for the test to run
+    // at all.
+    String yesterday = fakeCurrentDate.minusDays(1).format(
+        DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockOptimisticPersister).deleteAllAttributes(with(equal(yesterday)));
+      }
+    });
+    bookingManager.setOptimisticPersister(mockOptimisticPersister);
+
+    // ACT
+    bookingManager.deleteYesterdaysBookings(isSquashServiceUserCall);
+  }
+
+  @Test
+  public void testDeleteYesterdaysBookingsThrowsIfLifecycleManagerThrows() throws Exception {
+    // The lifecycle manager signifies booking deletion is invalid in current
+    // lifecycle state by throwing. This checks any such throw is thrown on by
+    // the booking manager.
+
+    // ARRANGE
+
+    thrown.expect(Exception.class);
+    String message = "Test lifecycle manager exception";
+    thrown.expectMessage(message);
+
+    initialiseBookingManager();
+
+    // Set up mock lifecycle manager to throw
+    mockLifecycleManager = mockery.mock(ILifecycleManager.class, "replacementLifecycleManagerMock");
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockLifecycleManager).throwIfOperationInvalidForCurrentLifecycleState(
+            with.booleanIs(anything()), with.booleanIs(anything()));
+        will(throwException(new Exception(message)));
+      }
+    });
+    bookingManager.setLifecycleManager(mockLifecycleManager);
+
+    // ACT and ASSERT
+    // N.B. Parameter is arbitrary here - since it should throw before using it.
+    bookingManager.deleteYesterdaysBookings(true);
   }
 
   @Test

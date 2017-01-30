@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2016 Robin Steel
+ * Copyright 2015-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -82,7 +82,7 @@ public class PutDeleteBookingLambdaRequest {
   /**
    *  Sets the number of courts per time slot in a block booking.
    *  
-   *  @see squash.booking.lambdas.core.Booking#setCourt Booking.
+   *  @see squash.booking.lambdas.core.Booking#setCourtSpan Booking.
    */
   public void setCourtSpan(String courtSpan) {
     this.courtSpan = courtSpan;
@@ -108,7 +108,7 @@ public class PutDeleteBookingLambdaRequest {
   /**
    *  Sets the number of time slots per court in a block booking.
    *  
-   *  @see squash.booking.lambdas.core.Booking#setSlot Booking.
+   *  @see squash.booking.lambdas.core.Booking#setSlotSpan Booking.
    */
   public void setSlotSpan(String slotSpan) {
     this.slotSpan = slotSpan;

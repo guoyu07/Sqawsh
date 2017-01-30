@@ -35,6 +35,7 @@
     "postcss-reporter": "^2.0.0",
     "protractor": "^2.1.0",
     "shelljs": "^0.2.6",
+    "standard": "^9.0.1",
     "stylelint-config-standard": "^15.0.0"
   },
   "scripts": {

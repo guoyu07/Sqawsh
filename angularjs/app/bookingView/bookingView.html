@@ -1,5 +1,5 @@
 <!--
-Copyright 2016 Robin Steel
+Copyright 2016-2017 Robin Steel
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.-->
 
 <div class="booking-view" ng-show="!ctrl.loadFailure && ctrl.initialLoadSucceeded" ng-cloak>
+  <div ng-show="ctrl.isReadonly" class="maintenance-banner">Apologies - bookings are temporarily readonly whilst site maintenance is in progress</div>
   <div class="booking-view-header" ng-swipe-left="ctrl.incrementOrDecrementDate(1)" ng-swipe-right="ctrl.incrementOrDecrementDate(-1)">
     <span class="date-panel">
     <button class="date-button button-default" ng-click="ctrl.incrementOrDecrementDate(-1)" ng-disabled="ctrl.isEarliestDate()">Earlier</button>
@@ -35,12 +36,12 @@ limitations under the License.-->
           <td ng-class="ctrl.cellClass(timeSlotIndex, courtNumber - 1)" ng-repeat="courtNumber in ctrl.courtNumbers | filter: ctrl.isNotBlockBookingInterior(timeSlotIndex)" rowspan="{{ctrl.rowSpan(timeSlotIndex, courtNumber - 1)}}" colspan="{{ctrl.colSpan(timeSlotIndex, courtNumber - 1)}}">
             <div ng-switch on="ctrl.isBlockBooking(timeSlotIndex, courtNumber - 1)">
               <div ng-switch-when="false">
-                <Button title="{{ctrl.tooltip(timeSlotIndex, courtNumber - 1)}}" ng-class="ctrl.buttonStyle(timeSlotIndex, courtNumber - 1)" ng-click="ctrl.showForm(timeSlotIndex, courtNumber - 1)">{{ctrl.bookingText(timeSlotIndex, courtNumber - 1)}}</Button>
+                <Button ng-disabled="ctrl.isReadonly || ctrl.isRetired" title="{{ctrl.tooltip(timeSlotIndex, courtNumber - 1)}}" ng-class="ctrl.buttonStyle(timeSlotIndex, courtNumber - 1)" ng-click="ctrl.showForm(timeSlotIndex, courtNumber - 1)">{{ctrl.bookingText(timeSlotIndex, courtNumber - 1)}}</Button>
               </div>
               <div ng-switch-when="true" class="block-booking" title="{{ctrl.tooltip(timeSlotIndex, courtNumber - 1)}}">
                 <div ng-switch on="ctrl.showAdminUi()">
                   <div ng-switch-when="true" class="block-booking">
-                    <Button title="{{ctrl.tooltip(timeSlotIndex, courtNumber - 1)}}" ng-class="ctrl.buttonStyle(timeSlotIndex, courtNumber - 1)" ng-click="ctrl.showForm(timeSlotIndex, courtNumber - 1)">{{ctrl.bookingText(timeSlotIndex, courtNumber - 1)}}</Button>
+                    <Button ng-disabled="ctrl.isReadonly || ctrl.isRetired" title="{{ctrl.tooltip(timeSlotIndex, courtNumber - 1)}}" ng-class="ctrl.buttonStyle(timeSlotIndex, courtNumber - 1)" ng-click="ctrl.showForm(timeSlotIndex, courtNumber - 1)">{{ctrl.bookingText(timeSlotIndex, courtNumber - 1)}}</Button>
                   </div>
                   <div ng-switch-when="false" class="block-booking" title="{{ctrl.tooltip(timeSlotIndex, courtNumber - 1)}}">
                     {{ctrl.bookingText(timeSlotIndex, courtNumber - 1)}}

@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2016 Robin Steel
+ * Copyright 2015-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -277,8 +277,10 @@ public class PutDeleteBookingLambdaTest {
             with(anything()));
         will(throwException(new Exception(validationExceptionMessage)));
         // Should not get as far as called create or delete
-        never(putDeleteBookingLambda.getBookingManager(mockLogger)).createBooking(with(anything()));
-        never(putDeleteBookingLambda.getBookingManager(mockLogger)).deleteBooking(with(anything()));
+        never(putDeleteBookingLambda.getBookingManager(mockLogger)).createBooking(with(anything()),
+            with.booleanIs(anything()));
+        never(putDeleteBookingLambda.getBookingManager(mockLogger)).deleteBooking(with(anything()),
+            with.booleanIs(anything()));
       }
     });
     // The backup manager should not be called
@@ -414,8 +416,10 @@ public class PutDeleteBookingLambdaTest {
       {
         never(putDeleteBookingLambda.getBookingManager(mockLogger)).validateBooking(
             with(anything()));
-        never(putDeleteBookingLambda.getBookingManager(mockLogger)).createBooking(with(anything()));
-        never(putDeleteBookingLambda.getBookingManager(mockLogger)).deleteBooking(with(anything()));
+        never(putDeleteBookingLambda.getBookingManager(mockLogger)).createBooking(with(anything()),
+            with.booleanIs(anything()));
+        never(putDeleteBookingLambda.getBookingManager(mockLogger)).deleteBooking(with(anything()),
+            with.booleanIs(anything()));
       }
     });
     // The backup manager should not be called
@@ -453,7 +457,7 @@ public class PutDeleteBookingLambdaTest {
     doTestCreateBookingCorrectlyCallsTheBookingManager(3, 2, 15, 2);
   }
 
-  public void doTestCreateBookingCorrectlyCallsTheBookingManager(Integer court, Integer courtSpan,
+  private void doTestCreateBookingCorrectlyCallsTheBookingManager(Integer court, Integer courtSpan,
       Integer slot, Integer slotSpan) throws Exception {
     // Test createBooking makes the correct calls to the Booking Manager
 
@@ -470,7 +474,7 @@ public class PutDeleteBookingLambdaTest {
         oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).validateBooking(
             with(equal(booking)));
         oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).createBooking(
-            with(equal(booking)));
+            with(equal(booking)), with.booleanIs(equal(true)));
         will(returnValue(bookings));
         // Not interested in PageManager or BackupManager calls in this test
         ignoring(putDeleteBookingLambda.getPageManager(mockLogger));
@@ -523,7 +527,8 @@ public class PutDeleteBookingLambdaTest {
         // refreshPage.
         oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).validateBooking(
             with(anything()));
-        oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).createBooking(with(anything()));
+        oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).createBooking(with(anything()),
+            with.booleanIs(anything()));
         will(returnValue(bookings));
         oneOf(putDeleteBookingLambda.getPageManager(mockLogger)).refreshPage(fakeCurrentDateString,
             validDates, apiGatewayBaseUrl, true, bookings, revvingSuffix);
@@ -576,7 +581,7 @@ public class PutDeleteBookingLambdaTest {
         allowing(putDeleteBookingLambda.getBookingManager(mockLogger)).validateBooking(
             with(anything()));
         oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).createBooking(
-            with(equal(booking)));
+            with(equal(booking)), with.booleanIs(anything()));
         will(returnValue(bookings));
         // Not interested in PageManager calls in this test
         ignoring(putDeleteBookingLambda.getPageManager(mockLogger));
@@ -603,7 +608,7 @@ public class PutDeleteBookingLambdaTest {
         allowing(putDeleteBookingLambda.getBookingManager(mockLogger)).validateBooking(
             with(any(Booking.class)));
         oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).createBooking(
-            with(any(Booking.class)));
+            with(any(Booking.class)), with.booleanIs(anything()));
         will(throwException(new Exception("Booking creation failed")));
         ignoring(putDeleteBookingLambda.getPageManager(mockLogger));
       }
@@ -865,7 +870,7 @@ public class PutDeleteBookingLambdaTest {
         oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).validateBooking(
             with(equal(booking)));
         oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).deleteBooking(
-            with(equal(booking)));
+            with(equal(booking)), with.booleanIs(equal(true)));
         will(returnValue(bookings));
         // Not interested in PageManager or BackupManager calls in this test
         ignoring(putDeleteBookingLambda.getPageManager(mockLogger));
@@ -917,7 +922,8 @@ public class PutDeleteBookingLambdaTest {
         // refreshPage.
         oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).validateBooking(
             with(equal(booking)));
-        oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).deleteBooking(with(anything()));
+        oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).deleteBooking(with(anything()),
+            with.booleanIs(anything()));
         will(returnValue(bookings));
         oneOf(putDeleteBookingLambda.getPageManager(mockLogger)).refreshPage(fakeCurrentDateString,
             validDates, apiGatewayBaseUrl, true, bookings, revvingSuffix);
@@ -971,7 +977,8 @@ public class PutDeleteBookingLambdaTest {
         // refreshPage.
         allowing(putDeleteBookingLambda.getBookingManager(mockLogger)).validateBooking(
             with(equal(booking)));
-        oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).deleteBooking(with(anything()));
+        oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).deleteBooking(with(anything()),
+            with.booleanIs(anything()));
         will(returnValue(bookings));
         // Not interested in PageManager calls in this test
         ignoring(putDeleteBookingLambda.getPageManager(mockLogger));
@@ -1024,7 +1031,7 @@ public class PutDeleteBookingLambdaTest {
         allowing(putDeleteBookingLambda.getBookingManager(mockLogger)).validateBooking(
             with(any(Booking.class)));
         oneOf(putDeleteBookingLambda.getBookingManager(mockLogger)).deleteBooking(
-            with(any(Booking.class)));
+            with(any(Booking.class)), with.booleanIs(anything()));
         will(throwException(new Exception("Booking deletion failed")));
         ignoring(putDeleteBookingLambda.getPageManager(mockLogger));
       }

@@ -22,10 +22,8 @@ import squash.deployment.lambdas.utils.LambdaInputLogger;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
-import com.amazonaws.regions.Region;
-import com.amazonaws.regions.Regions;
 import com.amazonaws.services.cognitoidentity.AmazonCognitoIdentity;
-import com.amazonaws.services.cognitoidentity.AmazonCognitoIdentityClient;
+import com.amazonaws.services.cognitoidentity.AmazonCognitoIdentityClientBuilder;
 import com.amazonaws.services.cognitoidentity.model.CognitoIdentityProvider;
 import com.amazonaws.services.cognitoidentity.model.CreateIdentityPoolRequest;
 import com.amazonaws.services.cognitoidentity.model.CreateIdentityPoolResult;
@@ -35,7 +33,7 @@ import com.amazonaws.services.cognitoidentity.model.ListIdentityPoolsRequest;
 import com.amazonaws.services.cognitoidentity.model.SetIdentityPoolRolesRequest;
 import com.amazonaws.services.cognitoidentity.model.UpdateIdentityPoolRequest;
 import com.amazonaws.services.cognitoidp.AWSCognitoIdentityProvider;
-import com.amazonaws.services.cognitoidp.AWSCognitoIdentityProviderClient;
+import com.amazonaws.services.cognitoidp.AWSCognitoIdentityProviderClientBuilder;
 import com.amazonaws.services.cognitoidp.model.AdminCreateUserConfigType;
 import com.amazonaws.services.cognitoidp.model.AdminCreateUserRequest;
 import com.amazonaws.services.cognitoidp.model.AttributeType;
@@ -50,7 +48,7 @@ import com.amazonaws.services.cognitoidp.model.PasswordPolicyType;
 import com.amazonaws.services.cognitoidp.model.UserPoolDescriptionType;
 import com.amazonaws.services.cognitoidp.model.UserPoolPolicyType;
 import com.amazonaws.services.identitymanagement.AmazonIdentityManagement;
-import com.amazonaws.services.identitymanagement.AmazonIdentityManagementClient;
+import com.amazonaws.services.identitymanagement.AmazonIdentityManagementClientBuilder;
 import com.amazonaws.services.identitymanagement.model.UpdateAssumeRolePolicyRequest;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
@@ -91,8 +89,8 @@ public class CognitoCustomResourceLambda implements RequestHandler<Map<String, O
    * <p>This method is provided so unit tests can mock out Cognito.
    */
   public AmazonCognitoIdentity getAmazonCognitoIdentityClient(String region) {
-    AmazonCognitoIdentity client = new AmazonCognitoIdentityClient();
-    client.setRegion(Region.getRegion(Regions.fromName(region)));
+    AmazonCognitoIdentity client = AmazonCognitoIdentityClientBuilder.standard().withRegion(region)
+        .build();
     return client;
   }
 
@@ -102,8 +100,8 @@ public class CognitoCustomResourceLambda implements RequestHandler<Map<String, O
    * <p>This method is provided so unit tests can mock out Cognito.
    */
   public AWSCognitoIdentityProvider getAmazonCognitoIdentityProviderClient(String region) {
-    AWSCognitoIdentityProvider client = new AWSCognitoIdentityProviderClient();
-    client.setRegion(Region.getRegion(Regions.fromName(region)));
+    AWSCognitoIdentityProvider client = AWSCognitoIdentityProviderClientBuilder.standard()
+        .withRegion(region).build();
     return client;
   }
 
@@ -490,7 +488,7 @@ public class CognitoCustomResourceLambda implements RequestHandler<Map<String, O
     logger
         .log("Updating authenticated and unauthenticated roles to use the actual identity pool id: "
             + identityPoolId);
-    AmazonIdentityManagement iamClient = new AmazonIdentityManagementClient();
+    AmazonIdentityManagement iamClient = AmazonIdentityManagementClientBuilder.standard().build();
     UpdateAssumeRolePolicyRequest updateAssumeRolePolicyRequest = new UpdateAssumeRolePolicyRequest();
     updateAssumeRolePolicyRequest.setRoleName(unauthenticatedRoleName);
     updateAssumeRolePolicyRequest.setPolicyDocument(getAssumeRolePolicyDocument(false,

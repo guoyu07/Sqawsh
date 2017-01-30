@@ -1,5 +1,5 @@
 <!--
-Copyright 2016 Robin Steel
+Copyright 2016-2017 Robin Steel
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -53,7 +53,13 @@ limitations under the License.-->
 <span class="error" ng-show="ctrl.bookingFailed && ctrl.bookingCreationFailed">
   Failed to create the booking - please check if court is already booked.
 </span>
-<span class="error" ng-show="ctrl.bookingFailed && !ctrl.passwordIncorrect && !ctrl.unauthenticatedBlockBookingError && !ctrl.bookingCreationFailed">
+<span class="error" ng-show="ctrl.bookingFailed && ctrl.isReadonly">
+  Apologies - failed to create the booking - bookings are temporarily readonly whilst site maintenance is in progress.
+</span>
+<span class="error" ng-show="ctrl.bookingFailed && ctrl.isRetired" >
+  Apologies - failed to create the booking - please use the <a ng-href="{{ctrl.forwardingUrl}}">updated booking service</a> instead
+</span>
+<span class="error" ng-show="ctrl.bookingFailed && !ctrl.isReadonly && !ctrl.isRetired && !ctrl.passwordIncorrect && !ctrl.unauthenticatedBlockBookingError && !ctrl.bookingCreationFailed">
   Apologies - something has gone wrong whilst creating the booking.
 </span>
 </p>

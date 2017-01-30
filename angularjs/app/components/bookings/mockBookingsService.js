@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Robin Steel
+ * Copyright 2016-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -42,12 +42,13 @@ angular.module('squashApp.bookingsService', [])
           if (date === '2016-04-23') {
             builder.setBookings([{'court': 1, 'courtSpan': 1, 'slot': 2, 'slotSpan': 1, 'name': 'H.Ashour/H.AckerTDog'}, {'court': 1, 'courtSpan': 1, 'slot': 3, 'slotSpan': 2, 'name': 'A.Booking/B.Lock'}])
             builder.setSelectedDate('2016-04-23')
-            resolve(builder)
           } else {
             builder.setBookings([{'court': 2, 'courtSpan': 1, 'slot': 4, 'slotSpan': 1, 'name': 'J.Khan/J.Barrington'}, {'court': 1, 'courtSpan': 3, 'slot': 5, 'slotSpan': 1, 'name': 'A.Different/B.Ooking'}])
             builder.setSelectedDate('2016-04-24')
-            resolve(builder)
           }
+          builder.setLifecycleState('ACTIVE')
+          builder.setForwardingUrl('http://www.bbc.co.uk')
+          resolve(builder)
         })
       },
       getBookings: function (builder) {
@@ -56,12 +57,13 @@ angular.module('squashApp.bookingsService', [])
           if (date === '2016-04-23') {
             builder.setBookings([{'court': 2, 'courtSpan': 1, 'slot': 3, 'slotSpan': 1, 'name': 'R.Ashour/J.Power'}, {'court': 3, 'courtSpan': 3, 'slot': 2, 'slotSpan': 3, 'name': 'A.Block/B.Ooking'}])
             builder.setSelectedDate('2016-04-23')
-            resolve(builder)
           } else {
             builder.setBookings([{'court': 3, 'courtSpan': 1, 'slot': 1, 'slotSpan': 1, 'name': 'R.Ashour/G.Gaultier'}, {'court': 1, 'courtSpan': 2, 'slot': 1, 'slotSpan': 1, 'name': 'A.Nother/B.Lock'}])
             builder.setSelectedDate('2016-04-24')
-            resolve(builder)
           }
+          builder.setLifecycleState('ACTIVE')
+          builder.setForwardingUrl('http://www.bbc.co.uk')
+          resolve(builder)
         })
       },
       getBookingRules: function () {
@@ -78,7 +80,11 @@ angular.module('squashApp.bookingsService', [])
               datesToExclude: []
             }
           ]
-          resolve(bookingRules)
+          resolve({
+            'bookingRules': bookingRules,
+            'lifecycleState': 'ACTIVE',
+            'forwardingUrl': ''
+          })
         })
       },
       createBookingRule: function (name, court, courtSpan, timeSlot, timeSlotSpan, date, isRecurring) {

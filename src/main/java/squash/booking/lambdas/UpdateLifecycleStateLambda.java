@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2017 Robin Steel
+ * Copyright 2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,36 +17,37 @@
 package squash.booking.lambdas;
 
 import squash.booking.lambdas.core.BookingManager;
-import squash.booking.lambdas.core.BookingsUtilities;
 import squash.booking.lambdas.core.IBookingManager;
 import squash.booking.lambdas.core.ILifecycleManager;
+import squash.booking.lambdas.core.ILifecycleManager.LifecycleState;
 import squash.booking.lambdas.core.IPageManager;
 import squash.booking.lambdas.core.LifecycleManager;
 import squash.booking.lambdas.core.PageManager;
 
+import org.owasp.encoder.Encode;
+
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
 /**
- * AWS Lambda function to refresh all booking webpages.
+ * AWS Lambda function to update the lifecycle state of the booking service.
  * 
- * <p>This is usually invoked by AWS Lambda.
- * <p>It is run, e.g., every midnight to advance the site by 1 day.
+ * This is usually invoked from AWS Lambda console to manage the process
+ * of upgrading to a new version of the bookings service - or reverting
+ * back to an old version if the upgrade has problems.
  *
  * @author robinsteel19@outlook.com (Robin Steel)
  */
-public class UpdateBookingsLambda {
+public class UpdateLifecycleStateLambda {
 
   private Optional<IBookingManager> bookingManager;
   private Optional<ILifecycleManager> lifecycleManager;
   private Optional<IPageManager> pageManager;
 
-  public UpdateBookingsLambda() {
+  public UpdateLifecycleStateLambda() {
     bookingManager = Optional.empty();
     lifecycleManager = Optional.empty();
     pageManager = Optional.empty();
@@ -83,8 +84,7 @@ public class UpdateBookingsLambda {
     // Use a getter here so unit tests can substitute a mock manager
     if (!pageManager.isPresent()) {
       pageManager = Optional.of(new PageManager());
-      pageManager.get().initialise(getBookingManager(logger), getLifecycleManager(logger),
-          logger);
+      pageManager.get().initialise(getBookingManager(logger), getLifecycleManager(logger), logger);
     }
     return pageManager.get();
   }
@@ -99,58 +99,54 @@ public class UpdateBookingsLambda {
   }
 
   /**
-   * Returns the current London local date.
-   */
-  protected LocalDate getCurrentLocalDate() {
-    // Use a getter here so unit tests can substitute a different date.
-
-    // This gets the correct local date no matter what the user's device
-    // system time may say it is, and no matter where in AWS we run.
-    return BookingsUtilities.getCurrentLocalDate();
-  }
-
-  /**
-   * Refreshes all booking webpages.
+   * Updates the lifecycle state of the booking service.
    * 
-   * <p>Moves the site one day forward by:
+   * <p>Updates the lifecycle state by:
    * <ul>
-   *    <li>adding a new page for the most-future bookable date</li>
-   *    <li>refreshing all other booking pages to account for the new date range</li>
-   *    <li>removing the previous day's page</li>
+   *    <li>updating the booking service lifecycle state</li>
+   *    <li>refreshing all booking pages and bookings json to account for the new lifecycle state</li>
    * </ul>
    *
-   * @return response containing the current date.
+   * @param request with details of the new lifecycle state.
    * @throws Exception when the method fails.
    */
-  public UpdateBookingsLambdaResponse updateBookings(UpdateBookingsLambdaRequest request,
-      Context context) throws Exception {
+  public UpdateLifecycleStateLambdaResponse updateLifecycleState(
+      UpdateLifecycleStateLambdaRequest request, Context context) throws Exception {
     LambdaLogger logger = context.getLogger();
 
     try {
-      logger.log("About to refresh all bookings pages");
+      logger.log("About to update lifecycle state to: " + request.getLifecycleState());
+      LifecycleState lifecycleState = Enum.valueOf(LifecycleState.class,
+          request.getLifecycleState());
+      Optional<String> forwardingUrl = request.getForwardingUrl() == null ? Optional.empty()
+          : Optional.of(request.getForwardingUrl());
+      if (forwardingUrl.isPresent()
+          && !Encode.forHtmlContent(forwardingUrl.get()).equals(forwardingUrl.get())) {
+        // Check url ok as-is for e.g. XSS safety
+        logger.log("The forwarding url must pass OWASP checks");
+        throw new Exception("The forwarding url must pass OWASP checks");
+      }
+      getLifecycleManager(logger).setLifecycleState(lifecycleState, forwardingUrl);
+      logger.log("Updated lifecycle state");
+
+      logger.log("About to refresh all bookings pages and bookings json");
       IPageManager pageManager = getPageManager(logger);
+
       String apiGatewayBaseUrl = getEnvironmentVariable("ApiGatewayBaseUrl", logger);
       logger.log("Using apigatewayBaseUrl: " + apiGatewayBaseUrl);
       String revvingSuffix = getEnvironmentVariable("RevvingSuffix", logger);
       logger.log("Using revvingSuffix: " + revvingSuffix);
 
       pageManager.refreshAllPages(getValidDates(), apiGatewayBaseUrl, revvingSuffix);
-      logger.log("Refreshed all bookings pages");
+      logger.log("Refreshed all bookings pages and bookings json");
 
-      // Remove the now-previous day's bookings from the database
-      logger.log("About to remove yesterday's bookings from the database");
-      IBookingManager bookingManager = getBookingManager(logger);
-      bookingManager.deleteYesterdaysBookings(false);
-      logger.log("Removed yesterday's bookings from database");
     } catch (Exception e) {
-      logger.log("Exception caught in updateBookings Lambda: " + e.getMessage());
+      logger.log("Exception caught in updateLifecycleState Lambda: " + e.getMessage());
       throw new Exception("Apologies - something has gone wrong. Please try again.", e);
     }
 
-    UpdateBookingsLambdaResponse updateBookingsLambdaResponse = new UpdateBookingsLambdaResponse();
-    updateBookingsLambdaResponse.setCurrentDate(getCurrentLocalDate().format(
-        DateTimeFormatter.ofPattern("yyyy-MM-dd")));
-    return updateBookingsLambdaResponse;
+    UpdateLifecycleStateLambdaResponse updateLifecycleStateLambdaResponse = new UpdateLifecycleStateLambdaResponse();
+    return updateLifecycleStateLambdaResponse;
   }
 
   /**

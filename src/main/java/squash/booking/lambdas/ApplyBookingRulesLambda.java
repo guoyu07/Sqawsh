@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Robin Steel
+ * Copyright 2016-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,10 @@ import squash.booking.lambdas.core.Booking;
 import squash.booking.lambdas.core.BookingManager;
 import squash.booking.lambdas.core.IBackupManager;
 import squash.booking.lambdas.core.IBookingManager;
+import squash.booking.lambdas.core.ILifecycleManager;
 import squash.booking.lambdas.core.IPageManager;
 import squash.booking.lambdas.core.IRuleManager;
+import squash.booking.lambdas.core.LifecycleManager;
 import squash.booking.lambdas.core.PageManager;
 import squash.booking.lambdas.core.RuleManager;
 
@@ -46,12 +48,14 @@ import java.util.stream.Collectors;
 public class ApplyBookingRulesLambda {
 
   private Optional<IRuleManager> ruleManager;
+  private Optional<ILifecycleManager> lifecycleManager;
   private Optional<IBookingManager> bookingManager;
   private Optional<IPageManager> pageManager;
   private Optional<IBackupManager> backupManager;
 
   public ApplyBookingRulesLambda() {
     ruleManager = Optional.empty();
+    lifecycleManager = Optional.empty();
     bookingManager = Optional.empty();
     pageManager = Optional.empty();
     backupManager = Optional.empty();
@@ -64,7 +68,7 @@ public class ApplyBookingRulesLambda {
     // Use a getter here so unit tests can substitute a mock manager
     if (!ruleManager.isPresent()) {
       ruleManager = Optional.of(new RuleManager());
-      ruleManager.get().initialise(getBookingManager(logger), logger);
+      ruleManager.get().initialise(getBookingManager(logger), getLifecycleManager(logger), logger);
     }
     return ruleManager.get();
   }
@@ -82,13 +86,25 @@ public class ApplyBookingRulesLambda {
   }
 
   /**
+   * Returns the {@link squash.booking.lambdas.core.ILifecycleManager}.
+   */
+  protected ILifecycleManager getLifecycleManager(LambdaLogger logger) throws Exception {
+    // Use a getter here so unit tests can substitute a mock manager
+    if (!lifecycleManager.isPresent()) {
+      lifecycleManager = Optional.of(new LifecycleManager());
+      lifecycleManager.get().initialise(logger);
+    }
+    return lifecycleManager.get();
+  }
+
+  /**
    * Returns the {@link squash.booking.lambdas.core.IPageManager}.
    */
   protected IPageManager getPageManager(LambdaLogger logger) throws Exception {
     // Use a getter here so unit tests can substitute a mock manager
     if (!pageManager.isPresent()) {
       pageManager = Optional.of(new PageManager());
-      pageManager.get().initialise(getBookingManager(logger), logger);
+      pageManager.get().initialise(getBookingManager(logger), getLifecycleManager(logger), logger);
     }
     return pageManager.get();
   }
@@ -121,7 +137,7 @@ public class ApplyBookingRulesLambda {
         .parse(validDatesList.get(validDatesList.size() - 1),
             DateTimeFormatter.ofPattern("yyyy-MM-dd")).plusDays(1)
         .format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
-    List<Booking> ruleBookings = getRuleManager(logger).applyRules(newDay);
+    List<Booking> ruleBookings = getRuleManager(logger).applyRules(newDay, false);
     logger.log("Applied booking rules for date: " + newDay);
 
     // Backup each of the created bookings
@@ -165,7 +181,7 @@ public class ApplyBookingRulesLambda {
             d -> LocalDate.parse(d, DateTimeFormatter.ofPattern("yyyy-MM-dd")).plusDays(1)
                 .format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))).collect(Collectors.toList());
     pageManager.refreshPage(newDay, advancedValidDates, apiGatewayBaseUrl, true, bookingManager
-        .get().getBookings(newDay), revvingSuffix);
+        .get().getBookings(newDay, false), revvingSuffix);
     logger.log("Created new booking page in S3 with new rule-based booking(s)");
 
     return new ApplyBookingRulesLambdaResponse();

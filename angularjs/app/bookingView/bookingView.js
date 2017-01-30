@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Robin Steel
+ * Copyright 2016-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ angular.module('squashApp.bookingView', ['ngRoute', 'ngTouch', 'squashApp.bookin
     })
   }])
 
-  .controller('BookingViewCtrl', ['$scope', '$location', '$timeout', '$route', 'BookingService', 'IdentityService', function ($scope, $location, $timeout, $route, BookingService, IdentityService) {
+  .controller('BookingViewCtrl', ['$scope', '$location', '$timeout', '$route', '$window', 'BookingService', 'IdentityService', function ($scope, $location, $timeout, $route, $window, BookingService, IdentityService) {
     var self = this
     self.bookings = []
 
@@ -35,9 +35,24 @@ angular.module('squashApp.bookingView', ['ngRoute', 'ngTouch', 'squashApp.bookin
     // Boolean used to show error ui when loading of the bookings fails
     self.loadFailure = false
 
+    self.isReadonly = false
+    self.isRetired = false
+
     // Data needed to draw booking table row and column labels
     self.courtNumbers = BookingService.getCourtNumbers() // e.g. [1,2,3,4,5]
     self.timeSlots = BookingService.getTimeSlots() // e.g. ["10:00 AM", ..., "9:15 PM"]
+
+    function redirectIfBookingsServiceIsRetired (e) {
+     // If the lifecycle state is RETIRED, trigger a redirection to the updated booking service.
+      if ((typeof e.error !== 'undefined') && (typeof e.error.data !== 'undefined') && (e.error.data.hasOwnProperty('errorMessage') && (e.error.data.errorMessage.startsWith('Cannot access bookings')))) {
+        // Extract the forwarding url from the error message.
+        var message = e.error.data.errorMessage
+        var httpIndex = message.lastIndexOf('http')
+        var forwardingUrl = message.substring(httpIndex)
+        self.isRetired = true
+        $window.location.href = forwardingUrl
+      }
+    }
 
     // Create promise chain to render the bookings for the selected date
     BookingService.getCachedValidDates(new BookingDataBuilder())
@@ -45,6 +60,11 @@ angular.module('squashApp.bookingView', ['ngRoute', 'ngTouch', 'squashApp.bookin
         return getBookingsForSelectedDate(builder, true)
       })
       .then(function (builder) {
+        // If RETIRED, redirect to the new booking service.
+        if (builder.getLifecycleState() === 'RETIRED') {
+          self.isRetired = true
+          $window.location.href = builder.getForwardingUrl()
+        }
         return commitBookingsIfDateStillValid(builder)
       })
       .catch(function (e) {
@@ -64,6 +84,8 @@ angular.module('squashApp.bookingView', ['ngRoute', 'ngTouch', 'squashApp.bookin
         return commitBookingsIfDateStillValid(builder)
       })
       .catch(function (e) {
+        redirectIfBookingsServiceIsRetired(e)
+
         // Set flag so UI can display a general failure message only if we also
         // failed to render from cached data
         if ((typeof e.builder === 'undefined') ||
@@ -151,6 +173,8 @@ angular.module('squashApp.bookingView', ['ngRoute', 'ngTouch', 'squashApp.bookin
         self.rowspans = angular.copy(builder.getRowspans())
         self.colspans = angular.copy(builder.getColspans())
         self.cellIsBlockBookingInterior = angular.copy(builder.getCellIsBlockBookingInterior())
+        // Can be ACTIVE or READONLY here, as will have redirected already if RETIRED.
+        self.isReadonly = builder.getLifecycleState().toUpperCase() === 'READONLY'
         builder.setRenderFromCacheFailed(false)
 
         // Update the UI with these new bookings
@@ -310,6 +334,11 @@ angular.module('squashApp.bookingView', ['ngRoute', 'ngTouch', 'squashApp.bookin
 
       BookingService.getCachedBookings(builder)
         .then(function (builder) {
+          // If RETIRED, redirect to the new booking service.
+          if (builder.getLifecycleState() === 'RETIRED') {
+            self.isRetired = true
+            $window.location.href = builder.getForwardingUrl()
+          }
           return commitBookingsIfDateStillValid(builder)
         })
         .catch(function (e) {
@@ -329,6 +358,8 @@ angular.module('squashApp.bookingView', ['ngRoute', 'ngTouch', 'squashApp.bookin
           return commitBookingsIfDateStillValid(builder)
         })
         .catch(function (e) {
+          redirectIfBookingsServiceIsRetired(e)
+
           if ((typeof e.builder !== 'undefined') && (e.builder.getRenderFromCacheFailed() === false)
           ) {
             // Don't fail here if we rendered ok from cached data
@@ -339,7 +370,7 @@ angular.module('squashApp.bookingView', ['ngRoute', 'ngTouch', 'squashApp.bookin
           // to re-get the valid dates from the backend. This can happen if you use a browser
           // left open overnight.
           if ((typeof e.error !== 'undefined') &&
-            (typeof e.error.data !== 'undefined') &&
+            (typeof e.error.data === 'string') &&
             (e.error.data.indexOf('The booking date is outside the valid range') > -1)
           ) {
             // This should reload and show bookings for the first valid date.
@@ -389,6 +420,8 @@ angular.module('squashApp.bookingView', ['ngRoute', 'ngTouch', 'squashApp.bookin
       this.colspans = undefined
       this.cellIsBlockBookingInterior = undefined
       this.renderFromCacheFailed = true // Will be set to false on success
+      this.lifecycleState = undefined
+      this.forwardingUrl = undefined
 
       this.setValidDates = function (validDates) {
         this.validDates = angular.copy(validDates)
@@ -443,6 +476,18 @@ angular.module('squashApp.bookingView', ['ngRoute', 'ngTouch', 'squashApp.bookin
       }
       this.getRenderFromCacheFailed = function () {
         return this.renderFromCacheFailed
+      }
+      this.setLifecycleState = function (lifecycleState) {
+        this.lifecycleState = angular.copy(lifecycleState)
+      }
+      this.getLifecycleState = function () {
+        return this.lifecycleState
+      }
+      this.setForwardingUrl = function (forwardingUrl) {
+        this.forwardingUrl = angular.copy(forwardingUrl)
+      }
+      this.getForwardingUrl = function () {
+        return this.forwardingUrl
       }
     }
   }])

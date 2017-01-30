@@ -1,5 +1,5 @@
 /**
- * Copyright 2015-2016 Robin Steel
+ * Copyright 2015-2017 Robin Steel
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,11 @@ package squash.booking.lambdas.core;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.Assert.assertTrue;
 
+import squash.booking.lambdas.core.ILifecycleManager.LifecycleState;
 import squash.deployment.lambdas.utils.IS3TransferManager;
 
 import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.jmock.Expectations;
 import org.jmock.Mockery;
 import org.jmock.Sequence;
@@ -52,6 +54,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Tests the {@link PageManager}.
@@ -65,6 +68,8 @@ public class PageManagerTest {
   List<String> validDates;
   squash.booking.lambdas.core.PageManagerTest.TestPageManager pageManager;
 
+  Optional<ImmutablePair<LifecycleState, Optional<String>>> activeLifecycleState;
+
   String adminSnsTopicArn;
 
   String apiGatewayBaseUrl;
@@ -76,6 +81,7 @@ public class PageManagerTest {
   LambdaLogger mockLogger;
   IS3TransferManager mockTransferManager;
   IBookingManager mockBookingManager;
+  ILifecycleManager mockLifecycleManager;
   AmazonS3 mockS3Client;
   AmazonSNS mockSNSClient;
 
@@ -103,6 +109,8 @@ public class PageManagerTest {
     pageManager = new squash.booking.lambdas.core.PageManagerTest.TestPageManager();
     pageManager.setCurrentLocalDate(fakeCurrentDate);
 
+    activeLifecycleState = Optional.of(new ImmutablePair<LifecycleState, Optional<String>>(
+        LifecycleState.ACTIVE, Optional.empty()));
     mockery = new Mockery();
     // Set up mock context
     mockContext = mockery.mock(Context.class);
@@ -123,6 +131,17 @@ public class PageManagerTest {
     mockery.checking(new Expectations() {
       {
         ignoring(mockBookingManager);
+      }
+    });
+    // Set up mock lifecycle manager
+    mockLifecycleManager = mockery.mock(ILifecycleManager.class);
+    mockery.checking(new Expectations() {
+      {
+        // Some page manager methods query for lifecycle state - return ACTIVE
+        // state by default.
+        allowing(mockLifecycleManager).getLifecycleState();
+        will(returnValue(activeLifecycleState.get()));
+        ignoring(mockLifecycleManager);
       }
     });
 
@@ -150,7 +169,7 @@ public class PageManagerTest {
     // Call this to initialise the page manager in tests where this
     // initialisation is not the subject of the test.
 
-    pageManager.initialise(mockBookingManager, mockLogger);
+    pageManager.initialise(mockBookingManager, mockLifecycleManager, mockLogger);
   }
 
   @After
@@ -239,6 +258,52 @@ public class PageManagerTest {
     // ACT
     // Do not initialise the page manager first - so we should throw
     pageManager.uploadFamousPlayers();
+  }
+
+  @Test
+  public void testRefreshPageCallsTheLifecycleManagerCorrectly() throws Exception {
+
+    // refreshPage should query the lifecycle manager for the lifecycle
+    // state.
+
+    // ARRANGE
+    // Expect method to query the lifecycle manager for the lifecycle
+    // state. N.B. Name mock as it's replacing the default lifecycleManager
+    // mock
+    mockLifecycleManager = mockery.mock(ILifecycleManager.class, "replacementLifecycleManagerMock");
+    mockery.checking(new Expectations() {
+      {
+        // One call for creating the page, and one for creating the json data.
+        exactly(2).of(mockLifecycleManager).getLifecycleState();
+        will(returnValue(activeLifecycleState.get()));
+      }
+    });
+    initialisePageManager();
+
+    // Set up S3 expectations - these are incidental to current test:
+    Transfer mockTransfer = mockery.mock(Transfer.class);
+    mockery.checking(new Expectations() {
+      {
+        allowing(mockTransfer).isDone();
+        will(returnValue(true));
+        allowing(mockTransfer).waitForCompletion();
+      }
+    });
+    mockTransferManager = mockery.mock(IS3TransferManager.class);
+    // Just check S3 methods called correct number of times - don't bother
+    // checking argument details.
+    mockery.checking(new Expectations() {
+      {
+        // We have one upload for the page and one for the cached data
+        allowing(mockTransferManager).upload(with(any(PutObjectRequest.class)));
+        will(returnValue(mockTransfer));
+      }
+    });
+    pageManager.setS3TransferManager(mockTransferManager);
+
+    // ACT
+    pageManager.refreshPage(fakeCurrentDateString, validDates, apiGatewayBaseUrl, false, bookings,
+        revvingSuffix);
   }
 
   @Test
@@ -379,9 +444,9 @@ public class PageManagerTest {
     final Sequence refreshSequence = mockery.sequence("refresh");
     mockery.checking(new Expectations() {
       {
-        // 2 uploads for each date + 2 uploads for the index pages + 1 upload
+        // 2 uploads for each date + 3 uploads for the index pages + 1 upload
         // for the validdates json + 1 upload for the famous players json.
-        exactly(2 * validDates.size() + 4).of(mockTransferManager).upload(
+        exactly(2 * validDates.size() + 5).of(mockTransferManager).upload(
             with(any(PutObjectRequest.class)));
         will(returnValue(mockTransfer));
         inSequence(refreshSequence);
@@ -562,12 +627,59 @@ public class PageManagerTest {
   }
 
   @Test
-  public void testCreateBookingPageReturnsCorrectPage() throws Exception {
+  public void testCreateBookingPageReturnsCorrectPage_activeLifecycleState() throws Exception {
+    // In active lifecycle state the normal booking page should be created, with
+    // enabled buttons, no forwarding meta-header, and no 'under maintenance'
+    // banner.
+
+    String regressionPath = "/squash/booking/lambdas/TestCreateBookingPageReturnsCorrectPage_ActiveLifecycle.html";
+    String outputPath = "BookingPageFailingTestResult_ActiveLifecycle.html";
+    doTestCreateBookingPageReturnsCorrectPage(activeLifecycleState.get(), regressionPath,
+        outputPath);
+  }
+
+  @Test
+  public void testCreateBookingPageReturnsCorrectPage_readonlyLifecycleState() throws Exception {
+    // In readonly lifecycle state a booking page should be created, with
+    // disabled buttons, an 'under maintenance' banner, but no forwarding
+    // meta-header.
+
+    String regressionPath = "/squash/booking/lambdas/TestCreateBookingPageReturnsCorrectPage_ReadonlyLifecycle.html";
+    String outputPath = "BookingPageFailingTestResult_ReadonlyLifecycle.html";
+    doTestCreateBookingPageReturnsCorrectPage(new ImmutablePair<LifecycleState, Optional<String>>(
+        LifecycleState.READONLY, Optional.empty()), regressionPath, outputPath);
+  }
+
+  @Test
+  public void testCreateBookingPageReturnsCorrectPage_retiredLifecycleState() throws Exception {
+    // In retired lifecycle state a booking page should be created, with a
+    // forwarding meta-header, and a body containing only a redirection message
+    // and link.
+
+    String regressionPath = "/squash/booking/lambdas/TestCreateBookingPageReturnsCorrectPage_RetiredLifecycle.html";
+    String outputPath = "BookingPageFailingTestResult_RetiredLifecycle.html";
+    doTestCreateBookingPageReturnsCorrectPage(new ImmutablePair<LifecycleState, Optional<String>>(
+        LifecycleState.RETIRED, Optional.of("someForwardingUrl")), regressionPath, outputPath);
+  }
+
+  private void doTestCreateBookingPageReturnsCorrectPage(
+      ImmutablePair<LifecycleState, Optional<String>> lifecycleState, String regressionPath,
+      String outputPath) throws Exception {
 
     // We create two single bookings, and 2 block bookings, and verify resulting
     // html directly against a previously-saved regression file.
 
     // ARRANGE
+    // Expect method to query the lifecycle manager for the lifecycle
+    // state. N.B. Name mock as it's replacing the default lifecycleManager
+    // mock
+    mockLifecycleManager = mockery.mock(ILifecycleManager.class, "replacementLifecycleManagerMock");
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockLifecycleManager).getLifecycleState();
+        will(returnValue(lifecycleState));
+      }
+    });
     initialisePageManager();
 
     // Set some values that will get embedded into the booking page
@@ -607,8 +719,7 @@ public class PageManagerTest {
 
     // Load in the expected page
     String expectedBookingPage;
-    try (InputStream stream = PageManagerTest.class
-        .getResourceAsStream("/squash/booking/lambdas/TestCreateBookingPageReturnsCorrectPage.html")) {
+    try (InputStream stream = PageManagerTest.class.getResourceAsStream(regressionPath)) {
       expectedBookingPage = CharStreams.toString(new InputStreamReader(stream, "UTF-8"));
     }
 
@@ -622,11 +733,10 @@ public class PageManagerTest {
     if (!pageIsCorrect) {
       // Save the generated page only in the error case
       // Get path to resource so can save attempt alongside it
-      URL regressionPage = PageManagerTest.class
-          .getResource("/squash/booking/lambdas/TestCreateBookingPageReturnsCorrectPage.html");
+      URL regressionPage = PageManagerTest.class.getResource(regressionPath);
       String regressionPagePath = regressionPage.getPath();
       String pathMinusFilename = FilenameUtils.getPath(regressionPagePath);
-      File outputPage = new File("/" + pathMinusFilename, "BookingPageFailingTestResult.html");
+      File outputPage = new File("/" + pathMinusFilename, outputPath);
       try (PrintStream out = new PrintStream(new FileOutputStream(outputPage))) {
         out.print(actualBookingPage);
       }
@@ -635,12 +745,55 @@ public class PageManagerTest {
   }
 
   @Test
-  public void testCreateCachedBookingDataCreatesCorrectData() throws Exception {
+  public void testCreateCachedBookingDataCreatesCorrectData_activeLifecycleState() throws Exception {
+    // The data's lifecycleState property should have active state and empty
+    // url.
+
+    String regressionData = ",\"lifecycleState\":{\"state\":\"ACTIVE\",\"url\":\"\"}";
+    doTestCreateCachedBookingDataCreatesCorrectData(activeLifecycleState.get(), regressionData);
+  }
+
+  @Test
+  public void testCreateCachedBookingDataCreatesCorrectData_readonlyLifecycleState()
+      throws Exception {
+    // The data's lifecycleState property should have readonly state and empty
+    // url.
+
+    String regressionData = ",\"lifecycleState\":{\"state\":\"READONLY\",\"url\":\"\"}";
+    doTestCreateCachedBookingDataCreatesCorrectData(
+        new ImmutablePair<LifecycleState, Optional<String>>(LifecycleState.READONLY,
+            Optional.empty()), regressionData);
+  }
+
+  @Test
+  public void testCreateCachedBookingDataCreatesCorrectData_retiredLifecycleState()
+      throws Exception {
+    // The data's lifecycleState property should have retired state and
+    // non-empty url.
+    String regressionData = ",\"lifecycleState\":{\"state\":\"RETIRED\",\"url\":\"someForwardingUrl\"}";
+    doTestCreateCachedBookingDataCreatesCorrectData(
+        new ImmutablePair<LifecycleState, Optional<String>>(LifecycleState.RETIRED,
+            Optional.of("someForwardingUrl")), regressionData);
+  }
+
+  private void doTestCreateCachedBookingDataCreatesCorrectData(
+      ImmutablePair<LifecycleState, Optional<String>> lifecycleState, String regressionData)
+      throws Exception {
 
     // We create two single bookings, and 1 block booking, and verify resulting
     // json directly against regression data.
 
     // ARRANGE
+    // Expect method to query the lifecycle manager for the lifecycle
+    // state. N.B. Name mock as it's replacing the default lifecycleManager
+    // mock
+    mockLifecycleManager = mockery.mock(ILifecycleManager.class, "replacementLifecycleManagerMock");
+    mockery.checking(new Expectations() {
+      {
+        oneOf(mockLifecycleManager).getLifecycleState();
+        will(returnValue(lifecycleState));
+      }
+    });
     initialisePageManager();
 
     // Set up 2 bookings
@@ -664,7 +817,8 @@ public class PageManagerTest {
     bookingsForDate.add(booking3);
 
     // Set up the expected cached data
-    String expectedCachedBookingData = "{\"date\":\"2015-10-06\",\"validdates\":[\"2015-10-06\",\"2015-10-07\"],\"bookings\":[{\"court\":5,\"courtSpan\":1,\"slot\":3,\"slotSpan\":1,\"name\":\"A.Playera/B.Playerb\"},{\"court\":3,\"courtSpan\":1,\"slot\":4,\"slotSpan\":1,\"name\":\"C.Playerc/D.Playerd\"},{\"court\":2,\"courtSpan\":2,\"slot\":10,\"slotSpan\":3,\"name\":\"E.Playere/F.Playerf\"}]}";
+    String expectedCachedBookingData = "{\"date\":\"2015-10-06\",\"validdates\":[\"2015-10-06\",\"2015-10-07\"],\"bookings\":[{\"court\":5,\"courtSpan\":1,\"slot\":3,\"slotSpan\":1,\"name\":\"A.Playera/B.Playerb\"},{\"court\":3,\"courtSpan\":1,\"slot\":4,\"slotSpan\":1,\"name\":\"C.Playerc/D.Playerd\"},{\"court\":2,\"courtSpan\":2,\"slot\":10,\"slotSpan\":3,\"name\":\"E.Playere/F.Playerf\"}]"
+        + regressionData + "}";
 
     // ACT
     String actualCachedBookingData = pageManager.createCachedBookingData(fakeCurrentDateString,
@@ -695,7 +849,7 @@ public class PageManagerTest {
     bookingsForDate.add(booking);
 
     // Set up the expected cached data
-    String expectedCachedBookingData = "{\"date\":\"2015-10-06\",\"validdates\":[\"2015-10-06\",\"2015-10-07\"],\"bookings\":[{\"court\":5,\"courtSpan\":1,\"slot\":3,\"slotSpan\":1,\"name\":\"A.Playera/B.Playerb\"}]}";
+    String expectedCachedBookingData = "{\"date\":\"2015-10-06\",\"validdates\":[\"2015-10-06\",\"2015-10-07\"],\"bookings\":[{\"court\":5,\"courtSpan\":1,\"slot\":3,\"slotSpan\":1,\"name\":\"A.Playera/B.Playerb\"}],\"lifecycleState\":{\"state\":\"ACTIVE\",\"url\":\"\"}}";
 
     // ACT
     String actualCachedBookingData = pageManager.createCachedBookingData(fakeCurrentDateString,
@@ -724,7 +878,7 @@ public class PageManagerTest {
     List<Booking> bookingsForDate = new ArrayList<>();
 
     // Set up the expected cached data
-    String expectedCachedBookingData = "{\"date\":\"2015-10-06\",\"validdates\":[\"2015-10-06\",\"2015-10-07\"],\"bookings\":[]}";
+    String expectedCachedBookingData = "{\"date\":\"2015-10-06\",\"validdates\":[\"2015-10-06\",\"2015-10-07\"],\"bookings\":[],\"lifecycleState\":{\"state\":\"ACTIVE\",\"url\":\"\"}}";
 
     // ACT
     String actualCachedBookingData = pageManager.createCachedBookingData(fakeCurrentDateString,

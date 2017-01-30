@@ -936,7 +936,7 @@
 
     "UpdateBookingsLambda": {
       "Type": "AWS::Lambda::Function",
-      "Metadata" : { "Comment" : "Lambda to update booking pages every midnight" },
+      "Metadata" : { "Comment" : "Lambda to update booking pages every midnight - or any other time" },
       "Properties": {
         "Code": {
           "S3Bucket" : {"Ref" : "SquashZipsBucketName"},
@@ -952,8 +952,35 @@
             "SimpleDBDomainName" : { "Ref" : "SquashSimpleDBDomain" },
             "CognitoIdentityPoolId" : { "Fn::GetAtt" : ["SquashCognitoCustomResource", "CognitoIdentityPoolId"] },
             "WebsiteBucket" : {"Ref" : "WebsiteBucketName"},
+            "ApiGatewayBaseUrl" : { "Fn::GetAtt" : ["SquashApiGatewayCustomResource", "ApiGatewayBaseUrl"] },
             "DatabaseBackupBucket" : {"Ref" : "DatabaseBackupBucketName"},
             "AdminSNSTopicArn" : {"Ref" : "AdminSNSTopic"},
+            "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]}
+          }
+        }
+      },
+      "DependsOn": ["BookingsAndBookingRulesLambdaExecutionRole"]
+    },
+
+    "UpdateLifecycleStateLambda": {
+      "Type": "AWS::Lambda::Function",
+      "Metadata" : { "Comment" : "Lambda to update the booking service lifecycle state" },
+      "Properties": {
+        "Code": {
+          "S3Bucket" : {"Ref" : "SquashZipsBucketName"},
+          "S3Key" : {"Fn::Join" : ["", [{"Ref" : "LambdaZipsKeyNameBase"}, {"Ref" : "LambdaZipsRevision"}, ".zip"]]}
+        },
+        "Handler": "squash.booking.lambdas.UpdateLifecycleStateLambda::updateLifecycleState",
+        "Runtime": "java8",
+        "MemorySize" : 1024,
+        "Timeout": "120",
+        "Role": { "Fn::GetAtt" : ["BookingsAndBookingRulesLambdaExecutionRole", "Arn"] },
+        "Environment": {
+          "Variables" : {
+            "SimpleDBDomainName" : { "Ref" : "SquashSimpleDBDomain" },
+            "AdminSNSTopicArn" : {"Ref" : "AdminSNSTopic"},
+            "WebsiteBucket" : {"Ref" : "WebsiteBucketName"},
+            "ApiGatewayBaseUrl" : { "Fn::GetAtt" : ["SquashApiGatewayCustomResource", "ApiGatewayBaseUrl"] },
             "RevvingSuffix":{"Fn::Join" : ["", ["v", {"Ref" : "LambdaZipsRevision"}]]}
           }
         }
@@ -1004,7 +1031,7 @@
         },
         "CorsConfiguration" : {
           "CorsRules" : [{
-            "AllowedOrigins" : [ {"Fn::Join" : ["", ["http://", {"Ref" : "WebsiteBucketName"}, ".s3-website-", { "Ref" : "AWS::Region" }, ".amazonaws.com"]]}],
+            "AllowedOrigins" : [ {"Fn::Join" : ["", ["http://", {"Ref" : "WebsiteBucketName"}, ".s3-website-", { "Ref" : "AWS::Region" }, ".amazonaws.com"]]}, {"Fn::Join" : ["", ["https://s3-", { "Ref" : "AWS::Region" }, ".amazonaws.com/", {"Ref" : "WebsiteBucketName"}]]}],
             "AllowedMethods" : ["GET"],
             "AllowedHeaders" : ["*"],
             "ExposedHeaders" : [ "ETag", "cache-control"],
