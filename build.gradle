@@ -5,11 +5,12 @@ buildscript {
         maven { url "https://plugins.gradle.org/m2/" } // For grunt and node plugins
     }
     dependencies {
-        classpath "io.spring.gradle:dependency-management-plugin:0.5.4.RELEASE",
+        classpath "io.spring.gradle:dependency-management-plugin:1.0.1.RELEASE",
                   "com.moowork.gradle:gradle-node-plugin:0.13",
                   "com.moowork.gradle:gradle-grunt-plugin:0.13"
     }
 }
+
 apply plugin: "io.spring.dependency-management"
 apply plugin: "com.moowork.node"
 apply plugin: "com.moowork.grunt"
@@ -26,12 +27,13 @@ repositories {
 dependencyManagement {
     imports {
         // Specify AWS SDK version here.
-        mavenBom 'com.amazonaws:aws-java-sdk-bom:1.11.105'
+        mavenBom 'com.amazonaws:aws-java-sdk-bom:1.11.167'
     }
 }
 
 sourceSets {
     acceptancetest
+    loadtest
 }
 
 grunt {
@@ -62,9 +64,16 @@ build.dependsOn 'installGrunt'
 // processes package.json before running build
 build.dependsOn 'npmInstall'
 
+// N.B. We have a separate jmeter configuration here solely so we can create a fat jar with our
+// JMeter custom samplers that excludes all JMeter dependencies - as JMeter seems not to like
+// loading a jar with these - presumably as they are conflicting with stuff already loaded.
 configurations {
     acceptancetestCompile.extendsFrom testCompile
     acceptancetestRuntime.extendsFrom testRuntime
+    
+    jmeter
+    loadtestCompile.extendsFrom jmeter
+    loadtestRuntime.extendsFrom loadtestCompile
 }
 
 ext.cucumberVersion = '1.2.4'
@@ -118,10 +127,16 @@ dependencies {
                           "org.seleniumhq.selenium:selenium-safari-driver:$seleniumVersion",
                           "org.seleniumhq.selenium:selenium-htmlunit-driver:$seleniumVersion",
                           "org.seleniumhq.selenium:selenium-api:$seleniumVersion"
+
+    jmeter                "org.apache.jmeter:ApacheJMeter_java:3.1"
+    loadtestCompile       'com.amazonaws:aws-java-sdk:1.11.123',
+                          "com.amazonaws:aws-java-sdk-opensdk:1.11.94",
+                          'com.fasterxml.jackson.core:jackson-core:2.8.7',
+                          files('build/apigateway-sdk/build/libs/Squash-1.0-SNAPSHOT.jar')
 }
 
 task gw(type: Wrapper) {
-    gradleVersion = '2.14'
+    gradleVersion = '3.4.1'
     scriptFile = 'gw'
 }
 
@@ -188,6 +203,61 @@ clean.doFirst {
     delete "${rootDir}/angularjs/dist/"
 }
 
+// N.B. LoadTest should have its java api sdk auto-downloaded into place after the
+// main stack is created. But aws java sdk does not yet support this. So need to
+// download it manually before LoadTest will compile.
+
+// This is jar with only our custom samplers - i.e. excluding their dependencies.
+task createJMeterCustomSamplersJar(type: Jar, dependsOn: compileLoadtestJava) {
+    archiveName = 'JMeterSqawshCustomSamplers.jar'
+    from(sourceSets.loadtest.output.classesDir) {
+        include '**/*.class'
+    }
+    outputs.upToDateWhen { false }
+}
+if (!project.hasProperty("JMeterCustomSamplersFolder")) {
+    // Default folder to copy JMeter custom samplers jar to. JMeter will find jars placed in its lib/ext folder.
+    // (This is where 'brew install jmeter' puts it on Mac.)
+    ext.JMeterCustomSamplersFolder = "/usr/local/Cellar/jmeter/3.1/libexec/lib/ext"
+}
+// Better not to clean this task as it will delete entire folder - including other jmeter stuff. Made
+// it always out-of-date instead so always copies.
+task deployJMeterCustomSamplersJar(type:Copy) {
+    description = 'Deploys the JMeter custom samplers jar to the folder in your JMeter installation specified by the JMeterCustomSamplersFolder property (defaults to /usr/local/Cellar/jmeter/3.1/libexec/lib/ext)'
+    from createJMeterCustomSamplersJar
+    into "$JMeterCustomSamplersFolder"
+    outputs.upToDateWhen { false }
+}
+
+// The dependencies of our custom samplers are in a separate jar as they get
+// deployed to a different folder within the JMeter installation tree.
+task createJMeterCustomSamplersDependenciesJar(type: Jar, dependsOn: compileLoadtestJava) {
+    archiveName = 'JMeterSqawshCustomSamplersDependencies.jar'
+    // Include all dependencies in the jar, except jmeter - which will be provided by
+    // JMeter already. (Providing them again here seems to break JMeter.)
+    from { (configurations.loadtestRuntime - configurations.jmeter).collect { it.isDirectory() ? it : zipTree(it) } }
+    outputs.upToDateWhen { false }
+}
+if (!project.hasProperty("JMeterCustomSamplersDependenciesFolder")) {
+    // Default folder to copy dependencies of JMeter custom samplers jar to. JMeter will find such jars placed in its lib folder.
+    // (This is where 'brew install jmeter' puts it on Mac.)
+    ext.JMeterCustomSamplersDependenciesFolder = "/usr/local/Cellar/jmeter/3.1/libexec/lib"
+}
+// Better not to clean this task as it will delete entire folder - including other jmeter stuff. Made
+// it always out-of-date instead so always copies.
+task deployJMeterCustomSamplersDependenciesJar(type:Copy) {
+    description = 'Deploys the JMeter custom samplers dependency jars to the folder in your JMeter installation specified by the JMeterCustomSamplersDependenciesFolder property (defaults to /usr/local/Cellar/jmeter/3.1/libexec/lib)'
+    from createJMeterCustomSamplersDependenciesJar
+    into "$JMeterCustomSamplersDependenciesFolder"
+    outputs.upToDateWhen { false }
+}
+// Combo task to deploy both jars associated with our custom samplers.
+task deployJMeterCustomSamplersAndDependenciesJars() {
+    description 'Deploys Jmeter Custom Samplers and their dependencies to the JMeter installation tree.'
+    outputs.upToDateWhen { false }
+}
+deployJMeterCustomSamplersAndDependenciesJars.dependsOn(deployJMeterCustomSamplersJar, deployJMeterCustomSamplersDependenciesJar)
+
 // N.B. This task will work only if the AWS CLI tools are installed
 // Pass it an S3 bucketname and a zip revision number and it will upload
 // both zip files and the CloudFormation template to the bucket. e.g.:
@@ -232,6 +302,6 @@ tasks.withType(Test) {
 eclipse {
   classpath {
     //you can tweak the classpath of the Eclipse project by adding extra configurations:
-    plusConfigurations += [ configurations.acceptancetestCompile ]
+    plusConfigurations += [ configurations.acceptancetestCompile, configurations.loadtestCompile ]
   }
 }

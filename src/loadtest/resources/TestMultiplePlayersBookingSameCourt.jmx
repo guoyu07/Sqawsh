@@ -1,0 +1,601 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="3.1" jmeter="3.1 r1770033">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Test multiple players booking same free court simultaneously" enabled="true">
+      <stringProp name="TestPlan.comments">Exactly one player should succeed and all others should get correct error</stringProp>
+      <boolProp name="TestPlan.functional_mode">false</boolProp>
+      <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+        <collectionProp name="Arguments.arguments">
+          <elementProp name="NO_SCRIPT_WEBSITE_URL" elementType="Argument">
+            <stringProp name="Argument.name">NO_SCRIPT_WEBSITE_URL</stringProp>
+            <stringProp name="Argument.value">http://squashwebsite33.s3-website-eu-west-1.amazonaws.com</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="APIGATEWAY_BASE_URL" elementType="Argument">
+            <stringProp name="Argument.name">APIGATEWAY_BASE_URL</stringProp>
+            <stringProp name="Argument.value">https://zhu6ahqac9.execute-api.eu-west-1.amazonaws.com/Squash</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="COGNITO_IDENTITY_POOL_ID" elementType="Argument">
+            <stringProp name="Argument.name">COGNITO_IDENTITY_POOL_ID</stringProp>
+            <stringProp name="Argument.value">eu-west-1:123ed37a-98b3-4d43-995b-8e3f1e00f9a7</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="REGION" elementType="Argument">
+            <stringProp name="Argument.name">REGION</stringProp>
+            <stringProp name="Argument.value">eu-west-1</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="COURT" elementType="Argument">
+            <stringProp name="Argument.name">COURT</stringProp>
+            <stringProp name="Argument.value">1</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="COURTSPAN" elementType="Argument">
+            <stringProp name="Argument.name">COURTSPAN</stringProp>
+            <stringProp name="Argument.value">1</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="SLOT" elementType="Argument">
+            <stringProp name="Argument.name">SLOT</stringProp>
+            <stringProp name="Argument.value">1</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="SLOTSPAN" elementType="Argument">
+            <stringProp name="Argument.name">SLOTSPAN</stringProp>
+            <stringProp name="Argument.value">1</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="DATE" elementType="Argument">
+            <stringProp name="Argument.name">DATE</stringProp>
+            <stringProp name="Argument.value">2017-07-25</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="PUT_OR_DELETE" elementType="Argument">
+            <stringProp name="Argument.name">PUT_OR_DELETE</stringProp>
+            <stringProp name="Argument.value">PUT</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+        </collectionProp>
+      </elementProp>
+      <stringProp name="TestPlan.user_define_classpath"></stringProp>
+      <boolProp name="TestPlan.tearDown_on_shutdown">true</boolProp>
+    </TestPlan>
+    <hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Try to book same court" enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">stoptest</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+          <stringProp name="LoopController.loops">1</stringProp>
+        </elementProp>
+        <stringProp name="ThreadGroup.num_threads">10</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">1</stringProp>
+        <longProp name="ThreadGroup.start_time">1490127277000</longProp>
+        <longProp name="ThreadGroup.end_time">1490127277000</longProp>
+        <boolProp name="ThreadGroup.scheduler">false</boolProp>
+        <stringProp name="ThreadGroup.duration"></stringProp>
+        <stringProp name="ThreadGroup.delay"></stringProp>
+        <stringProp name="TestPlan.comments">Simulate many players trying to book same free court simultaneously </stringProp>
+      </ThreadGroup>
+      <hashTree>
+        <ConfigTestElement guiclass="HttpDefaultsGui" testclass="ConfigTestElement" testname="HTTP Request Defaults" enabled="true">
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+          <stringProp name="HTTPSampler.domain"></stringProp>
+          <stringProp name="HTTPSampler.port"></stringProp>
+          <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+          <stringProp name="HTTPSampler.response_timeout"></stringProp>
+          <stringProp name="HTTPSampler.protocol"></stringProp>
+          <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+          <stringProp name="HTTPSampler.path"></stringProp>
+          <stringProp name="HTTPSampler.concurrentPool">6</stringProp>
+        </ConfigTestElement>
+        <hashTree/>
+        <JavaSampler guiclass="JavaTestSamplerGui" testclass="JavaSampler" testname="Cognito Identity Pool Sampler" enabled="true">
+          <stringProp name="TestPlan.comments">Retrieves temporary AWS credentials from our identity pool</stringProp>
+          <elementProp name="arguments" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" enabled="true">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="COGNITO_IDENTITY_POOL_ID" elementType="Argument">
+                <stringProp name="Argument.name">COGNITO_IDENTITY_POOL_ID</stringProp>
+                <stringProp name="Argument.value">${COGNITO_IDENTITY_POOL_ID}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+              <elementProp name="REGION" elementType="Argument">
+                <stringProp name="Argument.name">REGION</stringProp>
+                <stringProp name="Argument.value">${REGION}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+          <stringProp name="classname">customsamplers.CognitoIdentityPoolCustomSampler</stringProp>
+        </JavaSampler>
+        <hashTree>
+          <RegexExtractor guiclass="RegexExtractorGui" testclass="RegexExtractor" testname="AWS credentials access-key extractor" enabled="true">
+            <stringProp name="TestPlan.comments">Harvests the AccessKeyId from the AWS temporary credentials in the Cognito response body</stringProp>
+            <stringProp name="RegexExtractor.useHeaders">false</stringProp>
+            <stringProp name="RegexExtractor.refname">ACCESS_KEY_ID</stringProp>
+            <stringProp name="RegexExtractor.regex">&quot;AccessKeyID&quot;:([^,]*)</stringProp>
+            <stringProp name="RegexExtractor.template">$1$</stringProp>
+            <stringProp name="RegexExtractor.default"></stringProp>
+            <stringProp name="RegexExtractor.match_number">1</stringProp>
+          </RegexExtractor>
+          <hashTree/>
+          <RegexExtractor guiclass="RegexExtractorGui" testclass="RegexExtractor" testname="AWS credentials secret-key extractor" enabled="true">
+            <stringProp name="TestPlan.comments">Harvests the SecretKey from the AWS temporary credentials in the Cognito response body</stringProp>
+            <stringProp name="RegexExtractor.useHeaders">false</stringProp>
+            <stringProp name="RegexExtractor.refname">SECRET_KEY</stringProp>
+            <stringProp name="RegexExtractor.regex">&quot;SecretKey&quot;:([^,]*)</stringProp>
+            <stringProp name="RegexExtractor.template">$1$</stringProp>
+            <stringProp name="RegexExtractor.default"></stringProp>
+            <stringProp name="RegexExtractor.match_number"></stringProp>
+            <boolProp name="RegexExtractor.default_empty_value">true</boolProp>
+          </RegexExtractor>
+          <hashTree/>
+          <RegexExtractor guiclass="RegexExtractorGui" testclass="RegexExtractor" testname="AWS credentials session-token extractor" enabled="true">
+            <stringProp name="TestPlan.comments">Harvests the SessionToken from the AWS temporary credentials in the Cognito response body</stringProp>
+            <stringProp name="RegexExtractor.useHeaders">false</stringProp>
+            <stringProp name="RegexExtractor.refname">SESSION_TOKEN</stringProp>
+            <stringProp name="RegexExtractor.regex">&quot;SessionToken&quot;:([^}]*)</stringProp>
+            <stringProp name="RegexExtractor.template">$1$</stringProp>
+            <stringProp name="RegexExtractor.default"></stringProp>
+            <stringProp name="RegexExtractor.match_number"></stringProp>
+            <boolProp name="RegexExtractor.default_empty_value">true</boolProp>
+          </RegexExtractor>
+          <hashTree/>
+        </hashTree>
+        <JavaSampler guiclass="JavaTestSamplerGui" testclass="JavaSampler" testname="Squash Court Booking Sampler" enabled="true">
+          <stringProp name="TestPlan.comments">Tries to book a specific squash court via the API</stringProp>
+          <elementProp name="arguments" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" enabled="true">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="APIGATEWAY_BASE_URL" elementType="Argument">
+                <stringProp name="Argument.name">APIGATEWAY_BASE_URL</stringProp>
+                <stringProp name="Argument.value">${APIGATEWAY_BASE_URL}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+              <elementProp name="ACCESS_KEY_ID" elementType="Argument">
+                <stringProp name="Argument.name">ACCESS_KEY_ID</stringProp>
+                <stringProp name="Argument.value">${ACCESS_KEY_ID}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+              <elementProp name="SECRET_KEY" elementType="Argument">
+                <stringProp name="Argument.name">SECRET_KEY</stringProp>
+                <stringProp name="Argument.value">${SECRET_KEY}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+              <elementProp name="SESSION_TOKEN" elementType="Argument">
+                <stringProp name="Argument.name">SESSION_TOKEN</stringProp>
+                <stringProp name="Argument.value">${SESSION_TOKEN}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+              <elementProp name="REGION" elementType="Argument">
+                <stringProp name="Argument.name">REGION</stringProp>
+                <stringProp name="Argument.value">${REGION}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+              <elementProp name="BOOKING_NAME" elementType="Argument">
+                <stringProp name="Argument.name">BOOKING_NAME</stringProp>
+                <stringProp name="Argument.value">A.Shabana/J.Power ${__threadNum}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+              <elementProp name="COURT" elementType="Argument">
+                <stringProp name="Argument.name">COURT</stringProp>
+                <stringProp name="Argument.value">${COURT}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+              <elementProp name="COURTSPAN" elementType="Argument">
+                <stringProp name="Argument.name">COURTSPAN</stringProp>
+                <stringProp name="Argument.value">${COURTSPAN}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+              <elementProp name="SLOT" elementType="Argument">
+                <stringProp name="Argument.name">SLOT</stringProp>
+                <stringProp name="Argument.value">${SLOT}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+              <elementProp name="SLOTSPAN" elementType="Argument">
+                <stringProp name="Argument.name">SLOTSPAN</stringProp>
+                <stringProp name="Argument.value">${SLOTSPAN}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+              <elementProp name="DATE" elementType="Argument">
+                <stringProp name="Argument.name">DATE</stringProp>
+                <stringProp name="Argument.value">${DATE}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+              <elementProp name="PUT_OR_DELETE" elementType="Argument">
+                <stringProp name="Argument.name">PUT_OR_DELETE</stringProp>
+                <stringProp name="Argument.value">${PUT_OR_DELETE}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+          <stringProp name="classname">customsamplers.SquashBookingApiCustomSampler</stringProp>
+        </JavaSampler>
+        <hashTree>
+          <RegexExtractor guiclass="RegexExtractorGui" testclass="RegexExtractor" testname="ResponseMessage Extractor" enabled="true">
+            <stringProp name="TestPlan.comments">Extracts sampler HTTP response message to per-thread variable</stringProp>
+            <stringProp name="RegexExtractor.useHeaders">message</stringProp>
+            <stringProp name="RegexExtractor.refname">ResponseMessage</stringProp>
+            <stringProp name="RegexExtractor.regex">.*</stringProp>
+            <stringProp name="RegexExtractor.template">$0$</stringProp>
+            <stringProp name="RegexExtractor.default"></stringProp>
+            <stringProp name="RegexExtractor.match_number"></stringProp>
+          </RegexExtractor>
+          <hashTree/>
+          <RegexExtractor guiclass="RegexExtractorGui" testclass="RegexExtractor" testname="ResponseCode Extractor" enabled="true">
+            <stringProp name="TestPlan.comments">Extracts sampler HTTP response code to per-thread variable</stringProp>
+            <stringProp name="RegexExtractor.useHeaders">code</stringProp>
+            <stringProp name="RegexExtractor.refname">ResponseCode</stringProp>
+            <stringProp name="RegexExtractor.regex">200|400</stringProp>
+            <stringProp name="RegexExtractor.template">$0$</stringProp>
+            <stringProp name="RegexExtractor.default">500</stringProp>
+            <stringProp name="RegexExtractor.match_number"></stringProp>
+          </RegexExtractor>
+          <hashTree/>
+          <BeanShellAssertion guiclass="BeanShellAssertionGui" testclass="BeanShellAssertion" testname="Store response code in property" enabled="true">
+            <stringProp name="TestPlan.comments">Stores HTTP response code from per-thread variable to a global property for later validation</stringProp>
+            <stringProp name="BeanShellAssertion.query">${__setProperty(SqawshJmeterResponseCode_${__threadNum}, ${ResponseCode})};</stringProp>
+            <stringProp name="BeanShellAssertion.filename"></stringProp>
+            <stringProp name="BeanShellAssertion.parameters"></stringProp>
+            <boolProp name="BeanShellAssertion.resetInterpreter">false</boolProp>
+          </BeanShellAssertion>
+          <hashTree/>
+          <BeanShellAssertion guiclass="BeanShellAssertionGui" testclass="BeanShellAssertion" testname="Store response message in property" enabled="true">
+            <stringProp name="TestPlan.comments">Stores HTTP response message from per-thread variable to a global property for later validation</stringProp>
+            <stringProp name="BeanShellAssertion.query">${__setProperty(SqawshJmeterResponseMessage_${__threadNum}, ${ResponseMessage})};</stringProp>
+            <stringProp name="BeanShellAssertion.filename"></stringProp>
+            <stringProp name="BeanShellAssertion.parameters"></stringProp>
+            <boolProp name="BeanShellAssertion.resetInterpreter">false</boolProp>
+          </BeanShellAssertion>
+          <hashTree/>
+        </hashTree>
+        <SyncTimer guiclass="TestBeanGUI" testclass="SyncTimer" testname="Synchronizing Timer" enabled="true">
+          <stringProp name="TestPlan.comments">Ensures all threads in group try to book the court simultaneously.</stringProp>
+          <intProp name="groupSize">0</intProp>
+          <longProp name="timeoutInMs">10000</longProp>
+        </SyncTimer>
+        <hashTree/>
+        <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree" enabled="false">
+          <boolProp name="ResultCollector.error_logging">false</boolProp>
+          <objProp>
+            <name>saveConfig</name>
+            <value class="SampleSaveConfiguration">
+              <time>true</time>
+              <latency>true</latency>
+              <timestamp>true</timestamp>
+              <success>true</success>
+              <label>true</label>
+              <code>true</code>
+              <message>true</message>
+              <threadName>true</threadName>
+              <dataType>true</dataType>
+              <encoding>false</encoding>
+              <assertions>true</assertions>
+              <subresults>true</subresults>
+              <responseData>false</responseData>
+              <samplerData>false</samplerData>
+              <xml>false</xml>
+              <fieldNames>true</fieldNames>
+              <responseHeaders>false</responseHeaders>
+              <requestHeaders>false</requestHeaders>
+              <responseDataOnError>false</responseDataOnError>
+              <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+              <assertionsResultsToSave>0</assertionsResultsToSave>
+              <bytes>true</bytes>
+              <sentBytes>true</sentBytes>
+              <threadCounts>true</threadCounts>
+              <idleTime>true</idleTime>
+              <connectTime>true</connectTime>
+            </value>
+          </objProp>
+          <stringProp name="filename"></stringProp>
+        </ResultCollector>
+        <hashTree/>
+        <DebugSampler guiclass="TestBeanGUI" testclass="DebugSampler" testname="Debug Sampler" enabled="false">
+          <boolProp name="displayJMeterProperties">false</boolProp>
+          <boolProp name="displayJMeterVariables">true</boolProp>
+          <boolProp name="displaySystemProperties">false</boolProp>
+        </DebugSampler>
+        <hashTree/>
+      </hashTree>
+      <PostThreadGroup guiclass="PostThreadGroupGui" testclass="PostThreadGroup" testname="tearDown Thread Group" enabled="true">
+        <stringProp name="TestPlan.comments">This will run after other samplers are complete, and validates their results.</stringProp>
+        <stringProp name="ThreadGroup.on_sample_error">stoptest</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+          <stringProp name="LoopController.loops">1</stringProp>
+        </elementProp>
+        <stringProp name="ThreadGroup.num_threads">1</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">1</stringProp>
+        <longProp name="ThreadGroup.start_time">1494708330000</longProp>
+        <longProp name="ThreadGroup.end_time">1494708330000</longProp>
+        <boolProp name="ThreadGroup.scheduler">false</boolProp>
+        <stringProp name="ThreadGroup.duration"></stringProp>
+        <stringProp name="ThreadGroup.delay"></stringProp>
+      </PostThreadGroup>
+      <hashTree>
+        <TestAction guiclass="TestActionGui" testclass="TestAction" testname="Eventual-consistency pause" enabled="true">
+          <stringProp name="TestPlan.comments">Pause to ensure S3 has reached consistent state - so we read correct court booking page</stringProp>
+          <intProp name="ActionProcessor.action">1</intProp>
+          <intProp name="ActionProcessor.target">0</intProp>
+          <stringProp name="ActionProcessor.duration">3000</stringProp>
+        </TestAction>
+        <hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Get court booking page" enabled="true">
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+          <stringProp name="HTTPSampler.domain"></stringProp>
+          <stringProp name="HTTPSampler.port"></stringProp>
+          <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+          <stringProp name="HTTPSampler.response_timeout"></stringProp>
+          <stringProp name="HTTPSampler.protocol"></stringProp>
+          <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+          <stringProp name="HTTPSampler.path">${NO_SCRIPT_WEBSITE_URL}?selectedDate=${DATE}.html</stringProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">false</boolProp>
+          <boolProp name="HTTPSampler.auto_redirects">true</boolProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+          <boolProp name="HTTPSampler.monitor">false</boolProp>
+          <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+          <stringProp name="TestPlan.comments">Gets booking page in its final form to check correct booking has been made.</stringProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <RegexExtractor guiclass="RegexExtractorGui" testclass="RegexExtractor" testname="BookingName Extractor" enabled="true">
+            <stringProp name="TestPlan.comments">Gets the players name index for the booked court - to see which thread managed to book the court.</stringProp>
+            <stringProp name="RegexExtractor.useHeaders">false</stringProp>
+            <stringProp name="RegexExtractor.refname">SqawshPlayersNameNumber</stringProp>
+            <stringProp name="RegexExtractor.regex">value=&quot;A.Shabana/J.Power (\d+)&quot; class=&quot;cancellation-button&quot;</stringProp>
+            <stringProp name="RegexExtractor.template">$1$</stringProp>
+            <stringProp name="RegexExtractor.default">-1</stringProp>
+            <stringProp name="RegexExtractor.match_number">1</stringProp>
+          </RegexExtractor>
+          <hashTree/>
+          <BeanShellAssertion guiclass="BeanShellAssertionGui" testclass="BeanShellAssertion" testname="Main test assertion" enabled="true">
+            <stringProp name="TestPlan.comments">Checks all players got correct responses and exactly one successfully booked the court</stringProp>
+            <stringProp name="BeanShellAssertion.query">// This asserts that exactly one thread got a 200 response, with all others getting 400. It also
+// verifies the booking web page has exactly one booking and that it&apos;s in the name of the thread
+// that got the 200 response.
+
+// Verify exactly one thread got a 200 response and the others got correct 400 response
+List responseCodes = new ArrayList();
+String response200Thread = &quot;&quot;; // Index of thread that got the 200 response
+Integer num200s = 0; // Counts the number of 200 responses
+for(Map.Entry e:props.entrySet()) {
+    if(e.getKey().contains(&quot;SqawshJmeterResponseCode_&quot;)) {
+        responseCodes.add(e.getValue().trim());
+        if(e.getValue().trim().equals(&quot;200&quot;)) {
+        	  num200s = num200s + 1;
+        	  
+        	  // Record which thread got the 200 response - i.e. booked the court
+        	  // e.g. (&quot;1&quot;, &quot;2&quot; etc)   	
+            response200Thread = e.getKey().substring(e.getKey().indexOf(&quot;_&quot;) + 1, e.getKey().length()).trim();
+        } else if(!e.getValue().trim().equals(&quot;400&quot;)) {
+        	  // Threads should get a 400 if they find the court is already booked.
+            FailureMessage = &quot;All non-200 response codes should be 400.&quot;;
+            Failure = true;
+            return;
+        }
+    }
+}
+if(!num200s.equals(1)) {
+    FailureMessage = &quot;Should have exactly 1 200 response code.&quot; + String.valueOf(num200s);
+    Failure = true;
+    return;
+}
+
+// Get the number of the thread that managed to book the court -  harvested
+// from the bookings web page at the end of the test - this should agree
+// with the number of the thread that got the 200 response, as found above.
+if(!response200Thread.equals(vars.get(&quot;SqawshPlayersNameNumber&quot;))) {
+    FailureMessage = &quot;Thread with 200 response code should also have booked the court.&quot;;
+    Failure = true;
+    return;
+}
+
+Failure = false</stringProp>
+            <stringProp name="BeanShellAssertion.filename"></stringProp>
+            <stringProp name="BeanShellAssertion.parameters"></stringProp>
+            <boolProp name="BeanShellAssertion.resetInterpreter">false</boolProp>
+          </BeanShellAssertion>
+          <hashTree/>
+        </hashTree>
+        <TestAction guiclass="TestActionGui" testclass="TestAction" testname="Cleanup" enabled="true">
+          <intProp name="ActionProcessor.action">1</intProp>
+          <intProp name="ActionProcessor.target">0</intProp>
+          <stringProp name="ActionProcessor.duration"></stringProp>
+        </TestAction>
+        <hashTree>
+          <BeanShellAssertion guiclass="BeanShellAssertionGui" testclass="BeanShellAssertion" testname="Cleanup properties" enabled="true">
+            <stringProp name="TestPlan.comments">Deletes properties created by the test</stringProp>
+            <stringProp name="BeanShellAssertion.query">// Ensure all properties from last run are removed
+List entriesToRemove = new ArrayList();
+for(Map.Entry e:props.entrySet()) {
+    if(e.getKey().contains(&quot;SqawshJmeterResponseCode_&quot;) || e.getKey().contains(&quot;SqawshJmeterResponseMessage_&quot;)) {
+        entriesToRemove.add(e);
+    }
+}
+for(Map.Entry e:entriesToRemove) {
+	props.remove(e.getKey());
+}
+Failure = false;</stringProp>
+            <stringProp name="BeanShellAssertion.filename"></stringProp>
+            <stringProp name="BeanShellAssertion.parameters"></stringProp>
+            <boolProp name="BeanShellAssertion.resetInterpreter">false</boolProp>
+          </BeanShellAssertion>
+          <hashTree/>
+        </hashTree>
+        <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree" enabled="false">
+          <boolProp name="ResultCollector.error_logging">false</boolProp>
+          <objProp>
+            <name>saveConfig</name>
+            <value class="SampleSaveConfiguration">
+              <time>true</time>
+              <latency>true</latency>
+              <timestamp>true</timestamp>
+              <success>true</success>
+              <label>true</label>
+              <code>true</code>
+              <message>true</message>
+              <threadName>true</threadName>
+              <dataType>true</dataType>
+              <encoding>false</encoding>
+              <assertions>true</assertions>
+              <subresults>true</subresults>
+              <responseData>false</responseData>
+              <samplerData>false</samplerData>
+              <xml>false</xml>
+              <fieldNames>true</fieldNames>
+              <responseHeaders>false</responseHeaders>
+              <requestHeaders>false</requestHeaders>
+              <responseDataOnError>false</responseDataOnError>
+              <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+              <assertionsResultsToSave>0</assertionsResultsToSave>
+              <bytes>true</bytes>
+              <sentBytes>true</sentBytes>
+              <threadCounts>true</threadCounts>
+              <idleTime>true</idleTime>
+              <connectTime>true</connectTime>
+            </value>
+          </objProp>
+          <stringProp name="filename"></stringProp>
+        </ResultCollector>
+        <hashTree/>
+        <DebugSampler guiclass="TestBeanGUI" testclass="DebugSampler" testname="Debug Sampler" enabled="false">
+          <boolProp name="displayJMeterProperties">false</boolProp>
+          <boolProp name="displayJMeterVariables">true</boolProp>
+          <boolProp name="displaySystemProperties">false</boolProp>
+        </DebugSampler>
+        <hashTree/>
+      </hashTree>
+      <SetupThreadGroup guiclass="SetupThreadGroupGui" testclass="SetupThreadGroup" testname="setUp Thread Group" enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">stoptest</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+          <stringProp name="LoopController.loops">1</stringProp>
+        </elementProp>
+        <stringProp name="ThreadGroup.num_threads">1</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">1</stringProp>
+        <longProp name="ThreadGroup.start_time">1494711637000</longProp>
+        <longProp name="ThreadGroup.end_time">1494711637000</longProp>
+        <boolProp name="ThreadGroup.scheduler">false</boolProp>
+        <stringProp name="ThreadGroup.duration"></stringProp>
+        <stringProp name="ThreadGroup.delay"></stringProp>
+      </SetupThreadGroup>
+      <hashTree>
+        <TestAction guiclass="TestActionGui" testclass="TestAction" testname="Cleanup" enabled="true">
+          <stringProp name="TestPlan.comments">Do-nothing sampler to attach assertion to to clear up Jmeter properties.</stringProp>
+          <intProp name="ActionProcessor.action">1</intProp>
+          <intProp name="ActionProcessor.target">0</intProp>
+          <stringProp name="ActionProcessor.duration"></stringProp>
+        </TestAction>
+        <hashTree>
+          <BeanShellAssertion guiclass="BeanShellAssertionGui" testclass="BeanShellAssertion" testname="Cleanup properties" enabled="true">
+            <stringProp name="TestPlan.comments">Removes all properties added by previous runs</stringProp>
+            <stringProp name="BeanShellAssertion.query">// Ensure all properties from last run are removed
+List entriesToRemove = new ArrayList();
+for(Map.Entry e:props.entrySet()) {
+    if(e.getKey().contains(&quot;SqawshJmeterResponseCode_&quot;) || e.getKey().contains(&quot;SqawshJmeterResponseMessage_&quot;)) {
+        entriesToRemove.add(e);
+    }
+}
+for(Map.Entry e:entriesToRemove) {
+	props.remove(e.getKey());
+}
+Failure = false;</stringProp>
+            <stringProp name="BeanShellAssertion.filename"></stringProp>
+            <stringProp name="BeanShellAssertion.parameters"></stringProp>
+            <boolProp name="BeanShellAssertion.resetInterpreter">false</boolProp>
+          </BeanShellAssertion>
+          <hashTree/>
+        </hashTree>
+        <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree" enabled="false">
+          <boolProp name="ResultCollector.error_logging">false</boolProp>
+          <objProp>
+            <name>saveConfig</name>
+            <value class="SampleSaveConfiguration">
+              <time>true</time>
+              <latency>true</latency>
+              <timestamp>true</timestamp>
+              <success>true</success>
+              <label>true</label>
+              <code>true</code>
+              <message>true</message>
+              <threadName>true</threadName>
+              <dataType>true</dataType>
+              <encoding>false</encoding>
+              <assertions>true</assertions>
+              <subresults>true</subresults>
+              <responseData>false</responseData>
+              <samplerData>false</samplerData>
+              <xml>false</xml>
+              <fieldNames>true</fieldNames>
+              <responseHeaders>false</responseHeaders>
+              <requestHeaders>false</requestHeaders>
+              <responseDataOnError>false</responseDataOnError>
+              <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+              <assertionsResultsToSave>0</assertionsResultsToSave>
+              <bytes>true</bytes>
+              <sentBytes>true</sentBytes>
+              <threadCounts>true</threadCounts>
+              <idleTime>true</idleTime>
+              <connectTime>true</connectTime>
+            </value>
+          </objProp>
+          <stringProp name="filename"></stringProp>
+        </ResultCollector>
+        <hashTree/>
+        <DebugSampler guiclass="TestBeanGUI" testclass="DebugSampler" testname="Debug Sampler" enabled="false">
+          <boolProp name="displayJMeterProperties">false</boolProp>
+          <boolProp name="displayJMeterVariables">true</boolProp>
+          <boolProp name="displaySystemProperties">false</boolProp>
+        </DebugSampler>
+        <hashTree/>
+      </hashTree>
+      <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="Overall results" enabled="true">
+        <boolProp name="ResultCollector.error_logging">false</boolProp>
+        <objProp>
+          <name>saveConfig</name>
+          <value class="SampleSaveConfiguration">
+            <time>true</time>
+            <latency>true</latency>
+            <timestamp>true</timestamp>
+            <success>true</success>
+            <label>true</label>
+            <code>true</code>
+            <message>true</message>
+            <threadName>true</threadName>
+            <dataType>true</dataType>
+            <encoding>false</encoding>
+            <assertions>true</assertions>
+            <subresults>true</subresults>
+            <responseData>false</responseData>
+            <samplerData>false</samplerData>
+            <xml>false</xml>
+            <fieldNames>true</fieldNames>
+            <responseHeaders>false</responseHeaders>
+            <requestHeaders>false</requestHeaders>
+            <responseDataOnError>false</responseDataOnError>
+            <saveAssertionResultsFailureMessage>true</saveAssertionResultsFailureMessage>
+            <assertionsResultsToSave>0</assertionsResultsToSave>
+            <bytes>true</bytes>
+            <sentBytes>true</sentBytes>
+            <threadCounts>true</threadCounts>
+            <idleTime>true</idleTime>
+            <connectTime>true</connectTime>
+          </value>
+        </objProp>
+        <stringProp name="TestPlan.comments">All samples here should pass (0% error rate) for the test to pass</stringProp>
+        <stringProp name="filename"></stringProp>
+      </ResultCollector>
+      <hashTree/>
+    </hashTree>
+    <WorkBench guiclass="WorkBenchGui" testclass="WorkBench" testname="WorkBench" enabled="true">
+      <boolProp name="WorkBench.save">true</boolProp>
+    </WorkBench>
+    <hashTree/>
+  </hashTree>
+</jmeterTestPlan>

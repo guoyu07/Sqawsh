@@ -36,6 +36,7 @@ import com.amazonaws.services.apigateway.AmazonApiGateway;
 import com.amazonaws.services.apigateway.AmazonApiGatewayClientBuilder;
 import com.amazonaws.services.apigateway.model.CreateDeploymentRequest;
 import com.amazonaws.services.apigateway.model.CreateDeploymentResult;
+import com.amazonaws.services.apigateway.model.CreateModelRequest;
 import com.amazonaws.services.apigateway.model.CreateResourceRequest;
 import com.amazonaws.services.apigateway.model.CreateResourceResult;
 import com.amazonaws.services.apigateway.model.CreateRestApiRequest;
@@ -367,6 +368,26 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     String cancellationForm = createTopLevelResourceOnApi("cancellationform", restApiId,
         apiGatewayClient, logger).getId();
 
+    // Create the API's models
+    // Model representing the body of court reservation and cancellation
+    // requests. We need to supply this so that the generated java SDK used for
+    // JMeter load tests has methods to set the request body.
+    CreateModelRequest createModelRequest = new CreateModelRequest();
+    createModelRequest.setContentType("application/json");
+    createModelRequest.setName("BookingMutationInputModel");
+    createModelRequest.setDescription("Schema for body of Put and Delete requests");
+    createModelRequest.setRestApiId(restApiId);
+    createModelRequest.setSchema("{" + "\"$schema\": \"http://json-schema.org/draft-04/schema#\","
+        + "\"title\": \"BookingMutationInputModel\"," + "\"type\": \"object\","
+        + "\"properties\": {" + "  \"putOrDelete\": { \"type\": \"string\" },"
+        + "  \"court\": { \"type\": \"string\" }," + "  \"courtSpan\": { \"type\": \"string\" },"
+        + "  \"slot\": { \"type\": \"string\" }," + "  \"slotSpan\": { \"type\": \"string\" },"
+        + "  \"name\": { \"type\": \"string\" }," + "  \"date\": { \"type\": \"string\" },"
+        + "  \"password\": { \"type\": \"string\" },"
+        + "  \"apiGatewayBaseUrl\": { \"type\": \"string\" },"
+        + "  \"redirecUrl\": { \"type\": \"string\" }" + "}" + "}");
+    apiGatewayClient.createModel(createModelRequest);
+
     // Create the API's methods
     logger.log("Creating API methods");
     Map<String, String> extraParameters = new HashMap<>();
@@ -639,6 +660,11 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     putMethod200ResponseRequest.setResourceId(resourceId);
     putMethod200ResponseRequest.setStatusCode("200");
 
+    PutMethodResponseRequest putMethod303ResponseRequest = new PutMethodResponseRequest();
+    putMethod303ResponseRequest.setRestApiId(restApiId);
+    putMethod303ResponseRequest.setResourceId(resourceId);
+    putMethod303ResponseRequest.setStatusCode("303");
+
     // Variables for the server-error 500 method response. This response has the
     // same parameters as the 200 response.
     PutMethodResponseRequest putMethod500ResponseRequest = new PutMethodResponseRequest();
@@ -702,6 +728,12 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     putIntegration200ResponseRequest.setResourceId(resourceId);
     putIntegration200ResponseRequest.setStatusCode("200");
 
+    // Configure the integration response for the 303 case
+    PutIntegrationResponseRequest putIntegration303ResponseRequest = new PutIntegrationResponseRequest();
+    putIntegration303ResponseRequest.setRestApiId(restApiId);
+    putIntegration303ResponseRequest.setResourceId(resourceId);
+    putIntegration303ResponseRequest.setStatusCode("303");
+
     // Configure the integration response for the server-error 500 case. This
     // response has the same parameters as the 200 response.
     PutIntegrationResponseRequest putIntegration500ResponseRequest = new PutIntegrationResponseRequest();
@@ -744,6 +776,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     // The response template to use will be chosen by Apigateway based on e.g.
     // the Accept header in the client's request.
     Map<String, String> response200Templates = new HashMap<>();
+    Map<String, String> response303Templates = new HashMap<>();
     Map<String, String> response500Templates = new HashMap<>();
     Map<String, String> response400Templates = new HashMap<>();
     // Set as default response unless covered by other
@@ -869,6 +902,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       // Set IAM authorisation so ApiGateway provides the Cognito context
       // variables
       putMethodRequest.setAuthorizationType("AWS_IAM");
+      putMethodRequest.addRequestModelsEntry("application/json", "BookingMutationInputModel");
       putMethod200ResponseRequest.setHttpMethod("PUT");
       putMethod500ResponseRequest.setHttpMethod("PUT");
       putMethod400ResponseRequest.setHttpMethod("PUT");
@@ -896,6 +930,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       // Set IAM authorisation so ApiGateway provides the Cognito context
       // variables
       putMethodRequest.setAuthorizationType("AWS_IAM");
+      putMethodRequest.addRequestModelsEntry("application/json", "BookingMutationInputModel");
       putMethod200ResponseRequest.setHttpMethod("DELETE");
       putMethod500ResponseRequest.setHttpMethod("DELETE");
       putMethod400ResponseRequest.setHttpMethod("DELETE");
@@ -921,16 +956,16 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     } else if (methodName.equals("BookingsPOST")) {
       // Redirect to the mutated booking page after creating or cancelling a
       // booking
-      putMethod200ResponseRequest.setStatusCode("303");
       putMethodRequest.setHttpMethod("POST");
       putMethod500ResponseRequest.setHttpMethod("POST");
       putMethod400ResponseRequest.setHttpMethod("POST");
       putIntegration500ResponseRequest.setHttpMethod("POST");
       putMethod200ResponseRequest.setHttpMethod("POST");
+      putMethod303ResponseRequest.setHttpMethod("POST");
       putIntegration400ResponseRequest.setHttpMethod("POST");
       // Define the 303 integration response (which by default will match any
       // response from lambda)
-      putIntegration200ResponseRequest.setStatusCode("303");
+      putIntegration303ResponseRequest.setHttpMethod("POST");
       putIntegration200ResponseRequest.setHttpMethod("POST");
       method = client.putMethod(putMethodRequest);
       // N.B. Using LAMBDA type here is not yet supported by this sdk - so use
@@ -957,7 +992,7 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       // not expecting, there will be no redirectUrl in the json from lambda.
       // In this last case, the template below will insert its own redirectUrl
       // into the body pointing to today's page - as a last-ditch failsafe.
-      response200Templates
+      response303Templates
           .put(
               "application/json",
               "## Use quotes to get body into a string here (input.path('$') by itself would create a POJO in error cases)\n"
@@ -987,6 +1022,11 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
                   + "</p>\n" + "</body>\n");
       responseParameters.put("method.response.header.location",
           "integration.response.body.redirectUrl");
+      // The happy-path in this case is the 303 response, but apigateway refuses
+      // to build a java client unless there's a 200 response for every method.
+      putIntegration200ResponseRequest
+          .setSelectionPattern("This should never match - but adding just to keep java sdk generator happy");
+      putIntegration303ResponseRequest.setSelectionPattern(".*");
       putIntegration500ResponseRequest
           .setSelectionPattern("Apologies - something has gone wrong. Please try again.|Booking creation failed.*|Booking cancellation failed.*|Cannot mutate bookings or rules.*|Cannot access bookings or rules.*");
       putIntegration400ResponseRequest
@@ -1022,6 +1062,8 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       requestTemplates.put("application/json", "{\"requestId\" : \"$context.requestId\"}");
       responseParameters.put("method.response.header.access-control-allow-methods",
           "'GET,PUT,DELETE,OPTIONS'");
+      putIntegration400ResponseRequest
+          .setSelectionPattern("This should never match - but adding just to keep java sdk generator happy");
       putIntegration500ResponseRequest
           .setSelectionPattern("Apologies - something has gone wrong. Please try again.|Cannot mutate bookings or rules.*|Cannot access bookings or rules.*");
       responseParameters.put("method.response.header.content-type", "'application/json'");
@@ -1166,7 +1208,6 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
     // Integration response
     putIntegration200ResponseRequest.setResponseParameters(responseParameters);
     putIntegration200ResponseRequest.setResponseTemplates(response200Templates);
-    putIntegration200ResponseRequest.setSelectionPattern(".*");
     client.putIntegrationResponse(putIntegration200ResponseRequest);
 
     if (methodName.equals("ValidDatesGET")) {
@@ -1192,6 +1233,15 @@ public class ApiGatewayCustomResourceLambda implements RequestHandler<Map<String
       putIntegration400ResponseRequest.setResponseParameters(responseParameters);
       putIntegration400ResponseRequest.setResponseTemplates(response400Templates);
       client.putIntegrationResponse(putIntegration400ResponseRequest);
+      if (methodName.equals("BookingsPOST")) {
+        // This also has a 303 response
+        putMethod303ResponseRequest.setResponseModels(methodResponseModels);
+        putMethod303ResponseRequest.setResponseParameters(methodResponseParameters);
+        client.putMethodResponse(putMethod303ResponseRequest);
+        putIntegration303ResponseRequest.setResponseParameters(responseParameters);
+        putIntegration303ResponseRequest.setResponseTemplates(response303Templates);
+        client.putIntegrationResponse(putIntegration303ResponseRequest);
+      }
     }
     return method;
   }
