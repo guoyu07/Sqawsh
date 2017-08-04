@@ -1,0 +1,15 @@
+h1 {
+  color: #8c0
+}
+li a:hover {
+  color: #8c0;
+}
+li.current a {
+  color: #8c0;
+}
+img{ 
+  width: 100%;
+}
+.img40{ 
+  width: 40%;
+}

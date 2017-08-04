@@ -6,7 +6,7 @@ Sqawsh
 [![Build Status](https://travis-ci.org/robinsteel/Sqawsh.svg?branch=master)](https://travis-ci.org/robinsteel/Sqawsh)
 [![Built with Grunt](https://cdn.gruntjs.com/builtwith.svg)](http://gruntjs.com/)
 
-Sqawsh is a toy project to test drive [AWS microservices](https://aws.amazon.com/blogs/compute/microservices-without-the-servers/) - implementing a basic serverless squash court booking service.
+Sqawsh is a toy project to test drive [AWS microservices](https://aws.amazon.com/blogs/compute/microservices-without-the-servers/) - implementing a basic serverless squash court booking service. [More detailed documentation](http://robinsteel.github.io/sqawsh) is available.
 
 Building (tested on Mac, Amazon Linux, and Windows)
 ----------------------------------------

@@ -42,3 +42,8 @@ tmp
 *.lessmin.css
 *.css.map
 angularjs/dist*
+
+# Jekyll #
+docs/_site/*
+.sass-cache
+.jekyll-metadata
