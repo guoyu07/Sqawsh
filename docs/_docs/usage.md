@@ -7,15 +7,15 @@ layout: docs
 There is a distinction between players - who can book and cancel single courts - and the admin user who administers the service and is allowed to make block bookings and also to set up booking rules for future or recurring bookings such as a weekly club night.
 ## Booking and cancelling courts
 Players can book or cancel single courts at any time within a specified future time window (currently three weeks). The booking time slots are currently hard-coded at 45-minute intervals from 10AM.
-![]({{ site.url }}/img/ReservationView.png)
+![]({{ site.baseurl }}/img/ReservationView.png)
 The admin user can also create block bookings across contiguous courts and times.
-![]({{ site.url }}/img/AdminReservationView.png)
+![]({{ site.baseurl }}/img/AdminReservationView.png)
 ## Creating booking rules
 The admin user can create rules to book a court (or block of courts) at some future date. Optionally they can choose that the same booking is automatically made again at the same time on each following week. Particular weeks can optionally be excluded from such recurring bookings.
-<img src="{{ site.url }}/img/BookingRuleView.png" class="img40"/>
+<img src="{{ site.baseurl }}/img/BookingRuleView.png" class="img40"/>
 ## Password flows
 The admin user can change their password or start a forgotten-password flow from the login page.
-<img src="{{ site.url }}/img/LoginView.png" class="img40"/>
+<img src="{{ site.baseurl }}/img/LoginView.png" class="img40"/>
 ## Backup and restore
 Every change to a booking or booking rule is backed up (as Json) as it's made to a versioned S3 bucket and to an SNS topic - to which the admin user's email is subscribed by Cloudformation when the service is created. Additionally, at midnight every day all bookings and booking rules on the system are backed up to the same destinations (S3 and SNS) as a single Json object. Bookings and booking rules can also be manually backed up to these same destinations at any time from the AWS console by invoking the `BackupBookingsAndBookingRulesLambda` Lambda function. All bookings and booking rules can be restored to the same (or a different) booking service using the same Json object pasted as input to the `RestoreBookingsAndBookingRulesLambda` Lambda function.
 ## Lifecycle State
